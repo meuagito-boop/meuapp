@@ -131,7 +131,7 @@ export class NotificationService implements OnModuleInit {
       });
 
       const errors = response.responses
-        .map((resp, idx) => (!resp.success ? resp.error : null))
+        .map((resp: any, idx: number) => (!resp.success ? resp.error : null))
         .filter(Boolean);
 
       return {
