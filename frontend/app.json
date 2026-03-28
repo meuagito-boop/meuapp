@@ -1,0 +1,64 @@
+{
+  "expo": {
+    "name": "Meu Agito",
+    "slug": "meu-agito",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "splash": {
+      "image": "./assets/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#ffffff"
+    },
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "ios": {
+      "supportsTabletMode": true,
+      "bundleIdentifier": "com.meuagito.app",
+      "config": {
+        "usesNonExemptEncryption": false
+      },
+      "infoPlist": {
+        "NSLocationWhenInUseUsageDescription": "Precisamos acessar sua localização para encontrar estabelecimentos e eventos próximos",
+        "NSLocationAlwaysAndWhenInUseUsageDescription": "Precisamos acessar sua localização para encontrar estabelecimentos e eventos próximos",
+        "NSCameraUsageDescription": "Precisamos de acesso à câmera para tirar fotos",
+        "NSPhotoLibraryUsageDescription": "Precisamos de acesso à galeria para compartilhar fotos"
+      }
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#ffffff"
+      },
+      "package": "com.meuagito.app",
+      "permissions": [
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_COARSE_LOCATION",
+        "CAMERA",
+        "READ_EXTERNAL_STORAGE",
+        "WRITE_EXTERNAL_STORAGE"
+      ],
+      "googleServicesFile": "./google-services.json"
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "Precisamos de sua localização"
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Permitir acesso às suas fotos",
+          "cameraPermission": "Permitir acesso à câmera"
+        }
+      ]
+    ]
+  }
+}

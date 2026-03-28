@@ -1,0 +1,12 @@
+{
+  "name": "meu-agito-osm-extractor",
+  "version": "1.0.0",
+  "description": "Script standalone para extrair dados reais de estabelecimentos do OSM para o Meu Agito",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "axios": "^1.6.0"
+  }
+}

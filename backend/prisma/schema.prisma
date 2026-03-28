@@ -1,0 +1,466 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============= AUTENTICAÇÃO & USUÁRIOS =============
+
+model User {
+  id                String     @id @default(cuid())
+  email             String     @unique
+  phoneNumber       String?    @unique
+  password          String     // Hash bcrypt
+
+  // Perfil
+  name              String?    // Nome completo (usado em toda a plataforma)
+  username          String?    @unique
+  firstName         String?
+  lastName          String?
+  avatar            String?    // URL da imagem de perfil
+  bio               String?
+  birthDate         DateTime?
+  gender            String?
+  location          String?    // Localização textual (cidade, estado)
+  website           String?
+
+  // Tipo de perfil
+  profileType       String     @default("PESSOA_FISICA") // PESSOA_FISICA | PESSOA_JURIDICA
+
+  // Geolocalização
+  latitude          Float?
+  longitude         Float?
+
+  // Preferências
+  searchRadius      Int        @default(5) // km
+  notificationsOn   Boolean    @default(true)
+
+  // Auth & Segurança
+  emailVerified     Boolean    @default(false)
+  twoFactorEnabled  Boolean    @default(false)
+  twoFactorSecret   String?
+  isActive          Boolean    @default(true)
+  isAdmin           Boolean    @default(false) // Admin flag
+  lastLogin         DateTime?
+
+  // LGPD / Soft Delete
+  isDeleted         Boolean    @default(false)
+  deletedAt         DateTime?
+
+  createdAt         DateTime   @default(now())
+  updatedAt         DateTime   @updatedAt
+
+  // Relacionamentos
+  posts             Post[]
+  stories           Story[]
+  comments          Comment[]
+  likes             Like[]
+  commentLikes      CommentLike[]
+  sentMessages      Message[]           @relation("MessagesSent")
+  followers         Follow[]            @relation("UserFollowers")
+  following         Follow[]            @relation("UserFollowing")
+  notifications     Notification[]
+  locations         UserLocation[]
+  organizedEvents   Event[]             @relation("EventOrganizer")
+  attendedEvents    Event[]             @relation("EventAttendees")
+  ownedEstablishments Establishment[]   @relation("EstablishmentOwner")
+  favoriteEstablishments Establishment[] @relation("EstablishmentFavorites")
+  reviews           Review[]
+  conversations     Conversation[]      @relation("ConversationParticipants")
+  archivedConversations Conversation[]  @relation("ConversationArchivedBy")
+  messages          Message[]
+  messagesRead      Message[] @relation("MessageReadBy")
+
+  @@index([email])
+  @@index([latitude, longitude])
+  @@index([createdAt])
+}
+
+model UserLocation {
+  id            String   @id @default(cuid())
+  userId        String
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  latitude      Float
+  longitude     Float
+  address       String?
+  cityName      String
+
+  isPrimary     Boolean  @default(false)
+
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([userId])
+  @@index([latitude, longitude])
+}
+
+model Follow {
+  id          String   @id @default(cuid())
+  followerId  String
+  follower    User     @relation("UserFollowing", fields: [followerId], references: [id], onDelete: Cascade)
+
+  followingId String
+  following   User     @relation("UserFollowers", fields: [followingId], references: [id], onDelete: Cascade)
+
+  createdAt   DateTime @default(now())
+
+  @@unique([followerId, followingId])
+  @@index([followerId])
+  @@index([followingId])
+}
+
+// ============= CONTEÚDO SOCIAL =============
+
+model Post {
+  id            String     @id @default(cuid())
+  authorId      String
+  author        User       @relation(fields: [authorId], references: [id], onDelete: Cascade)
+
+  content       String
+  imageUrls     String[]
+
+  isPublic      Boolean    @default(true)
+
+  latitude      Float?
+  longitude     Float?
+  locationName  String?
+
+  zone          String?    // Z1, Z2, Z3, Z4, Z5, Z6, Z7
+
+  likesCount    Int        @default(0)
+  commentsCount Int        @default(0)
+  sharesCount   Int        @default(0)
+
+  isDeleted     Boolean    @default(false)
+  deletedAt     DateTime?
+
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+
+  comments      Comment[]
+  likes         Like[]
+
+  @@index([authorId])
+  @@index([latitude, longitude])
+  @@index([zone])
+  @@index([createdAt])
+  @@index([isPublic])
+}
+
+model Comment {
+  id        String   @id @default(cuid())
+  postId    String
+  post      Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  authorId  String
+  author    User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
+
+  content   String
+
+  isDeleted Boolean  @default(false)
+  deletedAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  likes     CommentLike[]
+
+  @@index([postId])
+  @@index([authorId])
+}
+
+model Like {
+  id        String   @id @default(cuid())
+  postId    String
+  post      Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@unique([userId, postId])
+  @@index([postId])
+  @@index([userId])
+}
+
+model CommentLike {
+  id        String   @id @default(cuid())
+  commentId String
+  comment   Comment  @relation(fields: [commentId], references: [id], onDelete: Cascade)
+
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@unique([userId, commentId])
+  @@index([commentId])
+  @@index([userId])
+}
+
+model Story {
+  id            String   @id @default(cuid())
+  userId        String
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  imageUrl      String
+  caption       String?
+
+  latitude      Float?
+  longitude     Float?
+  locationName  String?
+
+  zone          String?
+
+  viewsCount    Int      @default(0)
+
+  expiresAt     DateTime
+
+  createdAt     DateTime @default(now())
+
+  @@index([userId])
+  @@index([expiresAt])
+}
+
+// ============= MENSAGENS / CHAT =============
+
+model Conversation {
+  id           String   @id @default(cuid())
+
+  participants User[]   @relation("ConversationParticipants")
+  archivedBy   User[]   @relation("ConversationArchivedBy")
+
+  messages     Message[]
+
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([createdAt])
+}
+
+model Message {
+  id             String   @id @default(cuid())
+
+  conversationId String
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  senderId       String
+  sender         User     @relation("MessagesSent", fields: [senderId], references: [id], onDelete: Cascade)
+
+  userId         String
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  content        String
+
+  fileUrl        String?
+  fileType       String?
+
+  readBy         User[]   @relation("MessageReadBy")
+
+  editedAt       DateTime?
+  deletedAt      DateTime?
+
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@index([conversationId])
+  @@index([senderId])
+  @@index([createdAt])
+}
+
+model Notification {
+  id            String   @id @default(cuid())
+  userId        String
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  type          String   // like, comment, follow, message, event
+  title         String
+  body          String
+
+  relatedUserId String?
+  relatedPostId String?
+
+  isRead        Boolean  @default(false)
+  readAt        DateTime?
+
+  createdAt     DateTime @default(now())
+
+  @@index([userId])
+  @@index([isRead])
+}
+
+// ============= ESTABELECIMENTOS =============
+
+model Establishment {
+  id            String   @id @default(cuid())
+
+  name          String
+  description   String?
+  category      String   // Restaurante, Bar, Café, Loja, etc
+
+  address       String
+  phone         String?
+  latitude      Float
+  longitude     Float
+  cityName      String?
+
+  rating        Float    @default(0)
+  website       String?
+
+  isPublic      Boolean  @default(true)
+
+  ownerId       String
+  owner         User     @relation("EstablishmentOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+
+  favorites     User[]   @relation("EstablishmentFavorites")
+  reviews       Review[]
+
+  // APIs Source
+  sourceApi     String?
+  externalId    String?
+
+  isVerified    Boolean  @default(false)
+  isDeleted     Boolean  @default(false)
+  deletedAt     DateTime?
+
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([latitude, longitude])
+  @@index([category])
+  @@index([ownerId])
+  @@index([cityName])
+}
+
+// ============= EVENTOS =============
+
+model Event {
+  id            String   @id @default(cuid())
+
+  name          String
+  title         String?  // Alias para compatibilidade
+  description   String?
+
+  date          DateTime
+  startTime     String?
+  endTime       String?
+  startDate     DateTime?
+  endDate       DateTime?
+
+  latitude      Float?
+  longitude     Float?
+  address       String?
+  cityName      String?
+
+  category      String
+
+  isPublic      Boolean  @default(true)
+  maxAttendees  Int?
+
+  rating        Float    @default(0)
+
+  organizerId   String?
+  organizer     User?    @relation("EventOrganizer", fields: [organizerId], references: [id], onDelete: SetNull)
+
+  attendees     User[]   @relation("EventAttendees")
+  reviews       Review[]
+
+  zone          String?
+
+  // APIs Source
+  sourceApis    String[]
+  externalIds   String[]
+
+  // Deduplicação
+  nameHash      String?
+  dateSimilarity Float?
+  locationSimilarity Float?
+
+  isVerified    Boolean  @default(false)
+  isDeleted     Boolean  @default(false)
+  deletedAt     DateTime?
+
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([latitude, longitude])
+  @@index([date])
+  @@index([zone])
+  @@index([cityName])
+  @@index([nameHash])
+  @@index([organizerId])
+}
+
+// ============= AVALIAÇÕES (compartilhada por Event e Establishment) =============
+
+model Review {
+  id              String   @id @default(cuid())
+
+  title           String?
+  content         String
+  rating          Float
+
+  authorId        String
+  author          User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
+
+  eventId         String?
+  event           Event?   @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  establishmentId String?
+  establishment   Establishment? @relation(fields: [establishmentId], references: [id], onDelete: Cascade)
+
+  isDeleted       Boolean  @default(false)
+  deletedAt       DateTime?
+
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([authorId])
+  @@index([eventId])
+  @@index([establishmentId])
+}
+
+// ============= AUTH AUXILIAR =============
+
+model RefreshToken {
+  id        String   @id @default(cuid())
+  userId    String
+
+  token     String   @unique
+
+  expiresAt DateTime
+  revokedAt DateTime?
+
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([expiresAt])
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+
+  userId    String?
+  action    String   // create, update, delete, login, etc
+  entity    String   // User, Post, etc
+  entityId  String?
+
+  changes   Json?
+
+  ipAddress String?
+  userAgent String?
+
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([action])
+  @@index([createdAt])
+}

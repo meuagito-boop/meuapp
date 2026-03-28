@@ -1,0 +1,63 @@
+{
+  "compilerOptions": {
+    "module": "commonjs",
+    "target": "ES2021",
+    "lib": [
+      "ES2021"
+    ],
+    "declaration": true,
+    "outDir": "./dist",
+    "rootDir": "./src",
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "experimentalDecorators": true,
+    "emitDecoratorMetadata": true,
+    "forceConsistentCasingInFileNames": true,
+    "resolveJsonModule": true,
+    "baseUrl": ".",
+    "paths": {
+      "@/*": [
+        "src/*"
+      ],
+      "@modules/*": [
+        "src/modules/*"
+      ],
+      "@common/*": [
+        "src/common/*"
+      ],
+      "@config/*": [
+        "src/config/*"
+      ],
+      "@guards/*": [
+        "src/guards/*"
+      ],
+      "@filters/*": [
+        "src/filters/*"
+      ],
+      "@pipes/*": [
+        "src/pipes/*"
+      ],
+      "@decorators/*": [
+        "src/decorators/*"
+      ],
+      "@interceptors/*": [
+        "src/interceptors/*"
+      ],
+      "@entities/*": [
+        "src/entities/*"
+      ]
+    },
+    "typeRoots": [
+      "./node_modules/@types"
+    ]
+  },
+  "include": [
+    "src/**/*"
+  ],
+  "exclude": [
+    "dist",
+    "test",
+    "**/*spec.ts"
+  ]
+}

@@ -1,0 +1,508 @@
+import {
+  Injectable,
+  NotFoundException,
+  BadRequestException,
+  InternalServerErrorException,
+} from '@nestjs/common';
+import { PrismaService } from '../../common/prisma/prisma.service';
+import { CacheService } from '../../common/cache/cache.service';
+import { CreateUserDto } from './dtos/create-user.dto';
+import { UpdateUserDto } from './dtos/update-user.dto';
+import { UpdateProfileDto } from './dtos/update-profile.dto';
+import { PaginationDto } from '../../common/dtos/pagination.dto';
+
+@Injectable()
+export class UsersService {
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly cacheService: CacheService,
+  ) {}
+
+  async create(createUserDto: CreateUserDto) {
+    try {
+      const user = await this.prisma.user.create({
+        data: {
+          email: createUserDto.email.toLowerCase(),
+          name: createUserDto.name,
+          password: createUserDto.password, // Should be hashed by auth service
+          profileType: createUserDto.profileType,
+        },
+      });
+
+      return this.sanitizeUser(user);
+    } catch (error) {
+      if ((error as any).code === 'P2002') {
+        throw new BadRequestException('Email already exists');
+      }
+      throw new InternalServerErrorException('Failed to create user');
+    }
+  }
+
+  async findById(id: string) {
+    try {
+      const user = await this.prisma.user.findUnique({
+        where: { id },
+        include: {
+          _count: {
+            select: {
+              following: true,
+              followers: true,
+            },
+          },
+        },
+      });
+
+      if (!user) {
+        throw new NotFoundException('User not found');
+      }
+
+      return {
+        ...this.sanitizeUser(user),
+        followersCount: user._count?.followers || 0,
+        followingCount: user._count?.following || 0,
+      };
+    } catch (error) {
+      if (error instanceof NotFoundException) {
+        throw error;
+      }
+      throw new InternalServerErrorException('Failed to fetch user');
+    }
+  }
+
+  async findByEmail(email: string) {
+    try {
+      const user = await this.prisma.user.findUnique({
+        where: { email: email.toLowerCase() },
+      });
+      return user;
+    } catch (error) {
+      throw new InternalServerErrorException('Failed to fetch user');
+    }
+  }
+
+  async findAll(paginationDto: PaginationDto) {
+    try {
+      const { page = 1, limit = 10, search } = paginationDto;
+      const skip = (page - 1) * limit;
+
+      const where: any = {
+        deletedAt: null, // Exclude soft deleted users
+      };
+
+      if (search) {
+        where.OR = [
+          { name: { contains: search, mode: 'insensitive' } },
+          { email: { contains: search, mode: 'insensitive' } },
+        ];
+      }
+
+      const [users, total] = await Promise.all([
+        this.prisma.user.findMany({
+          where,
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            avatar: true,
+            bio: true,
+            profileType: true,
+            createdAt: true,
+            _count: {
+              select: {
+                followers: true,
+                following: true,
+              },
+            },
+          },
+          skip,
+          take: limit,
+          orderBy: { createdAt: 'desc' },
+        }),
+        this.prisma.user.count({ where }),
+      ]);
+
+      return {
+        data: users.map((user) => ({
+          ...user,
+          followersCount: user._count?.followers || 0,
+          followingCount: user._count?.following || 0,
+        })),
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit),
+      };
+    } catch (error) {
+      throw new InternalServerErrorException('Failed to fetch users');
+    }
+  }
+
+  async update(id: string, updateUserDto: UpdateUserDto) {
+    try {
+      const user = await this.prisma.user.update({
+        where: { id },
+        data: {
+          ...(updateUserDto.name && { name: updateUserDto.name }),
+          ...(updateUserDto.email && {
+            email: updateUserDto.email.toLowerCase(),
+          }),
+          ...(updateUserDto.profileType && {
+            profileType: updateUserDto.profileType,
+          }),
+        },
+      });
+
+      return this.sanitizeUser(user);
+    } catch (error) {
+      if ((error as any).code === 'P2025') {
+        throw new NotFoundException('User not found');
+      }
+      if ((error as any).code === 'P2002') {
+        throw new BadRequestException('Email already exists');
+      }
+      throw new InternalServerErrorException('Failed to update user');
+    }
+  }
+
+  async updateProfile(id: string, updateProfileDto: UpdateProfileDto) {
+    try {
+      const user = await this.prisma.user.update({
+        where: { id },
+        data: {
+          ...(updateProfileDto.bio && { bio: updateProfileDto.bio }),
+          ...(updateProfileDto.avatar && { avatar: updateProfileDto.avatar }),
+          ...(updateProfileDto.location && {
+            location: updateProfileDto.location,
+          }),
+          ...(updateProfileDto.website && { website: updateProfileDto.website }),
+        },
+      });
+
+      // Invalidate profile cache when updated
+      await this.cacheService.del(`user:${id}:profile`);
+
+      return this.sanitizeUser(user);
+    } catch (error) {
+      if ((error as any).code === 'P2025') {
+        throw new NotFoundException('User not found');
+      }
+      throw new InternalServerErrorException('Failed to update profile');
+    }
+  }
+
+  async softDelete(id: string) {
+    try {
+      const user = await this.prisma.user.update({
+        where: { id },
+        data: { deletedAt: new Date() },
+      });
+
+      return {
+        message: 'User account deleted successfully',
+        deletedAt: user.deletedAt,
+      };
+    } catch (error) {
+      if ((error as any).code === 'P2025') {
+        throw new NotFoundException('User not found');
+      }
+      throw new InternalServerErrorException('Failed to delete user');
+    }
+  }
+
+  async followUser(userId: string, targetUserId: string) {
+    try {
+      // Check if target user exists
+      const targetUser = await this.prisma.user.findUnique({
+        where: { id: targetUserId },
+      });
+
+      if (!targetUser) {
+        throw new NotFoundException('User to follow not found');
+      }
+
+      // Check if already following
+      const alreadyFollowing = await this.prisma.follow.findUnique({
+        where: {
+          followerId_followingId: {
+            followerId: userId,
+            followingId: targetUserId,
+          },
+        },
+      });
+
+      if (alreadyFollowing) {
+        throw new BadRequestException('Already following this user');
+      }
+
+      // Create follow relationship
+      await this.prisma.follow.create({
+        data: {
+          followerId: userId,
+          followingId: targetUserId,
+        },
+      });
+
+      // Invalidate stats cache for both users
+      await this.cacheService.del(`user:${userId}:stats`);
+      await this.cacheService.del(`user:${targetUserId}:stats`);
+      // Invalidate follower/following caches
+      await this.cacheService.invalidateFollowCache(userId, targetUserId);
+
+      // Get updated following count
+      const followingCount = await this.prisma.follow.count({
+        where: { followerId: userId },
+      });
+
+      return {
+        message: 'User followed successfully',
+        followingCount,
+      };
+    } catch (error) {
+      if (
+        error instanceof NotFoundException ||
+        error instanceof BadRequestException
+      ) {
+        throw error;
+      }
+      throw new InternalServerErrorException('Failed to follow user');
+    }
+  }
+
+  async unfollowUser(userId: string, targetUserId: string) {
+    try {
+      await this.prisma.follow.delete({
+        where: {
+          followerId_followingId: {
+            followerId: userId,
+            followingId: targetUserId,
+          },
+        },
+      });
+
+      // Invalidate stats cache for both users
+      await this.cacheService.del(`user:${userId}:stats`);
+      await this.cacheService.del(`user:${targetUserId}:stats`);
+      // Invalidate follower/following caches
+      await this.cacheService.invalidateFollowCache(userId, targetUserId);
+
+      // Get updated following count
+      const followingCount = await this.prisma.follow.count({
+        where: { followerId: userId },
+      });
+
+      return {
+        message: 'User unfollowed successfully',
+        followingCount,
+      };
+    } catch (error) {
+      if ((error as any).code === 'P2025') {
+        throw new BadRequestException('Not following this user');
+      }
+      throw new InternalServerErrorException('Failed to unfollow user');
+    }
+  }
+
+  async getFollowers(userId: string, paginationDto: PaginationDto) {
+    const { page = 1, limit = 10 } = paginationDto;
+    const cacheKey = `user:${userId}:followers:${page}:${limit}`;
+    const ttlSeconds = parseInt(process.env.CACHE_TTL_WARM || '1800', 10);
+
+    return this.cacheService.getOrSet(
+      cacheKey,
+      async () => {
+        try {
+          const skip = (page - 1) * limit;
+
+          const [followers, total] = await Promise.all([
+            this.prisma.follow.findMany({
+              where: { followingId: userId },
+              include: {
+                follower: {
+                  select: {
+                    id: true,
+                    name: true,
+                    avatar: true,
+                    bio: true,
+                  },
+                },
+              },
+              skip,
+              take: limit,
+              orderBy: { createdAt: 'desc' },
+            }),
+            this.prisma.follow.count({
+              where: { followingId: userId },
+            }),
+          ]);
+
+          return {
+            data: followers.map((f) => f.follower),
+            total,
+            page,
+            limit,
+            totalPages: Math.ceil(total / limit),
+          };
+        } catch (error) {
+          throw new InternalServerErrorException('Failed to fetch followers');
+        }
+      },
+      ttlSeconds,
+    );
+  }
+
+  async getFollowing(userId: string, paginationDto: PaginationDto) {
+    const { page = 1, limit = 10 } = paginationDto;
+    const cacheKey = `user:${userId}:following:${page}:${limit}`;
+    const ttlSeconds = parseInt(process.env.CACHE_TTL_WARM || '1800', 10);
+
+    return this.cacheService.getOrSet(
+      cacheKey,
+      async () => {
+        try {
+          const skip = (page - 1) * limit;
+
+          const [following, total] = await Promise.all([
+            this.prisma.follow.findMany({
+              where: { followerId: userId },
+              include: {
+                following: {
+                  select: {
+                    id: true,
+                    name: true,
+                    avatar: true,
+                    bio: true,
+                  },
+                },
+              },
+              skip,
+              take: limit,
+              orderBy: { createdAt: 'desc' },
+            }),
+            this.prisma.follow.count({
+              where: { followerId: userId },
+            }),
+          ]);
+
+          return {
+            data: following.map((f) => f.following),
+            total,
+            page,
+            limit,
+            totalPages: Math.ceil(total / limit),
+          };
+        } catch (error) {
+          throw new InternalServerErrorException('Failed to fetch following');
+        }
+      },
+      ttlSeconds,
+    );
+  }
+
+  async isFollowing(userId: string, targetUserId: string) {
+    try {
+      const follow = await this.prisma.follow.findUnique({
+        where: {
+          followerId_followingId: {
+            followerId: userId,
+            followingId: targetUserId,
+          },
+        },
+      });
+
+      return {
+        isFollowing: !!follow,
+      };
+    } catch (error) {
+      throw new InternalServerErrorException('Failed to check follow status');
+    }
+  }
+
+  async getUserStats(userId: string) {
+    const cacheKey = `user:${userId}:stats`;
+    const ttlSeconds = parseInt(process.env.CACHE_TTL_WARM || '1800', 10);
+
+    return this.cacheService.getOrSet(
+      cacheKey,
+      async () => {
+        try {
+          const [followersCount, followingCount, postsCount] = await Promise.all([
+            this.prisma.follow.count({
+              where: { followingId: userId },
+            }),
+            this.prisma.follow.count({
+              where: { followerId: userId },
+            }),
+            // TODO: Count posts when Post model is available
+            // this.prisma.post.count({
+            //   where: { authorId: userId, deletedAt: null },
+            // }),
+          ]);
+
+          return {
+            followersCount,
+            followingCount,
+            postsCount: 0, // Will be updated with Post model
+            likesCount: 0, // Will be updated with Like model
+          };
+        } catch (error) {
+          throw new InternalServerErrorException('Failed to fetch user stats');
+        }
+      },
+      ttlSeconds,
+    );
+  }
+
+  async getPublicProfile(userId: string) {
+    const cacheKey = `user:${userId}:profile`;
+    const ttlSeconds = parseInt(process.env.CACHE_TTL_HOT || '60', 10);
+
+    return this.cacheService.getOrSet(
+      cacheKey,
+      async () => {
+        try {
+          const user = await this.prisma.user.findUnique({
+            where: { id: userId },
+            select: {
+              id: true,
+              name: true,
+              avatar: true,
+              bio: true,
+              profileType: true,
+              location: true,
+              website: true,
+              createdAt: true,
+              _count: {
+                select: {
+                  followers: true,
+                  following: true,
+                },
+              },
+            },
+          });
+
+          if (!user) {
+            throw new NotFoundException('User not found');
+          }
+
+          return {
+            ...user,
+            followersCount: user._count?.followers || 0,
+            followingCount: user._count?.following || 0,
+          };
+        } catch (error) {
+          if (error instanceof NotFoundException) {
+            throw error;
+          }
+          throw new InternalServerErrorException('Failed to fetch profile');
+        }
+      },
+      ttlSeconds,
+    );
+  }
+
+  private sanitizeUser(user: any) {
+    // Remove sensitive fields
+    const { password, twoFactorSecret, ...sanitized } = user;
+    return sanitized;
+  }
+}
