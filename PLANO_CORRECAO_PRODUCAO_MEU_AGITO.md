@@ -1139,13 +1139,178 @@ Checklist por area:
 | Dados/termos/suporte | Parcial | Conferir legal e suporte | Abrir termos, privacidade, email suporte | Links legais e suporte funcionam em producao | Sim |
 | Decisao final | README bloqueia deploy publico real hoje | Reavaliar depois das correcoes | Checklist + smoke + AWS real | Estado muda de "nao pronto" para "aprovado para release" com evidencias | Sim |
 
+### PROMPT-008 - refinamento de deploy real, rollback, staging e decisoes sem backend - 2026-04-30
+
+Objetivo deste complemento:
+
+- Refinar o plano de producao sem apagar auditorias anteriores.
+- Evitar remocoes precipitadas de telas, botoes e fluxos que podem virar backend real.
+- Reforcar que producao publica so pode ser liberada depois de staging AWS real aprovado.
+- Registrar que banco de producao pode subir zerado, desde que o app trate estados vazios sem mock/fake.
+- Criar criterios objetivos de rollback, LGPD, build mobile real e priorizacao.
+
+#### Regra de prioridade revisada
+
+| Prioridade | Definicao | Regra obrigatoria |
+|---|---|---|
+| P0 | Bloqueia producao real | Qualquer item visivel ao usuario em producao com mock, fake, botao sem acao, dado fixo fingindo ser real, fallback falso, fluxo critico quebrado, env/provedor real ausente ou risco de seguranca. |
+| P1 | Bloqueia qualidade/release profissional | Item nao essencial ao primeiro uso, mas que gera experiencia incompleta, suporte ruim, baixa confianca, ausencia de smoke, observabilidade fraca ou decisao de escopo ainda nao registrada. |
+| P2 | Melhoria pos-MVP | Otimizacao, refinamento ou capacidade adicional que nao aparece como falso funcional para o usuario e nao compromete seguranca, deploy, dados reais ou suporte. |
+
+Regra absoluta: nao marcar como P2 qualquer item que apareca para o usuario em producao com mock, fake, botao sem acao, alerta "em breve", tela fake, dado fixo fingindo ser real, configuracao apenas local ou fallback falso quando deveria usar backend.
+
+#### Plano de rollback
+
+| Item | Risco | Como validar antes | Como voltar | Responsavel/acao necessaria | Bloqueia producao? |
+|---|---|---|---|---|---|
+| Backend/API | Deploy introduzir 5xx, quebra auth, quebra DTO/contrato mobile ou falha de healthcheck | Smoke staging e producao canary: `/health`, auth, feed, busca, profile, upload, chat, notificacoes | Reapontar ECS service para task definition anterior ou imagem ECR anterior; manter tag imutavel por release | DevOps/backend deve registrar task definition anterior, imagem anterior e comandos de rollback antes do deploy | Sim |
+| Imagem Docker/ECR | Imagem buildada com env incorreta, Prisma Client errado, dependencias faltando ou regressao runtime | `docker build`, container local/staging, `npm run build`, healthcheck e logs sem erro | Promover tag ECR anterior e forcar novo deploy ECS com digest/tag anterior | DevOps deve manter tags versionadas e nunca sobrescrever `latest` como unica referencia | Sim |
+| ECS/Fargate | Task nao sobe, target group unhealthy, CPU/mem insuficiente ou security group incorreto | Deploy em staging com ALB healthcheck, CloudWatch Logs e teste de websocket/chat | Rollback para task definition anterior, desired count anterior e security groups/subnets anteriores | DevOps deve salvar task definition, service config e variaveis efetivas antes da troca | Sim |
+| Migrations problematicas | Migration destrutiva, lock longo, schema incompativel com app ou dados reais afetados | Backup/snapshot RDS, `prisma migrate status`, aplicar em staging com copia realista e smoke apos migration | Restaurar snapshot/PITR ou aplicar migration reversa previamente preparada; se for destrutiva, rollback pode exigir restore | Backend/DBA deve classificar migration como reversivel ou nao, preparar backup e janela de manutencao | Sim |
+| App mobile | APK/AAB com API URL errada, permissao faltando, crash no startup, login quebrado ou release sem rollback rapido nas lojas | Build release em device real, smoke contra staging e verificacao de env embutida | Publicar build anterior na loja/canal interno; para Android, manter APK/AAB anterior; para iOS, reverter versao/TestFlight quando aplicavel | Mobile/release deve manter artefatos assinados anteriores e versionamento claro | Sim |
+| Variaveis de ambiente | Env ausente ou errada causar provider desligado, URL localhost em producao, CORS incorreto ou segredo invalido | Checklist de env por ambiente, diff entre staging/prod sem expor valores, start backend com env final | Restaurar versao anterior de task definition/SSM/Secrets e redeploy ECS | DevOps/backend deve versionar nomes de env, nao valores, e registrar alteracoes por release | Sim |
+| Secrets | Rotacao errada quebrar JWT, DB, SES, SNS, S3 ou expor segredo no repositorio/log | Validar leitura via ECS task role/Secrets Manager, login, refresh, upload, email e push | Restaurar versao anterior do secret se seguro; se houve vazamento, rotacionar e invalidar credencial | DevOps/security deve manter secrets fora do Git e plano de rotacao documentado | Sim |
+| Dominio/ALB/CloudFront | DNS/ACM/ALB/CloudFront apontar para alvo errado, HTTPS invalido, cache servindo versao antiga ou websocket quebrado | `curl https://api.../health`, validacao certificado, CloudFront invalidation quando aplicavel, teste websocket | Reverter DNS/ALB listener/origin/distribution config para versao anterior e invalidar cache | DevOps deve registrar config anterior e TTL DNS antes da mudanca | Sim |
+
+#### Seeds e dados iniciais
+
+Decisao registrada: o sistema pode subir zerado em producao. Nao e obrigatorio criar seed de usuarios, estabelecimentos, produtos, eventos ou posts para producao, porque as contas reais serao criadas manualmente depois.
+
+O que continua obrigatorio validar:
+
+| Validacao | Criterio de pronto | Bloqueia producao? |
+|---|---|---|
+| Banco vazio | App abre, login/cadastro funcionam e nenhuma tela quebra por lista vazia | Sim |
+| Home/feed vazio | Feed vazio mostra estado vazio real, sem post mockado ou dado fake | Sim |
+| Busca vazia | Busca sem resultado mostra empty state real, sem sugestao fake fingindo backend | Sim |
+| Catalogo vazio | Catalogo sem produtos/eventos nao exibe produto falso | Sim |
+| Mapa vazio | Mapa/lista vazia nao quebra e nao mostra pins falsos | Sim |
+| Onboarding usuario | Permite criar usuario real sem depender de seed | Sim |
+| Onboarding empresarial | Permite criar estabelecimento real sem depender de seed | Sim |
+| Dependencia de seed | Nenhum fluxo essencial exige registro pre-criado para o app funcionar | Sim |
+| Smoke com DB limpo | Rodar cadastro -> onboarding -> home -> busca -> perfil -> settings em banco limpo | Sim |
+
+Correcao necessaria quando falhar: remover dependencia de seed do fluxo, criar estado vazio real, conectar endpoint real ou retirar a tela/entrada do release por decisao consciente de escopo. Nunca substituir por mock.
+
+#### LGPD, termos, suporte e consentimentos
+
+| Item | Status atual | Evidencia/validacao necessaria | Classificacao | Bloqueia producao? |
+|---|---|---|---|---|
+| Politica de privacidade | Parcial | Backend legal existe em `backend/src/modules/legal`; validar link/tela mobile e conteudo final juridico | Parcial | Sim |
+| Termos de uso | Parcial | Backend legal existe; validar aceite no cadastro/onboarding e versao exibida | Parcial | Sim |
+| Exclusao de conta | Parcial | Tela existe, mas plano ja registra gap de senha/backend; validar exclusao real e revogacao de tokens | Parcial | Sim |
+| Suporte/contato | Pendente | Definir email/canal real, tela/link de contato e monitoramento de caixa | Pendente | Sim |
+| Consentimento de localizacao | Parcial | App pede permissao nativa; validar texto, negacao de permissao e uso sem crash | Parcial | Sim |
+| Consentimento de push | Pendente/parcial | Definir push sem Firebase, pedir permissao no momento correto e registrar token real se push entrar no release | Pendente | Sim se push no release |
+| E-mail transacional | Parcial | SES preparado, mas precisa envio real em staging/producao para verificacao/reset/suporte | Parcial | Sim |
+| Tratamento de dados pessoais | Pendente | Mapear dados coletados, finalidade, retencao, exclusao e acesso; registrar no plano legal | Pendente | Sim |
+| Logs sem dados sensiveis | Parcial | Validar request logs, error logs e audit logs sem senha, token, refresh token, Authorization, secret ou payload sensivel | Parcial | Sim |
+| Consentimento/versionamento | Pendente | Registrar versao de termos/politica aceita pelo usuario quando necessario | Pendente | Sim para release publico |
+
+#### Build mobile real de release
+
+| Item | Status atual | Como validar | Criterio de pronto | Bloqueia producao? |
+|---|---|---|---|---|
+| Processo de build | Pendente | Confirmar EAS Build ou processo equivalente documentado | Existe pipeline/comando reproduzivel para release | Sim |
+| APK/AAB Android | Pendente | `cd frontend && npx eas build -p android --profile production` ou processo equivalente | AAB/APK assinado gerado e instalado/testado | Sim |
+| Package/bundle | Parcial | Revisar `frontend/app.json` | `android.package` e `ios.bundleIdentifier` finais e sem conflito | Sim |
+| Icones/splash | Parcial | Instalar release em device e conferir assets | Icone/splash finais aparecem corretamente | Sim |
+| Permissoes Android | Parcial | Revisar manifesto/build e testar negacao/permissao | Somente permissoes necessarias e textos corretos | Sim |
+| Push Android | Pendente | Projeto decidiu nao usar Firebase; validar alternativa tecnica ou retirar push do release | Token/push real funciona sem Firebase, ou push fica fora do MVP | Sim se push no release |
+| Estrategia iOS | Pendente | Implementar build iOS ou declarar Android-only no primeiro release | Decisao documentada; se iOS entrar, build/TestFlight passa | Sim se iOS no release |
+| Variaveis no build | Pendente | Conferir env embutida nos logs/build | Sem `localhost`; API URL e flags apontam para staging/producao corretos | Sim |
+| API URL real | Pendente | Abrir app release e interceptar/observar chamadas | App chama backend real/staging via HTTPS | Sim |
+| Device real | Pendente | Smoke em aparelho fisico | Login, onboarding, feed, busca, perfil, settings e upload sem crash | Sim |
+
+#### Staging AWS real antes de producao
+
+Regra: producao publica so pode ser liberada depois de staging AWS real passar com evidencias.
+
+| Item staging | Validacao obrigatoria | Criterio para liberar producao | Bloqueia producao? |
+|---|---|---|---|
+| RDS | Criar banco staging, aplicar migrations, conectar backend | Migrations aplicadas e app opera com DB limpo | Sim |
+| Redis/Valkey | Backend conecta e usa cache/realtime/rate limit conforme config | `PING` e runtime sem fallback indevido | Sim |
+| S3 | Upload real e URL assinada/publica conforme regra | Midia sobe, persiste e carrega no app | Sim |
+| CloudFront | Distribuicao/origin/cache validado para midia | URL final carrega assets sem expor bucket indevido | Sim |
+| SES | Envio transacional real validado | Email chega e bounce/log tratado | Sim |
+| SNS/APNs/push | Provider final validado ou push removido do escopo | Push chega em device ou decisao sem push registrada | Sim se push no release |
+| ALB/HTTPS | `/health` e endpoints via HTTPS | Certificado valido, target healthy e CORS correto | Sim |
+| ECS/Fargate | Task sobe com imagem ECR versionada | Service estavel, logs sem erro e deploy reproduzivel | Sim |
+| Secrets | Task usa Secrets Manager/SSM sem segredo no Git | Secrets lidos em runtime e sem vazamento em logs | Sim |
+| Logs | CloudWatch recebe logs estruturados | requestId/status/erro visiveis sem sensiveis | Sim |
+| Healthcheck | ALB health e endpoint `/health` | Target group healthy por janela definida | Sim |
+| Migrations | Aplicadas antes/depois conforme estrategia | Sem drift em `prisma migrate status` | Sim |
+| App mobile staging | Build aponta para staging | Smoke mobile chama staging, nao local/prod | Sim |
+| Smoke manual | Checklist mobile/backend executado | Fluxos P0 aprovados com evidencias | Sim |
+
+#### Regra para telas, botoes e fluxos sem backend
+
+Nao remover nem ocultar automaticamente qualquer item sem conexao com backend.
+
+Antes de decidir, analisar obrigatoriamente:
+
+1. Qual acao o usuario espera executar?
+2. Esse item pertence ao MVP/release atual?
+3. Existe endpoint backend compativel?
+4. Existe model Prisma compativel?
+5. Existe service frontend parcial?
+6. O contrato frontend/backend esta errado ou ausente?
+7. A criacao do backend e simples, media ou grande?
+8. Esse item bloqueia producao?
+
+Decisao permitida para cada item:
+
+1. Conectar ao backend existente.
+2. Corrigir contrato frontend/backend.
+3. Criar backend novo e conectar.
+4. Criar model/migration/DTO/controller/service e conectar frontend.
+5. Manter fora do release por decisao consciente de escopo.
+6. Ocultar temporariamente da UI de producao, mantendo registro no plano.
+7. Remover apenas se for duplicado, lixo real ou item sem funcao de produto.
+
+Regra absoluta de release: nunca deixar em producao mock, botao sem acao, alerta "em breve", tela fake, dado fixo fingindo ser real, configuracao que altera apenas estado local ou fallback falso quando deveria usar backend.
+
+#### Sem backend: decisao por item
+
+| Arquivo | Tela/Acao | Intencao do usuario | Existe endpoint? | Existe model Prisma? | Pertence ao MVP? | Decisao | Correcao necessaria | Prioridade |
+|---|---|---|---|---|---|---|---|---|
+| `frontend/src/screens/auth/PersonalSetupScreen.tsx` | Setup pessoal, username/interesses/localizacao | Concluir perfil real apos cadastro | Parcial/nao comprovado para todos os campos | Parcial via User/Profile; validar schema atual | Sim | Corrigir contrato frontend/backend ou criar endpoint faltante | Persistir dados reais, validar username real, remover simulacao e smoke com DB vazio | P0 |
+| `frontend/src/screens/main/SettingsMyAccountScreen.tsx` | Editar dados da conta/avatar | Atualizar conta real e midia | Parcial; plano registra divergencia `PUT /users/me` vs `/users/me/profile` | Sim para usuario; midia depende Media | Sim | Corrigir contrato frontend/backend | Separar update de conta/perfil, conectar upload real e feedback de erro | P0 |
+| `frontend/src/screens/main/SettingsCityScreen.tsx` | Alterar cidade/preferencia | Salvar cidade real usada em home/busca | Nao comprovado | Parcial se User/Profile tiver localizacao; cidade preferida precisa validar | Sim se cidade afeta descoberta | Criar backend novo e conectar ou manter fora do release | Persistir cidade, recarregar home/busca/mapa e remover lista local fake | P1; vira P0 se visivel com fake |
+| `frontend/src/screens/main/SettingsPrivacyScreen.tsx` | Alterar privacidade/mensagens/check-ins | Controlar exposicao de dados e interacoes | Nao comprovado | Nao comprovado | Sim para release profissional | Criar model/migration/DTO/controller/service e conectar frontend, ou ocultar temporariamente | Modelar preferencias, endpoint GET/PUT, carregar estado real e salvar | P1; P0 se visivel alterando so estado local |
+| `frontend/src/screens/main/SettingsSecurityScreen.tsx` | Senha/2FA/sessoes/seguranca | Proteger conta | Parcial para auth; 2FA/sessoes precisam validar | Parcial | Sim | Conectar ao backend existente e criar faltantes | Alterar senha real, 2FA real ou ocultar, listar/revogar sessoes se exibido | P0 |
+| `frontend/src/screens/main/SettingsAuxScreens.tsx` | Notificacoes, idioma, bloqueados, alterar senha, suporte/legal auxiliares | Ajustar preferencias e acessar suporte/legal | Parcial | Parcial/nao comprovado | Parcial | Classificar item a item; conectar ou ocultar temporariamente | Remover fallback local, conectar preferencias reais, suporte real e legal real | P1; P0 para itens visiveis fake |
+| `frontend/src/screens/main/ActivityScreen.tsx` | Central de atividade | Ver historico/favoritos/interacoes reais | Parcial/nao comprovado | Parcial | Sim se tab/entrada visivel | Criar backend novo e conectar ou manter fora do release | Definir cards com contadores reais e rotas funcionais; sem card morto | P1; P0 se exibe dado falso |
+| `frontend/src/screens/main/ActivityFavoritesScreen.tsx` | Favoritos | Ver itens favoritados reais | Nao comprovado | Nao comprovado | Sim se recurso visivel | Criar model/migration/DTO/controller/service e conectar frontend | Model favoritos, endpoints listar/adicionar/remover, empty state real | P1; P0 se visivel fake |
+| `frontend/src/screens/main/ActivityHistoryScreen.tsx` | Historico | Ver itens visitados/acoes recentes | Nao comprovado | Nao comprovado | Nao necessariamente | Manter fora do release ou criar backend novo | Se mantido, implementar tracking real; se nao, ocultar entrada em producao | P1 se visivel; P2 se oculto |
+| `frontend/src/screens/main/CatalogScreen.tsx` | Catalogo | Ver produtos/eventos reais de estabelecimento | Sim parcial via products/events; validar filtros | Sim products/events | Sim | Conectar ao backend existente e corrigir contrato | Remover `MOCK_CATALOGS`, consumir endpoints reais, empty state sem fake | P0 |
+| `frontend/src/screens/main/ItemScreen.tsx` | Detalhe de item | Ver produto/evento real e agir | Sim parcial; validar detalhe por tipo | Sim products/events | Sim se catalogo/home abrem item | Conectar ao backend existente e corrigir contrato | Remover fallback fake, buscar por id/tipo, tratar 404/empty | P0 |
+| `frontend/src/screens/main/SearchScreen.tsx` | `RECENT_SEARCHES` | Reusar buscas recentes reais | Nao comprovado | Pode ser local storage aceitavel se declarado; backend nao obrigatorio | Sim se exibido | Corrigir contrato ou persistir local sem fingir backend | Declarar local-only honesto ou criar endpoint/preferencia; nao exibir sugestoes fake como reais | P1; P0 se parece dado real |
+| `frontend/src/screens/main/MapScreen.tsx` | Item clicavel no mapa/lista | Abrir perfil/item do lugar/evento | Endpoint de origem parcial; destino existe parcialmente | Sim para establishment/event/product | Sim | Conectar ao backend existente/corrigir navegacao | Adicionar `onPress` real para Perfil/Item ou trocar por View nao clicavel | P0 se clicavel sem acao |
+| `frontend/src/screens/main/NotificationsScreen.tsx` | Roteamento ao tocar notificacao | Abrir conversa, perfil, item ou entidade relacionada | Parcial via notifications/chat/profile | Sim parcial | Sim se notificacoes visiveis | Corrigir contrato frontend/backend | Usar payload real, nested route com params e fallback honesto | P1; P0 se push/notificacoes no release |
+| `frontend/src/screens/main/SettingsDeleteAccountScreen.tsx` | Excluir conta com senha | Apagar conta real com confirmacao segura | Parcial; plano registra backend sem validar senha | Sim User/Auth | Sim | Corrigir contrato frontend/backend | Backend validar senha/reauth, revogar tokens, apagar/anonimizar dados conforme LGPD | P0 |
+| `SettingsLinkedAccounts` / `frontend/src/screens/main/SettingsAuxScreens.tsx` | Contas vinculadas | Conectar/desconectar provedores externos | Nao comprovado | Nao comprovado | Nao para MVP se login social nao existir | Manter fora do release por escopo ou ocultar temporariamente | Ocultar ate existir produto/backend real; nao mostrar tela fake | P1 se visivel; P2 se oculto |
+
+#### Checklist adicional de go/no-go
+
+| Area | Criterio extra | Bloqueia producao? |
+|---|---|---|
+| Staging | Ambiente AWS staging real aprovado antes de producao | Sim |
+| Rollback | Plano de rollback preenchido com comandos/artefatos reais por release | Sim |
+| Banco zerado | Smoke com banco limpo sem seed obrigatoria | Sim |
+| Sem Firebase/Render | Build/env/documentacao operacional nao dependem de Firebase nem Render | Sim |
+| Sem mock visivel | Nenhum fluxo visivel simula backend real | Sim |
+| Mobile release | APK/AAB ou processo equivalente validado em device real | Sim |
+| LGPD/legal | Termos, privacidade, exclusao, suporte, consentimentos e logs seguros validados | Sim |
+| Decisao de escopo | Itens fora do MVP ficam registrados, ocultos se necessario, e sem UI fake em producao | Sim |
+
 Resumo de bloqueadores absolutos antes de deploy publico real:
 
 1. AWS real ponta a ponta: ECS/ECR/RDS/ElastiCache/S3/CloudFront/ALB/ACM/Secrets.
 2. Migrations aplicadas no banco alvo.
 3. Redis externo validado em producao.
 4. SES real validado para verificacao/reset.
-5. SNS/APNs/FCM real validado em device.
+5. Push real validado em device sem Firebase, ou push formalmente fora do primeiro release.
 6. Smoke mobile manual completo.
 7. Remocao/correcao dos mocks P0 do PROMPT-006.
 8. Build final backend e mobile com env de producao, sem `localhost`.
