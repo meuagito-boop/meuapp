@@ -1,35 +1,57 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { StyleSheet, View, Text, TouchableOpacity, FlatList, ActivityIndicator } from 'react-native';
+import React, { useCallback, useEffect, useState } from 'react';
+import { ActivityIndicator, FlatList, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import MapView, { Marker } from 'react-native-maps';
-import { useLocation } from '@hooks/useLocation';
+
 import { colors } from '@constants/colors';
+import { useLocation } from '@hooks/useLocation';
 
 type MapType = 'events' | 'establishments';
 type Radius = 5 | 10 | 25 | 50;
 
+type MapListItem = {
+  id: string;
+  title?: string;
+  name?: string;
+  latitude: number;
+  longitude: number;
+  address?: string;
+  attendeesCount?: number;
+  rating?: number;
+  reviewsCount?: number;
+};
+
 export default function MapScreen() {
-  const { userLocation, events, establishments, getNearbyEvents, getNearbyEstablishments, isLoadingEvents, isLoadingEstablishments } = useLocation();
+  const {
+    userLocation,
+    events,
+    establishments,
+    getNearbyEvents,
+    getNearbyEstablishments,
+    isLoadingEvents,
+    isLoadingEstablishments,
+  } = useLocation();
+
   const [mapType, setMapType] = useState<MapType>('events');
   const [radius, setRadius] = useState<Radius>(10);
   const [isMapView, setIsMapView] = useState(true);
 
-  // Carregar dados ao montar ou quando mudar tipo/raio
   const loadData = useCallback(async () => {
     if (!userLocation) return;
 
     if (mapType === 'events') {
       await getNearbyEvents(userLocation.latitude, userLocation.longitude, radius);
-    } else {
-      await getNearbyEstablishments(userLocation.latitude, userLocation.longitude, radius);
+      return;
     }
-  }, [userLocation, mapType, radius, getNearbyEvents, getNearbyEstablishments]);
+
+    await getNearbyEstablishments(userLocation.latitude, userLocation.longitude, radius);
+  }, [getNearbyEstablishments, getNearbyEvents, mapType, radius, userLocation]);
 
   useEffect(() => {
-    loadData();
+    void loadData();
   }, [loadData]);
 
   const isLoading = mapType === 'events' ? isLoadingEvents : isLoadingEstablishments;
-  const items = mapType === 'events' ? events : establishments;
+  const items = (mapType === 'events' ? events : establishments) as MapListItem[];
 
   const renderMapView = () => (
     <MapView
@@ -45,36 +67,33 @@ export default function MapScreen() {
           : undefined
       }
     >
-      {/* Marcador do usuário */}
       {userLocation && (
         <Marker
           coordinate={{
             latitude: userLocation.latitude,
             longitude: userLocation.longitude,
           }}
-          title="Sua localização"
-          pinColor={colors.accent}
+          title="Sua localizacao"
+          pinColor={colors.primary}
         />
       )}
 
-      {/* Marcadores dos eventos */}
       {mapType === 'events' &&
-        events.map((event) => (
+        events.map((event: MapListItem) => (
           <Marker
             key={event.id}
             coordinate={{
               latitude: event.latitude,
               longitude: event.longitude,
             }}
-            title={event.title}
+            title={event.title || event.name}
             description={event.address}
             pinColor="#4285F4"
           />
         ))}
 
-      {/* Marcadores dos estabelecimentos */}
       {mapType === 'establishments' &&
-        establishments.map((est) => (
+        establishments.map((est: MapListItem) => (
           <Marker
             key={est.id}
             coordinate={{
@@ -89,7 +108,7 @@ export default function MapScreen() {
     </MapView>
   );
 
-  const renderListItem = (item: any) => (
+  const renderListItem = (item: MapListItem) => (
     <TouchableOpacity style={styles.listItem}>
       <View style={styles.itemContent}>
         <Text style={styles.itemTitle} numberOfLines={1}>
@@ -98,14 +117,14 @@ export default function MapScreen() {
         <Text style={styles.itemSubtitle} numberOfLines={1}>
           {item.address}
         </Text>
+
         {mapType === 'events' && (
-          <Text style={styles.itemMeta}>
-            {item.attendeesCount} presentes
-          </Text>
+          <Text style={styles.itemMeta}>{item.attendeesCount ?? 0} presentes</Text>
         )}
+
         {mapType === 'establishments' && (
           <Text style={styles.itemMeta}>
-            ⭐ {item.rating} • {item.reviewsCount} avaliações
+            ⭐ {item.rating ?? 0} • {item.reviewsCount ?? 0} avaliacoes
           </Text>
         )}
       </View>
@@ -114,7 +133,6 @@ export default function MapScreen() {
 
   return (
     <View style={styles.container}>
-      {/* Header com toggles */}
       <View style={styles.header}>
         <View style={styles.typeToggle}>
           <TouchableOpacity
@@ -135,7 +153,6 @@ export default function MapScreen() {
           </TouchableOpacity>
         </View>
 
-        {/* Radius selector */}
         <View style={styles.radiusControl}>
           {([5, 10, 25, 50] as const).map((r) => (
             <TouchableOpacity
@@ -143,34 +160,25 @@ export default function MapScreen() {
               style={[styles.radiusBtn, radius === r && styles.radiusBtnActive]}
               onPress={() => setRadius(r)}
             >
-              <Text style={[styles.radiusText, radius === r && styles.radiusTextActive]}>
-                {r}km
-              </Text>
+              <Text style={[styles.radiusText, radius === r && styles.radiusTextActive]}>{r}km</Text>
             </TouchableOpacity>
           ))}
         </View>
 
-        {/* View toggle */}
-        <TouchableOpacity
-          style={styles.viewToggleBtn}
-          onPress={() => setIsMapView(!isMapView)}
-        >
-          <Text style={styles.viewToggleText}>
-            {isMapView ? '📋 Lista' : '🗺️ Mapa'}
-          </Text>
+        <TouchableOpacity style={styles.viewToggleBtn} onPress={() => setIsMapView(!isMapView)}>
+          <Text style={styles.viewToggleText}>{isMapView ? 'Lista' : 'Mapa'}</Text>
         </TouchableOpacity>
       </View>
 
-      {/* Content */}
       {isLoading ? (
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={colors.accent} />
+          <ActivityIndicator size="large" color={colors.primary} />
           <Text style={styles.loadingText}>Carregando...</Text>
         </View>
       ) : isMapView ? (
         renderMapView()
       ) : (
-        <FlatList
+        <FlatList<MapListItem>
           data={items}
           renderItem={({ item }) => renderListItem(item)}
           keyExtractor={(item) => item.id}
@@ -200,7 +208,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#1a1a1a',
     alignItems: 'center',
   },
-  toggleBtnActive: { backgroundColor: colors.accent },
+  toggleBtnActive: { backgroundColor: colors.primary },
   toggleText: { fontSize: 14, color: '#999', fontWeight: '600' },
   toggleTextActive: { color: '#fff' },
   radiusControl: { flexDirection: 'row', marginBottom: 12 },
@@ -212,14 +220,14 @@ const styles = StyleSheet.create({
     backgroundColor: '#1a1a1a',
     alignItems: 'center',
   },
-  radiusBtnActive: { backgroundColor: colors.accent },
+  radiusBtnActive: { backgroundColor: colors.primary },
   radiusText: { fontSize: 12, color: '#999', fontWeight: '600' },
   radiusTextActive: { color: '#fff' },
   viewToggleBtn: {
     paddingVertical: 10,
     paddingHorizontal: 16,
     borderRadius: 8,
-    backgroundColor: colors.accent,
+    backgroundColor: colors.primary,
     alignItems: 'center',
     marginBottom: 12,
   },
@@ -233,12 +241,12 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     backgroundColor: '#1a1a1a',
     borderLeftWidth: 4,
-    borderLeftColor: colors.accent,
+    borderLeftColor: colors.primary,
   },
   itemContent: { gap: 4 },
   itemTitle: { fontSize: 16, color: '#fff', fontWeight: '600' },
   itemSubtitle: { fontSize: 13, color: '#aaa' },
-  itemMeta: { fontSize: 12, color: colors.accent, marginTop: 2 },
+  itemMeta: { fontSize: 12, color: colors.primary, marginTop: 2 },
   loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   loadingText: { marginTop: 12, fontSize: 14, color: '#999' },
   emptyContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },

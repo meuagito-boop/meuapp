@@ -1,285 +1,158 @@
-import React, { useState, useCallback, useEffect, useRef } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  StyleSheet,
-  View,
-  Text,
+  ActivityIndicator,
   FlatList,
-  TouchableOpacity,
-  SafeAreaView,
-  TextInput,
   KeyboardAvoidingView,
   Platform,
-  ScrollView,
-  Image,
-  ActivityIndicator,
+  SafeAreaView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
-import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import { useFocusEffect } from '@react-navigation/native';
+import { createNativeStackNavigator, type NativeStackScreenProps } from '@react-navigation/native-stack';
+
 import { colors } from '@constants/colors';
-import { spacing, fontSize, componentSizes } from '@constants/design';
+import { fontSize, spacing } from '@constants/design';
 import { useSocket } from '@hooks';
+import { authStore } from '@stores/authStore';
+import { chatStore, type Message as ChatMessage } from '@stores/chatStore';
+import type { SocketEvents } from '@services/socket/SocketIOManager';
 
-/**
- * ChatScreen - Módulo de Chat Completo
- * 2 Telas: ConversationsList + ChatDetailScreen
- * Socket.io real-time, typing indicators, read receipts
- */
-
-interface ChatUser {
-  id: string;
-  name: string;
-  emoji: string;
-  avatar: string;
-  isOnline: boolean;
-}
-
-interface Message {
-  id: string;
-  content: string;
-  senderId: string;
-  sender: ChatUser;
-  conversationId: string;
-  timestamp: string;
-  readBy: string[];
-  fileUrl?: string;
-  editedAt?: string;
-}
-
-interface Conversation {
-  id: string;
-  participants: ChatUser[];
-  lastMessage: Message | null;
-  unreadCount: number;
-  updatedAt: string;
-}
-
-const Stack = createNativeStackNavigator();
-
-// MOCK DATA
-const MOCK_USERS: { [key: string]: ChatUser } = {
-  u1: { id: 'u1', name: 'Pedro Lara', emoji: '👨‍💼', avatar: '👨‍💼', isOnline: true },
-  u2: { id: 'u2', name: 'Ana Costa', emoji: '👩‍🎨', avatar: '👩‍🎨', isOnline: false },
-  u3: { id: 'u3', name: 'Carlos Meio', emoji: '👨‍🍳', avatar: '👨‍🍳', isOnline: true },
-  u4: { id: 'u4', name: 'Sofia Lima', emoji: '👩‍💻', avatar: '👩‍💻', isOnline: true },
+type ChatStackParamList = {
+  ConversationsList: undefined;
+  ChatDetail: {
+    conversationId: string;
+    recipientName: string;
+  };
 };
 
-const CURRENT_USER_ID = 'current_user';
-const CURRENT_USER: ChatUser = {
-  id: CURRENT_USER_ID,
-  name: 'Você',
-  emoji: '🧑',
-  avatar: '🧑',
-  isOnline: true,
+type ConversationsListProps = NativeStackScreenProps<ChatStackParamList, 'ConversationsList'>;
+type ChatDetailProps = NativeStackScreenProps<ChatStackParamList, 'ChatDetail'>;
+type MessageReceivedPayload = Parameters<SocketEvents['message:received']>[0];
+
+const Stack = createNativeStackNavigator<ChatStackParamList>();
+
+const formatTime = (value: string): string => {
+  if (!value) {
+    return '';
+  }
+
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) {
+    return value;
+  }
+
+  return parsed.toLocaleTimeString('pt-BR', {
+    hour: '2-digit',
+    minute: '2-digit',
+  });
 };
 
-const MOCK_MESSAGES: Message[] = [
-  {
-    id: 'msg1',
-    content: 'Oi! Tudo bem?',
-    senderId: 'u1',
-    sender: MOCK_USERS.u1,
-    conversationId: 'conv_1',
-    timestamp: '2h',
-    readBy: [CURRENT_USER_ID, 'u1'],
-  },
-  {
-    id: 'msg2',
-    content: 'Tudo certo! E você?',
-    senderId: CURRENT_USER_ID,
-    sender: CURRENT_USER,
-    conversationId: 'conv_1',
-    timestamp: '2h',
-    readBy: [CURRENT_USER_ID, 'u1'],
-  },
-  {
-    id: 'msg3',
-    content: 'Tudo bem! Vamos marcar um café qualquer dia?',
-    senderId: 'u1',
-    sender: MOCK_USERS.u1,
-    conversationId: 'conv_1',
-    timestamp: '1h',
-    readBy: [CURRENT_USER_ID, 'u1'],
-  },
-  {
-    id: 'msg4',
-    content: 'Claro! Próxima semana funciona? 🙌',
-    senderId: CURRENT_USER_ID,
-    sender: CURRENT_USER,
-    conversationId: 'conv_1',
-    timestamp: '45m',
-    readBy: [CURRENT_USER_ID, 'u1'],
-  },
-  {
-    id: 'msg5',
-    content: 'Perfeito!',
-    senderId: 'u1',
-    sender: MOCK_USERS.u1,
-    conversationId: 'conv_1',
-    timestamp: '30m',
-    readBy: [CURRENT_USER_ID],
-  },
-];
+const mapSocketMessageToStore = (payload: MessageReceivedPayload): ChatMessage => {
+  const senderId = payload.message.sender?.id ?? payload.message.senderId;
 
-const MOCK_CONVERSATIONS: Conversation[] = [
-  {
-    id: 'conv_1',
-    participants: [MOCK_USERS.u1],
-    lastMessage: MOCK_MESSAGES[4],
-    unreadCount: 1,
-    updatedAt: '30m',
-  },
-  {
-    id: 'conv_2',
-    participants: [MOCK_USERS.u2],
-    lastMessage: {
-      id: 'msg10',
-      content: 'Tudo bem com você?',
-      senderId: 'u2',
-      sender: MOCK_USERS.u2,
-      conversationId: 'conv_2',
-      timestamp: '3h',
-      readBy: [CURRENT_USER_ID],
+  return {
+    id: payload.message.id,
+    conversationId: payload.conversationId,
+    content: payload.message.content,
+    sender: {
+      id: senderId,
+      name: payload.message.sender?.name ?? 'Contato',
+      avatar: payload.message.sender?.avatar,
     },
-    unreadCount: 2,
-    updatedAt: '3h',
-  },
-  {
-    id: 'conv_3',
-    participants: [MOCK_USERS.u3],
-    lastMessage: {
-      id: 'msg11',
-      content: 'Você já provou o novo prato?',
-      senderId: CURRENT_USER_ID,
-      sender: CURRENT_USER,
-      conversationId: 'conv_3',
-      timestamp: '5h',
-      readBy: [CURRENT_USER_ID, 'u3'],
-    },
-    unreadCount: 0,
-    updatedAt: '5h',
-  },
-  {
-    id: 'conv_4',
-    participants: [MOCK_USERS.u4],
-    lastMessage: {
-      id: 'msg12',
-      content: 'Aparece no stand up?',
-      senderId: 'u4',
-      sender: MOCK_USERS.u4,
-      conversationId: 'conv_4',
-      timestamp: '1d',
-      readBy: [CURRENT_USER_ID, 'u4'],
-    },
-    unreadCount: 0,
-    updatedAt: '1d',
-  },
-];
+    file: payload.message.fileUrl
+      ? {
+          url: payload.message.fileUrl,
+          filename: 'arquivo',
+        }
+      : undefined,
+    readBy: payload.message.readBy,
+    isEdited: Boolean(payload.message.editedAt),
+    createdAt: payload.message.createdAt,
+    updatedAt: payload.message.updatedAt ?? payload.message.createdAt,
+    editedAt: payload.message.editedAt,
+  };
+};
 
-// ========== CONVERSATIONS LIST SCREEN ==========
-function ConversationsListScreen({ navigation }: any) {
-  // ============ Socket.IO Integration ============
-  const { on, isConnected } = useSocket();
+function ConversationsListScreen({ navigation }: ConversationsListProps) {
+  const conversations = chatStore((state) => state.conversations);
+  const isLoadingConversations = chatStore((state) => state.isLoadingConversations);
+  const listConversations = chatStore((state) => state.listConversations);
+  const getUnreadCount = chatStore((state) => state.getUnreadCount);
+  const addMessage = chatStore((state) => state.addMessage);
 
-  const [conversations, setConversations] = useState<Conversation[]>(MOCK_CONVERSATIONS);
+  const { on } = useSocket();
+
   const [searchQuery, setSearchQuery] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
 
-  // ============ Real-time Conversation Updates ============
+  useFocusEffect(
+    useCallback(() => {
+      void listConversations(1, 30);
+      void getUnreadCount();
+    }, [getUnreadCount, listConversations]),
+  );
+
   useEffect(() => {
-    // Escutar quando novas mensagens chegam para atualizar preview
-    const unsubscribeMessage = on('message:received', (data: any) => {
-      setConversations((prev) =>
-        prev.map((conv) =>
-          conv.id === data.conversationId
-            ? {
-                ...conv,
-                lastMessage: {
-                  id: data.id,
-                  content: data.content,
-                  senderId: data.senderId,
-                  sender: { 
-                    id: data.senderId,
-                    name: data.senderName || 'Unknown',
-                    emoji: data.senderEmoji || '👤',
-                    avatar: data.senderEmoji || '👤',
-                    isOnline: true
-                  },
-                  conversationId: data.conversationId,
-                  timestamp: data.timestamp || 'now',
-                  readBy: data.readBy || [],
-                },
-                updatedAt: data.timestamp || 'agora',
-              }
-            : conv
-        )
-      );
-    });
-
-    // Escutar quando usuários vão online/offline
-    const unsubscribePresence = on('user:online', (data: any) => {
-      setConversations((prev) =>
-        prev.map((conv) =>
-          conv.participants[0].id === data.userId
-            ? {
-                ...conv,
-                participants: conv.participants.map((p) =>
-                  p.id === data.userId ? { ...p, isOnline: data.isOnline } : p
-                ),
-              }
-            : conv
-        )
-      );
+    const unsubscribe = on('message:received', (payload) => {
+      addMessage(mapSocketMessageToStore(payload));
     });
 
     return () => {
-      unsubscribeMessage?.();
-      unsubscribePresence?.();
+      unsubscribe?.();
     };
-  }, [on]);
+  }, [addMessage, on]);
 
-  const filteredConversations = searchQuery
-    ? conversations.filter((conv) =>
-        conv.participants[0].name.toLowerCase().includes(searchQuery.toLowerCase())
-      )
-    : conversations;
+  const filteredConversations = useMemo(() => {
+    const query = searchQuery.trim().toLowerCase();
+    if (!query) {
+      return conversations;
+    }
 
-  const handleSelectConversation = useCallback((conversation: Conversation) => {
-    navigation.navigate('ChatDetail', { conversation });
-  }, [navigation]);
+    return conversations.filter((conversation) => {
+      const recipientName = conversation.recipient?.name ?? '';
+      return recipientName.toLowerCase().includes(query);
+    });
+  }, [conversations, searchQuery]);
 
-  const totalUnread = conversations.reduce((sum, conv) => sum + conv.unreadCount, 0);
+  const totalUnread = useMemo(
+    () => conversations.reduce((total, conversation) => total + (conversation.unreadCount || 0), 0),
+    [conversations],
+  );
 
-  const renderConversationItem = ({ item }: { item: Conversation }) => {
-    const otherUser = item.participants[0];
-    const isUnread = item.unreadCount > 0;
+  const renderItem = ({ item }: { item: (typeof conversations)[number] }) => {
+    const recipientName = item.recipient?.name || 'Contato';
 
     return (
       <TouchableOpacity
-        style={[styles.conversationItem, isUnread && styles.conversationItemUnread]}
-        onPress={() => handleSelectConversation(item)}
+        style={styles.conversationItem}
+        onPress={() =>
+          navigation.navigate('ChatDetail', {
+            conversationId: item.id,
+            recipientName,
+          })
+        }
       >
-        <View style={styles.conversationAvatar}>
-          <Text>{otherUser.emoji}</Text>
-          {otherUser.isOnline && <View style={styles.onlineIndicator} />}
+        <View style={styles.avatarPlaceholder}>
+          <Text style={styles.avatarText}>{recipientName.charAt(0).toUpperCase()}</Text>
         </View>
 
-        <View style={styles.conversationContent}>
+        <View style={styles.conversationBody}>
           <View style={styles.conversationHeader}>
-            <Text style={[styles.conversationName, isUnread && { fontWeight: '700' }]}>
-              {otherUser.name}
+            <Text style={styles.conversationName} numberOfLines={1}>
+              {recipientName}
             </Text>
-            <Text style={styles.conversationTime}>{item.updatedAt}</Text>
+            <Text style={styles.conversationTime}>{formatTime(item.updatedAt)}</Text>
           </View>
-          <Text
-            style={[styles.conversationLastMessage, isUnread && { fontWeight: '600', color: colors.text }]}
-            numberOfLines={1}
-          >
-            {item.lastMessage?.senderId === CURRENT_USER_ID ? 'Você: ' : ''}
-            {item.lastMessage?.content}
+
+          <Text style={styles.lastMessage} numberOfLines={1}>
+            {item.lastMessage?.content || 'Sem mensagens'}
           </Text>
         </View>
 
-        {isUnread && (
+        {item.unreadCount > 0 && (
           <View style={styles.unreadBadge}>
             <Text style={styles.unreadBadgeText}>{item.unreadCount}</Text>
           </View>
@@ -290,647 +163,413 @@ function ConversationsListScreen({ navigation }: any) {
 
   return (
     <SafeAreaView style={styles.container}>
-      {/* Header */}
-      <View style={styles.listHeader}>
-        <View>
-          <Text style={styles.listTitle}>Mensagens</Text>
-          {totalUnread > 0 && (
-            <Text style={styles.listSubtitle}>{totalUnread} não lidas</Text>
-          )}
-        </View>
-        <TouchableOpacity style={styles.headerButton}>
-          <Text style={styles.headerButtonIcon}>✏️</Text>
-        </TouchableOpacity>
+      <View style={styles.header}>
+        <Text style={styles.title}>Mensagens</Text>
+        {totalUnread > 0 && <Text style={styles.subtitle}>{totalUnread} nao lidas</Text>}
       </View>
 
-      {/* Search */}
-      <View style={styles.searchContainer}>
-        <Text style={styles.searchIcon}>🔍</Text>
+      <View style={styles.searchBox}>
         <TextInput
           style={styles.searchInput}
-          placeholder="Procurar conversa..."
+          placeholder="Buscar conversa"
           placeholderTextColor={colors.textTertiary}
           value={searchQuery}
           onChangeText={setSearchQuery}
         />
       </View>
 
-      {/* Conversations List */}
-      {isLoading ? (
-        <View style={styles.loadingContainer}>
+      {isLoadingConversations ? (
+        <View style={styles.centeredState}>
           <ActivityIndicator size="large" color={colors.primary} />
         </View>
-      ) : filteredConversations.length > 0 ? (
-        <FlatList
-          data={filteredConversations}
-          renderItem={renderConversationItem}
-          keyExtractor={(item) => item.id}
-          scrollEventThrottle={16}
-          contentContainerStyle={{ paddingBottom: spacing.lg }}
-        />
-      ) : (
-        <View style={styles.emptyContainer}>
-          <Text style={styles.emptyIcon}>💬</Text>
+      ) : filteredConversations.length === 0 ? (
+        <View style={styles.centeredState}>
           <Text style={styles.emptyText}>Nenhuma conversa encontrada</Text>
         </View>
+      ) : (
+        <FlatList
+          data={filteredConversations}
+          keyExtractor={(item) => item.id}
+          renderItem={renderItem}
+          contentContainerStyle={styles.listContent}
+        />
       )}
     </SafeAreaView>
   );
 }
 
-// ========== CHAT DETAIL SCREEN ==========
-function ChatDetailScreen({ route, navigation }: any) {
-  const { conversation } = route.params;
-  const otherUser = conversation.participants[0];
+function ChatDetailScreen({ route, navigation }: ChatDetailProps) {
+  const { conversationId, recipientName } = route.params;
 
-  // ============ Socket.IO Integration ============
-  const { 
-    sendMessage: sendViaSocket, 
-    setTyping: sendTypingStatus,
-    on, 
-    off,
-    isConnected 
-  } = useSocket();
+  const currentUserId = authStore((state) => state.user?.id ?? null);
 
-  const [messages, setMessages] = useState<Message[]>(MOCK_MESSAGES);
+  const currentConversation = chatStore((state) => state.currentConversation);
+  const currentConversationMessages = chatStore((state) => state.currentConversationMessages);
+  const messagesMap = chatStore((state) => state.messages);
+  const isLoadingMessages = chatStore((state) => state.isLoadingMessages);
+  const isSendingMessage = chatStore((state) => state.isSendingMessage);
+  const getConversation = chatStore((state) => state.getConversation);
+  const sendMessage = chatStore((state) => state.sendMessage);
+  const markAsRead = chatStore((state) => state.markAsRead);
+  const addMessage = chatStore((state) => state.addMessage);
+
+  const { on, joinConversation, leaveConversation, setTyping, isConnected } = useSocket();
+
   const [inputText, setInputText] = useState('');
-  const [isTyping, setIsTyping] = useState(false);
-  const [otherUserTyping, setOtherUserTyping] = useState(false);
-  const [loadingMore, setLoadingMore] = useState(false);
-  const flatListRef = useRef<FlatList>(null);
-  const typingTimeoutRef = useRef<NodeJS.Timeout>();
+  const [isRecipientTyping, setIsRecipientTyping] = useState(false);
+  const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const listRef = useRef<FlatList<ChatMessage> | null>(null);
 
-  // ============ Socket.IO Event Listeners ============
   useEffect(() => {
-    // Escutar mensagens que chegam do Socket.IO
-    const unsubscribeMessage = on('message:received', (data: any) => {
-      const newMessage: Message = {
-        id: data.id || `msg_${Date.now()}`,
-        content: data.content,
-        senderId: data.senderId,
-        sender: data.senderName ? { 
-          id: data.senderId, 
-          name: data.senderName, 
-          emoji: data.senderEmoji || '👤',
-          avatar: data.senderEmoji || '👤',
-          isOnline: true
-        } : otherUser,
-        conversationId: conversation.id,
-        timestamp: data.timestamp || 'now',
-        readBy: data.readBy || [data.senderId],
-        fileUrl: data.fileUrl,
-        editedAt: data.editedAt,
-      };
+    void getConversation(conversationId);
+    void markAsRead(conversationId);
+    joinConversation(conversationId);
 
-      setMessages((prev) => [...prev, newMessage]);
-      
-      // Scroll para última mensagem
-      setTimeout(() => {
-        flatListRef.current?.scrollToEnd({ animated: true });
-      }, 100);
-    });
-
-    // Escutar indicador de digitação
-    const unsubscribeTyping = on('typing:user', (data: any) => {
-      if (data.userId !== CURRENT_USER_ID && data.isTyping) {
-        setOtherUserTyping(true);
-      } else {
-        setOtherUserTyping(false);
+    return () => {
+      leaveConversation(conversationId);
+      if (typingTimeoutRef.current) {
+        clearTimeout(typingTimeoutRef.current);
       }
+      if (isConnected) {
+        setTyping(conversationId, false);
+      }
+    };
+  }, [conversationId, getConversation, isConnected, joinConversation, leaveConversation, markAsRead, setTyping]);
+
+  useEffect(() => {
+    const unsubscribeMessage = on('message:received', (payload) => {
+      if (payload.conversationId !== conversationId) {
+        return;
+      }
+
+      addMessage(mapSocketMessageToStore(payload));
+      void markAsRead(conversationId);
     });
 
-    // Cleanup ao desmontar
+    const unsubscribeTyping = on('typing:user', (payload) => {
+      const isOtherUser = payload.userId !== currentUserId;
+      const isSameConversation = payload.conversationId === conversationId;
+      setIsRecipientTyping(Boolean(isOtherUser && isSameConversation && payload.isTyping));
+    });
+
     return () => {
       unsubscribeMessage?.();
       unsubscribeTyping?.();
     };
-  }, [conversation.id, on]);
+  }, [addMessage, conversationId, currentUserId, markAsRead, on]);
 
-  // ============ Join/Leave Conversation ============
+  const messages = useMemo(() => {
+    const source =
+      currentConversation?.id === conversationId
+        ? currentConversationMessages
+        : (messagesMap.get(conversationId) ?? []);
+
+    return [...source].sort((a, b) => {
+      const aTime = new Date(a.createdAt).getTime();
+      const bTime = new Date(b.createdAt).getTime();
+      return aTime - bTime;
+    });
+  }, [conversationId, currentConversation?.id, currentConversationMessages, messagesMap]);
+
   useEffect(() => {
-    // Entrar na conversa ao abrir
-    // const joinData = { conversationId: conversation.id, userId: CURRENT_USER_ID };
-    // console.log('[ChatDetailScreen] Joining conversation:', joinData);
-    
-    // Sair da conversa ao fechar
-    return () => {
-      // const leaveData = { conversationId: conversation.id, userId: CURRENT_USER_ID };
-      // console.log('[ChatDetailScreen] Leaving conversation:', leaveData);
-    };
-  }, [conversation.id]);
-
-  // ============ Input & Typing Handler ============
-  const handleInputChange = (text: string) => {
-    setInputText(text);
-
-    if (text.length > 0 && !isTyping) {
-      setIsTyping(true);
-      // Enviar status de digitação via Socket.IO
-      if (isConnected) {
-        sendTypingStatus(conversation.id, true).catch((error) => {
-          console.warn('[ChatDetailScreen] Erro ao enviar typing status:', error);
-        });
-      }
+    if (messages.length === 0) {
+      return;
     }
 
-    // Clear previous timeout
-    if (typingTimeoutRef.current) {
-      clearTimeout(typingTimeoutRef.current);
+    const timeout = setTimeout(() => {
+      listRef.current?.scrollToEnd({ animated: true });
+    }, 50);
+
+    return () => clearTimeout(timeout);
+  }, [messages.length]);
+
+  const handleInputChange = useCallback(
+    (value: string) => {
+      setInputText(value);
+
+      if (!isConnected) {
+        return;
+      }
+
+      setTyping(conversationId, value.trim().length > 0);
+
+      if (typingTimeoutRef.current) {
+        clearTimeout(typingTimeoutRef.current);
+      }
+
+      typingTimeoutRef.current = setTimeout(() => {
+        setTyping(conversationId, false);
+      }, 1200);
+    },
+    [conversationId, isConnected, setTyping],
+  );
+
+  const handleSend = useCallback(async () => {
+    const content = inputText.trim();
+    if (!content || isSendingMessage) {
+      return;
     }
 
-    // Stop typing após 2 segundos de inatividade
-    typingTimeoutRef.current = setTimeout(() => {
-      setIsTyping(false);
-      // Enviar fim de digitação via Socket.IO
-      if (isConnected) {
-        sendTypingStatus(conversation.id, false).catch((error) => {
-          console.warn('[ChatDetailScreen] Erro ao parar typing:', error);
-        });
-      }
-    }, 2000);
-  };
-
-  const handleSendMessage = useCallback(() => {
-    if (!inputText.trim()) return;
-
-    const newMessage: Message = {
-      id: `msg_${Date.now()}`,
-      content: inputText,
-      senderId: CURRENT_USER_ID,
-      sender: CURRENT_USER,
-      conversationId: conversation.id,
-      timestamp: 'now',
-      readBy: [CURRENT_USER_ID],
-    };
-
-    // Adicionar mensagem localmente (optimistic update)
-    setMessages((prev) => [...prev, newMessage]);
     setInputText('');
-    setIsTyping(false);
 
-    // Enviar via Socket.IO
-    if (isConnected) {
-      sendViaSocket(conversation.id, inputText)
-        .then(() => {
-          console.log('[ChatDetailScreen] Mensagem enviada com sucesso via Socket.IO');
-          // Atualizar read receipts
-          setMessages((prev) =>
-            prev.map((msg) =>
-              msg.id === newMessage.id
-                ? { ...msg, readBy: [CURRENT_USER_ID, otherUser.id] }
-                : msg
-            )
-          );
-        })
-        .catch((error) => {
-          console.warn('[ChatDetailScreen] Erro ao enviar mensagem:', error);
-          // Mensagem permanece local, será sincronizada quando reconectar
-        });
-    } else {
-      // Fallback: manter apenas localmente se desconectado
-      console.warn('[ChatDetailScreen] Socket.IO não conectado, mensagem local apenas');
-      setMessages((prev) =>
-        prev.map((msg) =>
-          msg.id === newMessage.id
-            ? { ...msg, readBy: [CURRENT_USER_ID, otherUser.id], timestamp: 'now' }
-            : msg
-        )
-      );
-    }
-
-    // Parar indicador de digitação
     if (typingTimeoutRef.current) {
       clearTimeout(typingTimeoutRef.current);
     }
-    sendTypingStatus(conversation.id, false).catch(() => {});
 
-    // Scroll para última mensagem
-    setTimeout(() => {
-      flatListRef.current?.scrollToEnd({ animated: true });
-    }, 100);
-  }, [inputText, conversation.id, otherUser.id, isConnected, sendViaSocket, sendTypingStatus]);
-
-  const handleLoadMore = useCallback(() => {
-    if (loadingMore) return;
-    setLoadingMore(true);
-
-    // Simular carregamento de histórico
-    setTimeout(() => {
-      setLoadingMore(false);
-    }, 500);
-  }, [loadingMore]);
-
-  // ============ Mark as Read & Sync Status ============
-  useEffect(() => {
-    // Marcar conversa como lida ao abrir (só as não lidas)
-    const unreadMessages = messages.filter(
-      (msg) => !msg.readBy.includes(CURRENT_USER_ID)
-    );
-
-    if (unreadMessages.length > 0) {
-      setMessages((prev) =>
-        prev.map((msg) =>
-          !msg.readBy.includes(CURRENT_USER_ID)
-            ? { ...msg, readBy: [...msg.readBy, CURRENT_USER_ID] }
-            : msg
-        )
-      );
-
-      // Notificar via Socket.IO que marcou como lido
-      if (isConnected) {
-        unreadMessages.forEach((msg) => {
-          // Socket.IO: emit mark:read 
-          // Exemplo: sendMarkAsRead(msg.id, conversation.id)
-        });
-      }
+    if (isConnected) {
+      setTyping(conversationId, false);
     }
-  }, [conversation.id, isConnected]);
 
-  const renderMessage = ({ item: message }: { item: Message }) => {
-    const isOwnMessage = message.senderId === CURRENT_USER_ID;
-    const isRead = message.readBy.includes(otherUser.id);
+    await sendMessage(conversationId, content);
+  }, [conversationId, inputText, isConnected, isSendingMessage, sendMessage, setTyping]);
+
+  const renderMessage = ({ item }: { item: ChatMessage }) => {
+    const isOwnMessage = item.sender.id === currentUserId;
 
     return (
       <View
         style={[
-          styles.messageContainer,
-          isOwnMessage ? styles.messageContainerOwn : styles.messageContainerOther,
+          styles.messageRow,
+          isOwnMessage ? styles.messageRowOwn : styles.messageRowOther,
         ]}
       >
-        {!isOwnMessage && (
-          <Text style={styles.messageBubbleEmoji}>{message.sender.emoji}</Text>
-        )}
-
-        <View
-          style={[
-            styles.messageBubble,
-            isOwnMessage ? styles.messageBubbleOwn : styles.messageBubbleOther,
-          ]}
-        >
-          <Text
-            style={[
-              styles.messageText,
-              isOwnMessage ? styles.messageTextOwn : styles.messageTextOther,
-            ]}
-          >
-            {message.content}
-          </Text>
+        <View style={[styles.messageBubble, isOwnMessage ? styles.messageBubbleOwn : styles.messageBubbleOther]}>
+          <Text style={styles.messageText}>{item.content}</Text>
+          <Text style={styles.messageTimestamp}>{formatTime(item.createdAt)}</Text>
         </View>
-
-        {isOwnMessage && (
-          <Text style={styles.messageStatusIcon}>
-            {isRead ? '✓✓' : '✓'}
-          </Text>
-        )}
       </View>
     );
   };
 
   return (
     <SafeAreaView style={styles.container}>
-      {/* Header */}
-      <View style={styles.chatHeader}>
+      <View style={styles.detailHeader}>
         <TouchableOpacity onPress={() => navigation.goBack()}>
-          <Text style={styles.chatHeaderBack}>←</Text>
+          <Text style={styles.backButton}>{'<'}</Text>
         </TouchableOpacity>
-
-        <View style={styles.chatHeaderUser}>
-          <Text style={styles.chatHeaderEmoji}>{otherUser.emoji}</Text>
-          <View>
-            <Text style={styles.chatHeaderName}>{otherUser.name}</Text>
-            <Text style={styles.chatHeaderStatus}>
-              {otherUser.isOnline ? '🟢 Online' : '⚫ Offline'}
-            </Text>
-          </View>
-        </View>
-
-        <View style={styles.chatHeaderActions}>
-          <TouchableOpacity style={styles.headerActionButton}>
-            <Text>☎️</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.headerActionButton}>
-            <Text>📹</Text>
-          </TouchableOpacity>
-        </View>
+        <Text style={styles.detailTitle} numberOfLines={1}>
+          {recipientName}
+        </Text>
       </View>
 
-      {/* Messages */}
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        style={styles.messagesContainer}
-      >
-        <FlatList
-          ref={flatListRef}
-          data={messages}
-          renderItem={renderMessage}
-          keyExtractor={(item) => item.id}
-          contentContainerStyle={styles.messagesList}
-          onEndReached={handleLoadMore}
-          onEndReachedThreshold={0.3}
-          scrollEventThrottle={16}
-          initialNumToRender={20}
-        />
-
-        {/* Typing Indicator */}
-        {otherUserTyping && (
-          <View style={styles.typingContainer}>
-            <Text style={styles.typingEmoji}>{otherUser.emoji}</Text>
-            <View style={styles.typingDots}>
-              <View style={styles.typingDot} />
-              <View style={styles.typingDot} />
-              <View style={styles.typingDot} />
-            </View>
-          </View>
-        )}
-
-        {/* Loading More */}
-        {loadingMore && (
-          <View style={styles.loadingMoreContainer}>
-            <ActivityIndicator size="small" color={colors.primary} />
-          </View>
-        )}
-      </KeyboardAvoidingView>
-
-      {/* Input Area */}
-      <View style={styles.inputContainer}>
-        <TouchableOpacity style={styles.attachButton}>
-          <Text style={styles.attachIcon}>📎</Text>
-        </TouchableOpacity>
-
-        <TextInput
-          style={styles.messageInput}
-          placeholder="Mensagem..."
-          placeholderTextColor={colors.textTertiary}
-          value={inputText}
-          onChangeText={handleInputChange}
-          multiline
-          maxHeight={100}
-        />
-
-        <TouchableOpacity
-          style={[
-            styles.sendButton,
-            !inputText.trim() && styles.sendButtonDisabled,
-          ]}
-          onPress={handleSendMessage}
-          disabled={!inputText.trim()}
+      {isLoadingMessages ? (
+        <View style={styles.centeredState}>
+          <ActivityIndicator size="large" color={colors.primary} />
+        </View>
+      ) : (
+        <KeyboardAvoidingView
+          style={styles.chatBody}
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          keyboardVerticalOffset={80}
         >
-          <Text style={styles.sendIcon}>
-            {inputText.trim() ? '📤' : '🎤'}
-          </Text>
-        </TouchableOpacity>
-      </View>
+          <FlatList
+            ref={listRef}
+            data={messages}
+            keyExtractor={(item) => item.id}
+            renderItem={renderMessage}
+            contentContainerStyle={styles.messagesList}
+          />
+
+          {isRecipientTyping && (
+            <View style={styles.typingRow}>
+              <Text style={styles.typingText}>{recipientName} esta digitando...</Text>
+            </View>
+          )}
+
+          <View style={styles.composer}>
+            <TextInput
+              style={styles.composerInput}
+              placeholder="Digite sua mensagem"
+              placeholderTextColor={colors.textTertiary}
+              value={inputText}
+              onChangeText={handleInputChange}
+              multiline
+            />
+            <TouchableOpacity
+              style={[styles.sendButton, (!inputText.trim() || isSendingMessage) && styles.sendButtonDisabled]}
+              onPress={() => {
+                void handleSend();
+              }}
+              disabled={!inputText.trim() || isSendingMessage}
+            >
+              {isSendingMessage ? (
+                <ActivityIndicator size="small" color={colors.text} />
+              ) : (
+                <Text style={styles.sendButtonText}>Enviar</Text>
+              )}
+            </TouchableOpacity>
+          </View>
+        </KeyboardAvoidingView>
+      )}
     </SafeAreaView>
   );
 }
 
-// ========== MAIN CHAT NAVIGATOR ==========
 export default function ChatScreen() {
   return (
-    <Stack.Navigator
-      screenOptions={{
-        headerShown: false,
-        cardStyle: { backgroundColor: colors.background },
-      }}
-    >
-      <Stack.Screen
-        name="ConversationsList"
-        component={ConversationsListScreen}
-      />
-      <Stack.Screen
-        name="ChatDetail"
-        component={ChatDetailScreen}
-        options={{
-          cardStyle: { backgroundColor: colors.background },
-        }}
-      />
+    <Stack.Navigator screenOptions={{ headerShown: false }}>
+      <Stack.Screen name="ConversationsList" component={ConversationsListScreen} />
+      <Stack.Screen name="ChatDetail" component={ChatDetailScreen} />
     </Stack.Navigator>
   );
 }
 
-// ========== STYLES ==========
 const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.background,
   },
-
-  // CONVERSATIONS LIST STYLES
-  listHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+  header: {
     paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.lg,
+    paddingTop: spacing.lg,
+    paddingBottom: spacing.md,
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
   },
-  listTitle: {
-    fontSize: 32,
-    fontWeight: '800',
+  title: {
+    fontSize: fontSize.huge,
     color: colors.text,
+    fontWeight: '800',
   },
-  listSubtitle: {
+  subtitle: {
+    marginTop: spacing.xs,
     fontSize: fontSize.xs,
     color: colors.primary,
     fontWeight: '600',
-    marginTop: spacing.xs,
   },
-  headerButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: colors.surface,
-    justifyContent: 'center',
-    alignItems: 'center',
+  searchBox: {
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.md,
+    paddingBottom: spacing.sm,
   },
-  headerButtonIcon: {
-    fontSize: 18,
-  },
-
-  searchContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginHorizontal: spacing.lg,
-    marginVertical: spacing.md,
-    paddingHorizontal: spacing.md,
-    backgroundColor: colors.surface,
+  searchInput: {
+    height: 42,
     borderRadius: spacing.md,
     borderWidth: 1,
     borderColor: colors.border,
-  },
-  searchIcon: {
-    fontSize: 16,
-    marginRight: spacing.sm,
-  },
-  searchInput: {
-    flex: 1,
-    paddingVertical: spacing.md,
-    fontSize: fontSize.sm,
+    backgroundColor: colors.surface,
     color: colors.text,
+    paddingHorizontal: spacing.md,
+    fontSize: fontSize.sm,
   },
-
+  listContent: {
+    paddingBottom: spacing.xl,
+  },
   conversationItem: {
     flexDirection: 'row',
+    alignItems: 'center',
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.md,
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
-    alignItems: 'center',
+    gap: spacing.md,
   },
-  conversationItemUnread: {
-    backgroundColor: colors.surface,
-  },
-  conversationAvatar: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: colors.surface,
+  avatarPlaceholder: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: spacing.md,
-    fontSize: 28,
-    position: 'relative',
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
   },
-  onlineIndicator: {
-    width: 14,
-    height: 14,
-    borderRadius: 7,
-    backgroundColor: colors.success,
-    position: 'absolute',
-    bottom: 0,
-    right: 0,
-    borderWidth: 2,
-    borderColor: colors.background,
+  avatarText: {
+    color: colors.text,
+    fontWeight: '700',
+    fontSize: fontSize.md,
   },
-  conversationContent: {
+  conversationBody: {
     flex: 1,
     gap: spacing.xs,
   },
   conversationHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
+    alignItems: 'center',
+    gap: spacing.sm,
   },
   conversationName: {
-    fontSize: fontSize.sm,
-    fontWeight: '600',
+    flex: 1,
     color: colors.text,
+    fontSize: fontSize.sm,
+    fontWeight: '700',
   },
   conversationTime: {
-    fontSize: fontSize.xs,
-    color: colors.textTertiary,
-  },
-  conversationLastMessage: {
-    fontSize: fontSize.sm,
     color: colors.textSecondary,
+    fontSize: fontSize.xs,
+  },
+  lastMessage: {
+    color: colors.textSecondary,
+    fontSize: fontSize.sm,
   },
   unreadBadge: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
+    minWidth: 22,
+    height: 22,
+    borderRadius: 11,
     backgroundColor: colors.primary,
     justifyContent: 'center',
     alignItems: 'center',
-    marginLeft: spacing.md,
+    paddingHorizontal: spacing.xs,
   },
   unreadBadgeText: {
+    color: colors.text,
     fontSize: fontSize.xs,
     fontWeight: '700',
-    color: colors.text,
   },
-
-  loadingContainer: {
+  centeredState: {
     flex: 1,
-    justifyContent: 'center',
     alignItems: 'center',
-  },
-  emptyContainer: {
-    flex: 1,
     justifyContent: 'center',
-    alignItems: 'center',
-    gap: spacing.md,
-  },
-  emptyIcon: {
-    fontSize: 60,
+    paddingHorizontal: spacing.lg,
   },
   emptyText: {
-    fontSize: fontSize.sm,
     color: colors.textSecondary,
+    fontSize: fontSize.sm,
   },
-
-  // CHAT DETAIL STYLES
-  chatHeader: {
+  detailHeader: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: spacing.md,
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.md,
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
-    gap: spacing.md,
   },
-  chatHeaderBack: {
-    fontSize: 24,
+  backButton: {
     color: colors.primary,
-  },
-  chatHeaderUser: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-  },
-  chatHeaderEmoji: {
-    fontSize: 32,
-  },
-  chatHeaderName: {
-    fontSize: fontSize.sm,
+    fontSize: fontSize.xl,
     fontWeight: '700',
+  },
+  detailTitle: {
+    flex: 1,
     color: colors.text,
+    fontSize: fontSize.md,
+    fontWeight: '700',
   },
-  chatHeaderStatus: {
-    fontSize: fontSize.xs,
-    color: colors.textSecondary,
-  },
-  chatHeaderActions: {
-    flexDirection: 'row',
-    gap: spacing.sm,
-  },
-  headerActionButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: colors.surface,
-    justifyContent: 'center',
-    alignItems: 'center',
-    fontSize: 18,
-  },
-
-  messagesContainer: {
+  chatBody: {
     flex: 1,
   },
   messagesList: {
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.md,
-  },
-  messageContainer: {
-    flexDirection: 'row',
-    marginBottom: spacing.md,
-    alignItems: 'flex-end',
     gap: spacing.sm,
   },
-  messageContainerOwn: {
+  messageRow: {
+    flexDirection: 'row',
+  },
+  messageRowOwn: {
     justifyContent: 'flex-end',
   },
-  messageContainerOther: {
+  messageRowOther: {
     justifyContent: 'flex-start',
   },
-  messageBubbleEmoji: {
-    fontSize: 24,
-  },
   messageBubble: {
-    maxWidth: '80%',
+    maxWidth: '82%',
+    borderRadius: spacing.md,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
-    borderRadius: spacing.md,
+    gap: spacing.xs,
   },
   messageBubbleOwn: {
     backgroundColor: colors.primary,
@@ -941,93 +580,60 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
   },
   messageText: {
+    color: colors.text,
     fontSize: fontSize.sm,
-    lineHeight: 18,
   },
-  messageTextOwn: {
-    color: colors.text,
-  },
-  messageTextOther: {
-    color: colors.text,
-  },
-  messageStatusIcon: {
-    fontSize: fontSize.xs,
+  messageTimestamp: {
     color: colors.textSecondary,
+    fontSize: fontSize.xs,
+    alignSelf: 'flex-end',
   },
-
-  typingContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-    paddingBottom: spacing.md,
+  typingRow: {
+    paddingHorizontal: spacing.lg,
+    paddingBottom: spacing.sm,
   },
-  typingEmoji: {
-    fontSize: 24,
+  typingText: {
+    color: colors.textSecondary,
+    fontSize: fontSize.xs,
+    fontStyle: 'italic',
   },
-  typingDots: {
-    flexDirection: 'row',
-    gap: 4,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    backgroundColor: colors.surface,
-    borderRadius: spacing.md,
-  },
-  typingDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: colors.textSecondary,
-  },
-
-  loadingMoreContainer: {
-    paddingVertical: spacing.md,
-    alignItems: 'center',
-  },
-
-  inputContainer: {
+  composer: {
     flexDirection: 'row',
     alignItems: 'flex-end',
+    gap: spacing.sm,
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.md,
     borderTopWidth: 1,
     borderTopColor: colors.border,
-    gap: spacing.sm,
   },
-  attachButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: colors.surface,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  attachIcon: {
-    fontSize: 18,
-  },
-  messageInput: {
+  composerInput: {
     flex: 1,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    backgroundColor: colors.surface,
+    minHeight: 42,
+    maxHeight: 120,
+    borderRadius: spacing.md,
     borderWidth: 1,
     borderColor: colors.border,
-    borderRadius: spacing.md,
-    fontSize: fontSize.sm,
+    backgroundColor: colors.surface,
     color: colors.text,
-    maxHeight: 100,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    fontSize: fontSize.sm,
   },
   sendButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    minWidth: 74,
+    height: 42,
+    borderRadius: spacing.md,
     backgroundColor: colors.primary,
     justifyContent: 'center',
     alignItems: 'center',
+    paddingHorizontal: spacing.md,
   },
   sendButtonDisabled: {
-    backgroundColor: colors.border,
+    opacity: 0.6,
   },
-  sendIcon: {
-    fontSize: 18,
+  sendButtonText: {
+    color: colors.text,
+    fontSize: fontSize.sm,
+    fontWeight: '700',
   },
 });

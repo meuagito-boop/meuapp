@@ -4,7 +4,7 @@
  */
 
 import { useCallback } from 'react';
-import { userStore } from '@stores/userStore';
+import { userStore, type UserStore } from '@stores/userStore';
 
 export const useUser = () => {
   const store = userStore();
@@ -31,7 +31,7 @@ export const useUser = () => {
   );
 
   const updateProfile = useCallback(
-    async (profileData: any) => {
+    async (profileData: Parameters<UserStore['updateProfile']>[0]) => {
       try {
         await store.updateProfile(profileData);
         return { success: true };
@@ -116,7 +116,7 @@ export const useUser = () => {
     following: store.following?.data || [],
     isLoading: store.isLoading,
     error: store.error,
-    
+
     // Actions
     getProfile,
     getUserProfile,

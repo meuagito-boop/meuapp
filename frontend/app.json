@@ -38,7 +38,8 @@
         "ACCESS_COARSE_LOCATION",
         "CAMERA",
         "READ_EXTERNAL_STORAGE",
-        "WRITE_EXTERNAL_STORAGE"
+        "WRITE_EXTERNAL_STORAGE",
+        "POST_NOTIFICATIONS"
       ],
       "googleServicesFile": "./google-services.json"
     },
@@ -58,7 +59,8 @@
           "photosPermission": "Permitir acesso às suas fotos",
           "cameraPermission": "Permitir acesso à câmera"
         }
-      ]
+      ],
+      "expo-notifications"
     ]
   }
 }

@@ -1,16 +1,20 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Text } from 'react-native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { authStore } from '@stores/authStore';
 
-// Screens - Auth
 import SplashScreen from '@screens/auth/SplashScreen';
+import OnboardingScreen from '@screens/auth/OnboardingScreen';
 import LoginScreen from '@screens/auth/LoginScreen';
 import SignUpScreen from '@screens/auth/SignUpScreen';
+import ForgotPasswordScreen from '@screens/auth/ForgotPasswordScreen';
+import TwoFactorLoginScreen from '@screens/auth/TwoFactorLoginScreen';
+import VerifyEmailScreen from '@screens/auth/VerifyEmailScreen';
 import ProfileSelectionScreen from '@screens/auth/ProfileSelectionScreen';
+import PersonalSetupScreen from '@screens/auth/PersonalSetupScreen';
+import BusinessSetupScreen from '@screens/auth/BusinessSetupScreen';
 
-// Screens - Main
 import HomeScreen from '@screens/main/HomeScreen';
 import SearchScreen from '@screens/main/SearchScreen';
 import MapScreen from '@screens/main/MapScreen';
@@ -25,37 +29,47 @@ import SettingsMyAccountScreen from '@screens/main/SettingsMyAccountScreen';
 import SettingsPrivacyScreen from '@screens/main/SettingsPrivacyScreen';
 import SettingsSecurityScreen from '@screens/main/SettingsSecurityScreen';
 import SettingsDeleteAccountScreen from '@screens/main/SettingsDeleteAccountScreen';
+import SettingsCityScreen from '@screens/main/SettingsCityScreen';
 import NotificationsScreen from '@screens/main/NotificationsScreen';
+import CatalogScreen from '@screens/main/CatalogScreen';
+import ItemScreen from '@screens/main/ItemScreen';
+import {
+  Settings2FAScreen,
+  SettingsAboutScreen,
+  SettingsAccessHistoryScreen,
+  SettingsBlockedUsersScreen,
+  SettingsChangePasswordScreen,
+  SettingsDevicesScreen,
+  SettingsLanguageScreen,
+  SettingsLinkedAccountsScreen,
+  SettingsNotificationsPrefsScreen,
+  SettingsSearchRadiusScreen,
+} from '@screens/main/SettingsAuxScreens';
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
+const MainStack = createNativeStackNavigator();
 
-// Auth Stack
 function AuthStack() {
   return (
-    <Stack.Navigator
-      screenOptions={{
-        headerShown: false,
-        animationEnabled: true,
-      }}
-    >
+    <Stack.Navigator initialRouteName="Splash" screenOptions={{ headerShown: false }}>
       <Stack.Screen name="Splash" component={SplashScreen} />
+      <Stack.Screen name="Onboarding" component={OnboardingScreen} />
       <Stack.Screen name="Login" component={LoginScreen} />
+      <Stack.Screen name="TwoFactorLogin" component={TwoFactorLoginScreen} />
       <Stack.Screen name="SignUp" component={SignUpScreen} />
+      <Stack.Screen name="ForgotPassword" component={ForgotPasswordScreen} />
+      <Stack.Screen name="VerifyEmail" component={VerifyEmailScreen} />
       <Stack.Screen name="ProfileSelection" component={ProfileSelectionScreen} />
+      <Stack.Screen name="PersonalSetup" component={PersonalSetupScreen} />
+      <Stack.Screen name="BusinessSetup" component={BusinessSetupScreen} />
     </Stack.Navigator>
   );
 }
 
-// Activity Stack (for nested screens)
 function ActivityStack() {
   return (
-    <Stack.Navigator
-      screenOptions={{
-        headerShown: false,
-        animationEnabled: true,
-      }}
-    >
+    <Stack.Navigator screenOptions={{ headerShown: false }}>
       <Stack.Screen name="ActivityMain" component={ActivityScreen} />
       <Stack.Screen name="ActivityFavorites" component={ActivityFavoritesScreen} />
       <Stack.Screen name="ActivityHistory" component={ActivityHistoryScreen} />
@@ -63,28 +77,43 @@ function ActivityStack() {
   );
 }
 
-// Settings Stack (for nested screens)
 function SettingsStack() {
   return (
-    <Stack.Navigator
-      screenOptions={{
-        headerShown: false,
-        animationEnabled: true,
-      }}
-    >
+    <Stack.Navigator screenOptions={{ headerShown: false }}>
       <Stack.Screen name="SettingsMain" component={SettingsScreen} />
       <Stack.Screen name="SettingsMyAccount" component={SettingsMyAccountScreen} />
+      <Stack.Screen name="SettingsCity" component={SettingsCityScreen} />
+      <Stack.Screen name="SettingsLinkedAccounts" component={SettingsLinkedAccountsScreen} />
+      <Stack.Screen name="SettingsSearchRadius" component={SettingsSearchRadiusScreen} />
+      <Stack.Screen name="SettingsNotifications" component={SettingsNotificationsPrefsScreen} />
       <Stack.Screen name="SettingsPrivacy" component={SettingsPrivacyScreen} />
+      <Stack.Screen name="SettingsBlockedUsers" component={SettingsBlockedUsersScreen} />
       <Stack.Screen name="SettingsSecurity" component={SettingsSecurityScreen} />
+      <Stack.Screen name="SettingsChangePassword" component={SettingsChangePasswordScreen} />
+      <Stack.Screen name="Settings2FA" component={Settings2FAScreen} />
+      <Stack.Screen name="SettingsDevices" component={SettingsDevicesScreen} />
+      <Stack.Screen name="SettingsAccessHistory" component={SettingsAccessHistoryScreen} />
+      <Stack.Screen name="SettingsLanguage" component={SettingsLanguageScreen} />
+      <Stack.Screen name="SettingsAbout" component={SettingsAboutScreen} />
       <Stack.Screen name="SettingsDeleteAccount" component={SettingsDeleteAccountScreen} />
     </Stack.Navigator>
   );
 }
 
-// Main Tab Stack
 function MainTabStack() {
+  const postOnboardingTab = authStore((state) => state.postOnboardingTab);
+  const postOnboardingProfileParams = authStore((state) => state.postOnboardingProfileParams);
+  const clearPostOnboardingTarget = authStore((state) => state.clearPostOnboardingTarget);
+
+  useEffect(() => {
+    if (postOnboardingTab) {
+      clearPostOnboardingTarget();
+    }
+  }, [clearPostOnboardingTarget, postOnboardingTab]);
+
   return (
     <Tab.Navigator
+      initialRouteName={postOnboardingTab ?? 'Home'}
       screenOptions={{
         headerShown: false,
         tabBarActiveTintColor: '#E8640A',
@@ -107,8 +136,8 @@ function MainTabStack() {
         name="Home"
         component={HomeScreen}
         options={{
-          tabBarLabel: 'Início',
-          tabBarIcon: ({ color }) => <Text style={{ fontSize: 20, color }}>🏠</Text>,
+          tabBarLabel: 'Inicio',
+          tabBarIcon: ({ color }) => <Text style={{ fontSize: 20, color }}>H</Text>,
         }}
       />
       <Tab.Screen
@@ -116,7 +145,7 @@ function MainTabStack() {
         component={FeedSocialScreen}
         options={{
           tabBarLabel: 'Feed',
-          tabBarIcon: ({ color }) => <Text style={{ fontSize: 20, color }}>🌪️</Text>,
+          tabBarIcon: ({ color }) => <Text style={{ fontSize: 20, color }}>F</Text>,
         }}
       />
       <Tab.Screen
@@ -124,7 +153,7 @@ function MainTabStack() {
         component={SearchScreen}
         options={{
           tabBarLabel: 'Buscar',
-          tabBarIcon: ({ color }) => <Text style={{ fontSize: 20, color }}>🔍</Text>,
+          tabBarIcon: ({ color }) => <Text style={{ fontSize: 20, color }}>S</Text>,
         }}
       />
       <Tab.Screen
@@ -132,7 +161,7 @@ function MainTabStack() {
         component={ActivityStack}
         options={{
           tabBarLabel: 'Atividade',
-          tabBarIcon: ({ color }) => <Text style={{ fontSize: 20, color }}>📋</Text>,
+          tabBarIcon: ({ color }) => <Text style={{ fontSize: 20, color }}>A</Text>,
         }}
         listeners={({ navigation }) => ({
           tabPress: (e) => {
@@ -146,7 +175,7 @@ function MainTabStack() {
         component={MapScreen}
         options={{
           tabBarLabel: 'Mapa',
-          tabBarIcon: ({ color }) => <Text style={{ fontSize: 20, color }}>🗺️</Text>,
+          tabBarIcon: ({ color }) => <Text style={{ fontSize: 20, color }}>M</Text>,
         }}
       />
       <Tab.Screen
@@ -154,15 +183,16 @@ function MainTabStack() {
         component={ChatScreen}
         options={{
           tabBarLabel: 'Chat',
-          tabBarIcon: ({ color }) => <Text style={{ fontSize: 20, color }}>💬</Text>,
+          tabBarIcon: ({ color }) => <Text style={{ fontSize: 20, color }}>C</Text>,
         }}
       />
       <Tab.Screen
         name="Profile"
         component={ProfileScreen}
+        initialParams={postOnboardingProfileParams ?? undefined}
         options={{
           tabBarLabel: 'Perfil',
-          tabBarIcon: ({ color }) => <Text style={{ fontSize: 20, color }}>👤</Text>,
+          tabBarIcon: ({ color }) => <Text style={{ fontSize: 20, color }}>P</Text>,
         }}
       />
       <Tab.Screen
@@ -170,7 +200,7 @@ function MainTabStack() {
         component={SettingsStack}
         options={{
           tabBarLabel: 'Config',
-          tabBarIcon: ({ color }) => <Text style={{ fontSize: 20, color }}>⚙️</Text>,
+          tabBarIcon: ({ color }) => <Text style={{ fontSize: 20, color }}>G</Text>,
         }}
         listeners={({ navigation }) => ({
           tabPress: (e) => {
@@ -183,9 +213,18 @@ function MainTabStack() {
   );
 }
 
-// Root Navigator
-export default function RootNavigator() {
-  const { isAuthenticated } = authStore();
+function MainAppStack() {
+  return (
+    <MainStack.Navigator screenOptions={{ headerShown: false }}>
+      <MainStack.Screen name="MainTabs" component={MainTabStack} />
+      <MainStack.Screen name="Notifications" component={NotificationsScreen} />
+      <MainStack.Screen name="Catalog" component={CatalogScreen} />
+      <MainStack.Screen name="Item" component={ItemScreen} />
+    </MainStack.Navigator>
+  );
+}
 
-  return isAuthenticated ? <MainTabStack /> : <AuthStack />;
+export default function RootNavigator() {
+  const { isAuthenticated, needsOnboarding } = authStore();
+  return isAuthenticated && !needsOnboarding ? <MainAppStack /> : <AuthStack />;
 }

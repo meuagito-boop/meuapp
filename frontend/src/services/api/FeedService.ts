@@ -4,14 +4,27 @@ export interface Post {
   id: string;
   content: string;
   images?: string[];
+  imageUrls?: string[];
+  video?: string;
+  locationName?: string | null;
+  latitude?: number | null;
+  longitude?: number | null;
   author: {
     id: string;
     name: string;
     avatar?: string;
+    profileType?: 'USER' | 'ESTABLISHMENT';
   };
-  likes: number;
-  comments: number;
-  isLiked?: boolean;
+  likesCount: number;
+  commentsCount: number;
+  sharesCount: number;
+  _count?: {
+    likes?: number;
+    comments?: number;
+  };
+  likes?: number;
+  comments?: number;
+  isLiked: boolean;
   createdAt: string;
   updatedAt: string;
 }
@@ -24,18 +37,32 @@ export interface Comment {
     name: string;
     avatar?: string;
   };
-  likes: number;
-  isLiked?: boolean;
+  likesCount: number;
+  _count?: {
+    likes?: number;
+  };
+  likes?: number;
+  isLiked: boolean;
   createdAt: string;
+  updatedAt: string;
 }
 
 export interface CreatePostRequest {
   content: string;
   images?: string[];
+  imageUrls?: string[];
+  video?: string;
 }
 
 export interface CreateCommentRequest {
   content: string;
+}
+
+export interface UploadedMedia {
+  id: string;
+  publicUrl: string;
+  mimeType: string;
+  size: number;
 }
 
 export interface PaginatedResponse<T> {
@@ -46,6 +73,16 @@ export interface PaginatedResponse<T> {
   totalPages: number;
 }
 
+export type FeedMode = 'mixed' | 'following' | 'global' | 'nearby';
+
+export interface CursorPaginatedResponse<T> {
+  data: T[];
+  mode: FeedMode;
+  limit: number;
+  hasMore: boolean;
+  nextCursor: string | null;
+}
+
 class FeedService {
   private apiClient: ApiClient;
 
@@ -53,118 +90,177 @@ class FeedService {
     this.apiClient = apiClient;
   }
 
-  /**
-   * Criar post
-   */
+  private normalizePost(post: Post): Post {
+    const likesCount = post.likesCount ?? post.likes ?? post._count?.likes ?? 0;
+    const commentsCount = post.commentsCount ?? post.comments ?? post._count?.comments ?? 0;
+    const normalizedImages = post.imageUrls ?? post.images ?? [];
+
+    return {
+      ...post,
+      images: normalizedImages,
+      imageUrls: normalizedImages,
+      likesCount,
+      commentsCount,
+      sharesCount: post.sharesCount ?? 0,
+      likes: post.likes ?? likesCount,
+      comments: post.comments ?? commentsCount,
+      isLiked: post.isLiked ?? false,
+    };
+  }
+
+  private normalizeComment(comment: Comment): Comment {
+    const likesCount = comment.likesCount ?? comment.likes ?? comment._count?.likes ?? 0;
+
+    return {
+      ...comment,
+      likesCount,
+      likes: comment.likes ?? likesCount,
+      isLiked: comment.isLiked ?? false,
+    };
+  }
+
+  private normalizePaginatedPosts(
+    response: PaginatedResponse<Post>,
+  ): PaginatedResponse<Post> {
+    return {
+      ...response,
+      data: response.data.map((post) => this.normalizePost(post)),
+    };
+  }
+
+  private normalizePaginatedComments(
+    response: PaginatedResponse<Comment>,
+  ): PaginatedResponse<Comment> {
+    return {
+      ...response,
+      data: response.data.map((comment) => this.normalizeComment(comment)),
+    };
+  }
+
+  private normalizeCursorPaginatedPosts(
+    response: CursorPaginatedResponse<Post>,
+  ): CursorPaginatedResponse<Post> {
+    return {
+      ...response,
+      data: response.data.map((post) => this.normalizePost(post)),
+    };
+  }
+
   async createPost(data: CreatePostRequest): Promise<Post> {
-    return this.apiClient.post('/feed/posts', data);
+    const post = await this.apiClient.post<Post>('/posts', {
+      content: data.content,
+      imageUrls: data.imageUrls ?? data.images ?? [],
+      video: data.video,
+    });
+    return this.normalizePost(post);
   }
 
-  /**
-   * Listar feed personalizado
-   */
+  async uploadPostMedia(
+    uri: string,
+    filename: string,
+    mimeType: string = 'image/jpeg',
+    postId?: string,
+    onProgress?: (progress: number) => void,
+  ): Promise<UploadedMedia> {
+    const query = postId ? `?postId=${encodeURIComponent(postId)}` : '';
+    return this.apiClient.uploadFile<UploadedMedia>(
+      `/posts/media${query}`,
+      {
+        uri,
+        name: filename,
+        type: mimeType,
+      },
+      onProgress,
+    );
+  }
+
   async getFeed(page = 1, limit = 20): Promise<PaginatedResponse<Post>> {
-    return this.apiClient.get('/feed/posts/feed', {
+    const response = await this.apiClient.get<PaginatedResponse<Post>>('/posts/feed', {
       params: { page, limit },
     });
+    return this.normalizePaginatedPosts(response);
   }
 
-  /**
-   * Explorar posts públicos
-   */
+  async getAgitoFeed(params?: {
+    cursor?: string;
+    limit?: number;
+    mode?: FeedMode;
+  }): Promise<CursorPaginatedResponse<Post>> {
+    const response = await this.apiClient.get<CursorPaginatedResponse<Post>>('/feed/agito', {
+      params: {
+        cursor: params?.cursor,
+        limit: params?.limit ?? 15,
+        mode: params?.mode ?? 'mixed',
+      },
+    });
+    return this.normalizeCursorPaginatedPosts(response);
+  }
+
   async explorePosts(page = 1, limit = 20): Promise<PaginatedResponse<Post>> {
-    return this.apiClient.get('/feed/posts/explore', {
+    const response = await this.apiClient.get<PaginatedResponse<Post>>('/posts/explore', {
       params: { page, limit },
     });
+    return this.normalizePaginatedPosts(response);
   }
 
-  /**
-   * Obter post específico
-   */
   async getPost(postId: string): Promise<Post> {
-    return this.apiClient.get(`/feed/posts/${postId}`);
+    const post = await this.apiClient.get<Post>(`/posts/${postId}`);
+    return this.normalizePost(post);
   }
 
-  /**
-   * Atualizar post
-   */
   async updatePost(postId: string, data: CreatePostRequest): Promise<Post> {
-    return this.apiClient.put(`/feed/posts/${postId}`, data);
+    const post = await this.apiClient.put<Post>(`/posts/${postId}`, {
+      content: data.content,
+      imageUrls: data.imageUrls ?? data.images ?? [],
+      video: data.video,
+    });
+    return this.normalizePost(post);
   }
 
-  /**
-   * Deletar post
-   */
   async deletePost(postId: string): Promise<{ message: string }> {
-    return this.apiClient.delete(`/feed/posts/${postId}`);
+    return this.apiClient.delete(`/posts/${postId}`);
   }
 
-  /**
-   * Curtir post
-   */
   async likePost(postId: string): Promise<{ message: string }> {
-    return this.apiClient.post(`/feed/posts/${postId}/like`);
+    return this.apiClient.post(`/posts/${postId}/like`);
   }
 
-  /**
-   * Remover curtida
-   */
   async unlikePost(postId: string): Promise<{ message: string }> {
-    return this.apiClient.delete(`/feed/posts/${postId}/like`);
+    return this.apiClient.delete(`/posts/${postId}/like`);
   }
 
-  /**
-   * Listar comentários
-   */
-  async getComments(
-    postId: string,
-    page = 1,
-    limit = 20,
-  ): Promise<PaginatedResponse<Comment>> {
-    return this.apiClient.get(`/feed/posts/${postId}/comments`, {
-      params: { page, limit },
-    });
+  async getComments(postId: string, page = 1, limit = 20): Promise<PaginatedResponse<Comment>> {
+    const response = await this.apiClient.get<PaginatedResponse<Comment>>(
+      `/posts/${postId}/comments`,
+      {
+        params: { page, limit },
+      },
+    );
+    return this.normalizePaginatedComments(response);
   }
 
-  /**
-   * Criar comentário
-   */
   async createComment(postId: string, data: CreateCommentRequest): Promise<Comment> {
-    return this.apiClient.post(`/feed/posts/${postId}/comments`, data);
+    const comment = await this.apiClient.post<Comment>(`/posts/${postId}/comments`, data);
+    return this.normalizeComment(comment);
   }
 
-  /**
-   * Curtir comentário
-   */
   async likeComment(commentId: string): Promise<{ message: string }> {
-    return this.apiClient.post(`/feed/comments/${commentId}/like`);
+    return this.apiClient.post(`/posts/comments/${commentId}/like`);
   }
 
-  /**
-   * Remover curtida do comentário
-   */
   async unlikeComment(commentId: string): Promise<{ message: string }> {
-    return this.apiClient.delete(`/feed/comments/${commentId}/like`);
+    return this.apiClient.delete(`/posts/comments/${commentId}/like`);
   }
 
-  /**
-   * Deletar comentário
-   */
   async deleteComment(commentId: string): Promise<{ message: string }> {
-    return this.apiClient.delete(`/feed/comments/${commentId}`);
+    return this.apiClient.delete(`/posts/comments/${commentId}`);
   }
 
-  /**
-   * Posts de um usuário
-   */
-  async getUserPosts(
-    userId: string,
-    page = 1,
-    limit = 20,
-  ): Promise<PaginatedResponse<Post>> {
-    return this.apiClient.get(`/feed/users/${userId}/posts`, {
+  async getUserPosts(userId: string, page = 1, limit = 20): Promise<PaginatedResponse<Post>> {
+    const response = await this.apiClient.get<PaginatedResponse<Post>>(`/posts/user/${userId}`, {
       params: { page, limit },
     });
+    return this.normalizePaginatedPosts(response);
   }
 }
 

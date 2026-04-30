@@ -7,6 +7,8 @@ import { useEffect, useCallback, useRef } from 'react';
 import SocketIOManager from '@services/socket/SocketIOManager';
 import type { SocketEvents } from '@services/socket/SocketIOManager';
 
+type SocketListener = (...args: unknown[]) => void;
+
 export const useSocket = () => {
   const unsubscribeRef = useRef<Map<string, Set<() => void>>>(new Map());
 
@@ -31,7 +33,7 @@ export const useSocket = () => {
   /**
    * Unsubscribe de um evento
    */
-  const off = useCallback((eventName: string, callback?: Function) => {
+  const off = useCallback((eventName: string, callback?: SocketListener) => {
     SocketIOManager.off(eventName, callback);
   }, []);
 

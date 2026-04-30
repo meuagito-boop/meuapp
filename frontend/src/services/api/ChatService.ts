@@ -2,6 +2,16 @@ import ApiClient from './ApiClient';
 
 export interface Conversation {
   id: string;
+  recipient: {
+    id: string;
+    name: string;
+    avatar?: string;
+  };
+  unreadCount: number;
+  lastMessage?: {
+    content: string;
+    createdAt: string;
+  };
   participants: {
     id: string;
     name: string;
@@ -14,7 +24,12 @@ export interface Conversation {
 
 export interface Message {
   id: string;
+  conversationId: string;
   content: string;
+  file?: {
+    url: string;
+    filename: string;
+  };
   fileUrl?: string;
   fileType?: string;
   sender: {
@@ -22,10 +37,12 @@ export interface Message {
     name: string;
     avatar?: string;
   };
+  isEdited: boolean;
   readBy: {
     id: string;
   }[];
   createdAt: string;
+  updatedAt: string;
   editedAt?: string;
 }
 
@@ -39,10 +56,7 @@ export interface PaginatedResponse<T> {
 
 export interface UnreadCount {
   total: number;
-  byConversation: {
-    conversationId: string;
-    unreadCount: number;
-  }[];
+  byConversation: Record<string, number>;
 }
 
 class ChatService {
@@ -109,7 +123,7 @@ class ChatService {
         uri: file.uri,
         name: file.name,
         type: file.type,
-      } as any);
+      } as unknown as Blob);
 
       return this.apiClient.post(`/chat/conversations/${conversationId}/messages`, formData, {
         headers: {

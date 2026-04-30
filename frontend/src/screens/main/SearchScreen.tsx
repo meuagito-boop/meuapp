@@ -1,349 +1,423 @@
-import React, { useState, useCallback, useMemo } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
+  ActivityIndicator,
+  FlatList,
+  Image,
+  SafeAreaView,
+  ScrollView,
   StyleSheet,
-  View,
   Text,
   TextInput,
-  FlatList,
   TouchableOpacity,
-  ScrollView,
-  ActivityIndicator,
-  SafeAreaView,
+  View,
 } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import { ParamListBase, useNavigation } from '@react-navigation/native';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+
 import { colors } from '@constants/colors';
-import { spacing, fontSize, componentSizes } from '@constants/design';
-import { useFeed } from '@hooks/useFeed';
+import { spacing, fontSize } from '@constants/design';
+import { useLocation } from '@hooks/useLocation';
+import { searchService } from '@services/api';
+import type { SearchEstablishment } from '@services/api/SearchService';
 
-/**
- * SearchScreen - T07 Design Aprovado
- * 2 Momentos: Inicial (categorias + recentes) + Resultados (lista/mapa + filtros)
- */
+type OrderBy = 'distance' | 'rating' | 'popularity';
 
-const CATEGORIES = [
-  { id: '1', name: 'Comida', emoji: '🍔' },
-  { id: '2', name: 'Bebidas', emoji: '🍷' },
-  { id: '3', name: 'Beleza', emoji: '💇' },
-  { id: '4', name: 'Academia', emoji: '💪' },
-  { id: '5', name: 'Eventos', emoji: '🎉' },
-  { id: '6', name: 'Lazer', emoji: '🎮' },
-  { id: '7', name: 'Saúde', emoji: '⚕️' },
-  { id: '8', name: 'Educação', emoji: '📚' },
-  { id: '9', name: 'Viagem', emoji: '✈️' },
-  { id: '10', name: 'Casa', emoji: '🏠' },
-  { id: '11', name: 'Moda', emoji: '👗' },
-  { id: '12', name: 'Arte', emoji: '🎨' },
-  { id: '13', name: 'Música', emoji: '🎵' },
-  { id: '14', name: 'Esportes', emoji: '⚽' },
-  { id: '15', name: 'Tecnologia', emoji: '💻' },
-  { id: '16', name: 'Petshop', emoji: '🐾' },
-  { id: '17', name: 'Automovel', emoji: '🚗' },
-  { id: '18', name: 'Outros', emoji: '⭐' },
+type SearchResultItem = {
+  id: string;
+  name: string;
+  categoryLabel: string;
+  distanceKm: number | null;
+  rating: number;
+  reviews: number;
+  isOpenNow: boolean;
+  imageUrl?: string | null;
+};
+
+const ESTABLISHMENT_CATEGORIES = [
+  { id: 'bar', label: 'Bares', value: 'bar' },
+  { id: 'restaurant', label: 'Restaurantes', value: 'restaurant' },
+  { id: 'cafe', label: 'Cafes', value: 'cafe' },
+  { id: 'nightclub', label: 'Baladas', value: 'nightclub' },
+  { id: 'lounge', label: 'Lounge', value: 'lounge' },
+  { id: 'pub', label: 'Pub', value: 'pub' },
+  { id: 'other', label: 'Outros', value: 'other' },
+] as const;
+
+const ORDER_OPTIONS: Array<{ id: string; label: string; value: OrderBy }> = [
+  { id: 'distance', label: 'Mais proximo', value: 'distance' },
+  { id: 'rating', label: 'Melhor avaliado', value: 'rating' },
+  { id: 'popularity', label: 'Mais avaliado', value: 'popularity' },
 ];
 
-const ORDER_OPTIONS = [
-  { id: '1', label: 'Relevância', value: 'relevance' },
-  { id: '2', label: 'Mais próximo', value: 'distance' },
-  { id: '3', label: 'Melhor avaliado', value: 'rating' },
-  { id: '4', label: 'Mais popular', value: 'popularity' },
-  { id: '5', label: 'Mais recente', value: 'recent' },
-];
+const RECENT_SEARCHES = ['bar', 'restaurant', 'cafe', 'nightclub'];
+
+function formatDistance(distanceKm: number | null) {
+  if (distanceKm == null) {
+    return 'Sem distancia';
+  }
+
+  if (distanceKm < 1) {
+    return `${Math.round(distanceKm * 1000)}m`;
+  }
+
+  return `${distanceKm.toFixed(distanceKm < 10 ? 1 : 0)}km`;
+}
+
+function getCategoryLabel(item: SearchEstablishment) {
+  if (item.subcategory && item.subcategory.trim().length > 0) {
+    return item.subcategory;
+  }
+
+  return item.category;
+}
+
+function mapEstablishmentToResult(item: SearchEstablishment): SearchResultItem {
+  return {
+    id: item.id,
+    name: item.name,
+    categoryLabel: getCategoryLabel(item),
+    distanceKm: item.distanceKm ?? null,
+    rating: Number(item.rating || 0),
+    reviews: item.reviewsCount ?? item._count?.reviews ?? 0,
+    isOpenNow: item.isOpenNow === true,
+    imageUrl: item.imageUrl,
+  };
+}
 
 export default function SearchScreen() {
-  const navigation = useNavigation<any>();
-  const { isLoading } = useFeed();
+  const navigation = useNavigation<NativeStackNavigationProp<ParamListBase>>();
+  const { userLocation, getUserLocation } = useLocation();
+
   const [searchQuery, setSearchQuery] = useState('');
-  const [isSearching, setIsSearching] = useState(false);
-  const [viewMode, setViewMode] = useState<'list' | 'map'>('list');
-  const [showFilters, setShowFilters] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
-  const [orderBy, setOrderBy] = useState('relevance');
+  const [orderBy, setOrderBy] = useState<OrderBy>('distance');
   const [radius, setRadius] = useState(5);
   const [minRating, setMinRating] = useState(0);
   const [openNow, setOpenNow] = useState(false);
+  const [showFilters, setShowFilters] = useState(false);
+  const [isSearching, setIsSearching] = useState(false);
 
-  const recentSearches = ['Melhor Pizza', 'Spa Perto', 'Eventos Hoje', 'Academia'];
+  const [results, setResults] = useState<SearchResultItem[]>([]);
+  const [isLoadingResults, setIsLoadingResults] = useState(false);
+  const [searchError, setSearchError] = useState<string | null>(null);
 
-  const mockResults = [
-    { id: '1', name: 'Pizzaria Do Nino', category: 'Comida', distance: 0.3, rating: 4.8, reviews: 245, isOpen: true, emoji: '🍕' },
-    { id: '2', name: 'Bar da Esquina', category: 'Bebidas', distance: 0.5, rating: 4.5, reviews: 182, isOpen: true, emoji: '🍺' },
-    { id: '3', name: 'Salão de Beleza Luxo', category: 'Beleza', distance: 0.8, rating: 4.9, reviews: 512, isOpen: false, emoji: '💇' },
-    { id: '4', name: 'Academia Fit', category: 'Academia', distance: 1.2, rating: 4.3, reviews: 98, isOpen: true, emoji: '💪' },
-    { id: '5', name: 'Café Cosy', category: 'Comida', distance: 0.2, rating: 4.7, reviews: 334, isOpen: true, emoji: '☕' },
-  ];
+  const resolveLocation = useCallback(async () => {
+    if (userLocation) {
+      return userLocation;
+    }
 
-  const handleSearch = useCallback((text: string) => {
-    setSearchQuery(text);
-    setIsSearching(text.length >= 2);
+    const response = await getUserLocation();
+    if (!response.success || !response.location) {
+      throw new Error('Nao foi possivel obter sua localizacao para a busca.');
+    }
+
+    return response.location;
+  }, [getUserLocation, userLocation]);
+
+  const fetchResults = useCallback(async () => {
+    if (!isSearching) {
+      return;
+    }
+
+    setIsLoadingResults(true);
+    setSearchError(null);
+
+    try {
+      const location = await resolveLocation();
+      const response = await searchService.searchEstablishments({
+        q: searchQuery.trim().length >= 2 ? searchQuery.trim() : undefined,
+        latitude: location.latitude,
+        longitude: location.longitude,
+        distance: radius,
+        category: selectedCategory ?? undefined,
+        openNow: openNow || undefined,
+        minRating: minRating > 0 ? minRating : undefined,
+        page: 1,
+        limit: 50,
+      });
+
+      setResults(response.data.map(mapEstablishmentToResult));
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Falha ao carregar busca';
+      setSearchError(message);
+      setResults([]);
+    } finally {
+      setIsLoadingResults(false);
+    }
+  }, [isSearching, minRating, openNow, radius, resolveLocation, searchQuery, selectedCategory]);
+
+  useEffect(() => {
+    if (!isSearching) {
+      setResults([]);
+      setSearchError(null);
+      return;
+    }
+
+    const timer = setTimeout(() => {
+      void fetchResults();
+    }, 250);
+
+    return () => clearTimeout(timer);
+  }, [fetchResults, isSearching]);
+
+  const filteredResults = useMemo(() => {
+    const next = [...results];
+
+    switch (orderBy) {
+      case 'rating':
+        next.sort((left, right) => {
+          if (right.rating !== left.rating) {
+            return right.rating - left.rating;
+          }
+
+          return right.reviews - left.reviews;
+        });
+        break;
+      case 'popularity':
+        next.sort((left, right) => {
+          if (right.reviews !== left.reviews) {
+            return right.reviews - left.reviews;
+          }
+
+          return (right.rating ?? 0) - (left.rating ?? 0);
+        });
+        break;
+      default:
+        next.sort((left, right) => {
+          const leftDistance = left.distanceKm ?? Number.MAX_SAFE_INTEGER;
+          const rightDistance = right.distanceKm ?? Number.MAX_SAFE_INTEGER;
+          return leftDistance - rightDistance;
+        });
+        break;
+    }
+
+    return next;
+  }, [orderBy, results]);
+
+  const handleSearchChange = useCallback(
+    (value: string) => {
+      setSearchQuery(value);
+      setIsSearching(value.trim().length >= 2 || selectedCategory !== null);
+    },
+    [selectedCategory]
+  );
+
+  const handleCategoryPress = useCallback((category: string) => {
+    setSelectedCategory(category);
+    setIsSearching(true);
+  }, []);
+
+  const handleRecentPress = useCallback((term: string) => {
+    setSelectedCategory(null);
+    setSearchQuery(term);
+    setIsSearching(term.trim().length >= 2);
   }, []);
 
   const handleClear = useCallback(() => {
     setSearchQuery('');
-    setIsSearching(false);
     setSelectedCategory(null);
     setOpenNow(false);
+    setRadius(5);
+    setMinRating(0);
+    setShowFilters(false);
+    setIsSearching(false);
+    setSearchError(null);
+    setResults([]);
   }, []);
 
-  const handleCategoryPress = (categoryId: string) => {
-    setSelectedCategory(categoryId);
-    const category = CATEGORIES.find(c => c.id === categoryId);
-    setSearchQuery(category?.name || '');
-    setIsSearching(true);
-  };
-
-  const handleRecentPress = (term: string) => {
-    setSearchQuery(term);
-    setIsSearching(true);
-  };
-
-  const filteredResults = useMemo(() => {
-    let results = mockResults;
-
-    if (selectedCategory) {
-      const cat = CATEGORIES.find(c => c.id === selectedCategory);
-      if (cat) {
-        results = results.filter(r => r.category === cat.name);
+  const renderResultCard = ({ item }: { item: SearchResultItem }) => (
+    <TouchableOpacity
+      style={styles.resultCard}
+      activeOpacity={0.85}
+      onPress={() =>
+        navigation.navigate('Profile', {
+          type: 'establishment',
+          establishmentId: item.id,
+        })
       }
-    }
+    >
+      <View style={styles.resultMedia}>
+        {item.imageUrl ? (
+          <Image source={{ uri: item.imageUrl }} resizeMode="cover" style={styles.resultImage} />
+        ) : (
+          <Text style={styles.resultFallback}>{item.name.slice(0, 2).toUpperCase()}</Text>
+        )}
+      </View>
 
-    results = results.filter(r => r.rating >= minRating);
-    results = results.filter(r => r.distance <= radius);
-
-    if (openNow) {
-      results = results.filter(r => r.isOpen);
-    }
-
-    switch (orderBy) {
-      case 'distance':
-        results.sort((a, b) => a.distance - b.distance);
-        break;
-      case 'rating':
-        results.sort((a, b) => b.rating - a.rating);
-        break;
-      case 'popularity':
-        results.sort((a, b) => b.reviews - a.reviews);
-        break;
-      case 'recent':
-        results.reverse();
-        break;
-      default:
-        break;
-    }
-
-    return results;
-  }, [selectedCategory, minRating, radius, openNow, orderBy]);
-
-  // MOMENT 1: Initial
-  if (!isSearching && !searchQuery) {
-    return (
-      <SafeAreaView style={styles.container}>
-        <View style={styles.headerContainer}>
-          <TouchableOpacity onPress={() => navigation.goBack()} style={styles.cancelButton}>
-            <Text style={styles.cancelText}>✕</Text>
-          </TouchableOpacity>
-          <TextInput
-            style={styles.searchInput}
-            placeholder="O que você quer?"
-            placeholderTextColor={colors.textSecondary}
-            value={searchQuery}
-            onChangeText={handleSearch}
-            autoFocus
-            returnKeyType="search"
-          />
-          <TouchableOpacity style={styles.micButton}>
-            <Text style={styles.micIcon}>🎙</Text>
-          </TouchableOpacity>
+      <View style={styles.resultBody}>
+        <View style={styles.resultHeader}>
+          <Text style={styles.resultTitle} numberOfLines={1}>
+            {item.name}
+          </Text>
+          {item.isOpenNow ? <Text style={styles.openBadge}>ABERTO</Text> : null}
         </View>
 
-        <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-          {recentSearches.length > 0 && (
-            <View style={styles.recentSection}>
-              <Text style={styles.sectionTitle}>Buscas recentes</Text>
-              <View style={styles.chipsContainer}>
-                {recentSearches.map((search, idx) => (
-                  <TouchableOpacity
-                    key={idx}
-                    style={styles.chip}
-                    onPress={() => handleRecentPress(search)}
-                  >
-                    <Text style={styles.chipText}>🕐 {search}</Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-            </View>
-          )}
+        <Text style={styles.resultCategory}>{item.categoryLabel}</Text>
 
-          <View style={styles.categoriesSection}>
-            <Text style={styles.sectionTitle}>Categorias</Text>
-            <View style={styles.grid}>
-              {CATEGORIES.map((cat) => (
-                <TouchableOpacity
-                  key={cat.id}
-                  style={styles.categoryCard}
-                  onPress={() => handleCategoryPress(cat.id)}
-                >
-                  <Text style={styles.categoryEmoji}>{cat.emoji}</Text>
-                  <Text style={styles.categoryName}>{cat.name}</Text>
+        <View style={styles.resultMetaRow}>
+          <Text style={styles.resultMeta}>{formatDistance(item.distanceKm)}</Text>
+          <Text style={styles.resultMeta}>★ {item.rating.toFixed(1)}</Text>
+          <Text style={styles.resultMeta}>{item.reviews} aval.</Text>
+        </View>
+      </View>
+    </TouchableOpacity>
+  );
+
+  return (
+    <SafeAreaView style={styles.container}>
+      <View style={styles.header}>
+        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.iconButton}>
+          <Text style={styles.iconButtonText}>{'<'}</Text>
+        </TouchableOpacity>
+
+        <TextInput
+          style={styles.searchInput}
+          placeholder="Buscar estabelecimentos"
+          placeholderTextColor={colors.textSecondary}
+          value={searchQuery}
+          onChangeText={handleSearchChange}
+          autoFocus
+          returnKeyType="search"
+        />
+
+        {searchQuery.length > 0 || selectedCategory ? (
+          <TouchableOpacity onPress={handleClear} style={styles.iconButton}>
+            <Text style={styles.iconButtonText}>X</Text>
+          </TouchableOpacity>
+        ) : null}
+      </View>
+
+      {!isSearching ? (
+        <ScrollView contentContainerStyle={styles.discoveryContent} showsVerticalScrollIndicator={false}>
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Buscas rapidas</Text>
+            <View style={styles.chipsWrap}>
+              {RECENT_SEARCHES.map((term) => (
+                <TouchableOpacity key={term} style={styles.chip} onPress={() => handleRecentPress(term)}>
+                  <Text style={styles.chipText}>{term}</Text>
                 </TouchableOpacity>
               ))}
             </View>
           </View>
+
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Categorias reais</Text>
+            <View style={styles.chipsWrap}>
+              {ESTABLISHMENT_CATEGORIES.map((category) => {
+                const active = selectedCategory === category.value;
+                return (
+                  <TouchableOpacity
+                    key={category.id}
+                    style={[styles.chip, active && styles.chipActive]}
+                    onPress={() => handleCategoryPress(category.value)}
+                  >
+                    <Text style={[styles.chipText, active && styles.chipTextActive]}>
+                      {category.label}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          </View>
         </ScrollView>
-      </SafeAreaView>
-    );
-  }
+      ) : (
+        <>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            style={styles.filtersRow}
+            contentContainerStyle={styles.filtersContent}
+          >
+            <TouchableOpacity style={styles.filterChip} onPress={() => setShowFilters((prev) => !prev)}>
+              <Text style={styles.filterChipText}>Filtros</Text>
+            </TouchableOpacity>
 
-  // MOMENT 2: Results
-  return (
-    <SafeAreaView style={styles.container}>
-      <View style={styles.headerContainer}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.cancelButton}>
-          <Text style={styles.cancelText}>✕</Text>
-        </TouchableOpacity>
-        <TextInput
-          style={styles.searchInput}
-          placeholder="O que você quer?"
-          placeholderTextColor={colors.textSecondary}
-          value={searchQuery}
-          onChangeText={handleSearch}
-          returnKeyType="search"
-        />
-        {searchQuery.length > 0 && (
-          <TouchableOpacity onPress={handleClear} style={styles.clearButton}>
-            <Text style={styles.clearIcon}>✕</Text>
-          </TouchableOpacity>
-        )}
-        <TouchableOpacity onPress={() => setViewMode(viewMode === 'list' ? 'map' : 'list')} style={styles.toggleButton}>
-          <Text style={styles.toggleIcon}>{viewMode === 'list' ? '🗺' : '📋'}</Text>
-        </TouchableOpacity>
-      </View>
-
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        style={styles.filtersRow}
-        contentContainerStyle={styles.filtersContent}
-      >
-        <TouchableOpacity style={styles.filterChip} onPress={() => setShowFilters(!showFilters)}>
-          <Text style={styles.filterChipText}>⚙ Filtros</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.filterChip} onPress={() => setOpenNow(!openNow)}>
-          <Text style={[styles.filterChipText, openNow && styles.filterChipActive]}>
-            ⏰ {openNow ? 'Aberto' : 'Aberto agora'}
-          </Text>
-        </TouchableOpacity>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-          {ORDER_OPTIONS.map((opt) => (
-            <TouchableOpacity
-              key={opt.id}
-              style={[styles.orderChip, orderBy === opt.value && styles.orderChipActive]}
-              onPress={() => setOrderBy(opt.value)}
-            >
-              <Text
-                style={[styles.orderChipText, orderBy === opt.value && styles.orderChipTextActive]}
-              >
-                {opt.label}
+            <TouchableOpacity style={styles.filterChip} onPress={() => setOpenNow((prev) => !prev)}>
+              <Text style={[styles.filterChipText, openNow && styles.filterChipTextActive]}>
+                {openNow ? 'Aberto agora' : 'Somente abertos'}
               </Text>
             </TouchableOpacity>
-          ))}
-        </ScrollView>
-      </ScrollView>
 
-      {showFilters && (
-        <View style={styles.filtersDrawer}>
-          <Text style={styles.filterLabel}>Raio: {radius}km</Text>
-          <View style={styles.sliderContainer}>
-            {[1, 2, 5, 10, 20].map((r) => (
-              <TouchableOpacity
-                key={r}
-                style={[styles.sliderButton, radius === r && styles.sliderButtonActive]}
-                onPress={() => setRadius(r)}
-              >
-                <Text
-                  style={[styles.sliderButtonText, radius === r && styles.sliderButtonTextActive]}
+            {ORDER_OPTIONS.map((option) => {
+              const active = orderBy === option.value;
+              return (
+                <TouchableOpacity
+                  key={option.id}
+                  style={[styles.filterChip, active && styles.filterChipActive]}
+                  onPress={() => setOrderBy(option.value)}
                 >
-                  {r}km
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-
-          <Text style={styles.filterLabel}>Avaliação mínima: {minRating}</Text>
-          <View style={styles.sliderContainer}>
-            {[0, 3, 3.5, 4, 4.5].map((r) => (
-              <TouchableOpacity
-                key={r}
-                style={[styles.sliderButton, minRating === r && styles.sliderButtonActive]}
-                onPress={() => setMinRating(r)}
-              >
-                <Text
-                  style={[
-                    styles.sliderButtonText,
-                    minRating === r && styles.sliderButtonTextActive,
-                  ]}
-                >
-                  {r === 0 ? 'Todas' : `${r}⭐`}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-
-          <TouchableOpacity
-            style={styles.closeFilterButton}
-            onPress={() => setShowFilters(false)}
-          >
-            <Text style={styles.closeFilterText}>Fechar filtros</Text>
-          </TouchableOpacity>
-        </View>
-      )}
-
-      {viewMode === 'list' && (
-        <View style={styles.resultsContainer}>
-          <Text style={styles.resultsCount}>
-            {filteredResults.length} resultados
-          </Text>
-          {isLoading ? (
-            <ActivityIndicator size="large" color={colors.primary} />
-          ) : filteredResults.length === 0 ? (
-            <View style={styles.emptyState}>
-              <Text style={styles.emptyIcon}>🔍</Text>
-              <Text style={styles.emptyText}>Nenhum resultado encontrado</Text>
-              <Text style={styles.emptySubtext}>Tente expandir os filtros</Text>
-            </View>
-          ) : (
-            <FlatList
-              data={filteredResults}
-              renderItem={({ item }) => (
-                <TouchableOpacity style={styles.resultCard} activeOpacity={0.8}>
-                  <View style={styles.resultImage}>
-                    <Text style={styles.resultEmoji}>{item.emoji}</Text>
-                  </View>
-                  <View style={styles.resultInfo}>
-                    <View style={styles.resultHeader}>
-                      <Text style={styles.resultName}>{item.name}</Text>
-                      {item.isOpen && <View style={styles.openBadge} />}
-                    </View>
-                    <Text style={styles.resultCategory}>{item.category}</Text>
-                    <View style={styles.resultMeta}>
-                      <Text style={styles.resultDistance}>📍 {item.distance}km</Text>
-                      <Text style={styles.resultRating}>⭐ {item.rating}</Text>
-                    </View>
-                  </View>
+                  <Text style={[styles.filterChipText, active && styles.filterChipTextActive]}>
+                    {option.label}
+                  </Text>
                 </TouchableOpacity>
-              )}
-              keyExtractor={(item) => item.id}
-              scrollEnabled={false}
-              contentContainerStyle={{ gap: spacing.md, paddingHorizontal: spacing.lg }}
-            />
-          )}
-        </View>
-      )}
+              );
+            })}
+          </ScrollView>
 
-      {viewMode === 'map' && (
-        <View style={styles.mapContainer}>
-          <Text style={styles.mapPlaceholder}>🗺️ Google Maps (futuro)</Text>
-          <Text style={styles.mapSubtext}>{filteredResults.length} locais encontrados</Text>
-        </View>
+          {showFilters ? (
+            <View style={styles.filtersDrawer}>
+              <Text style={styles.drawerLabel}>Raio</Text>
+              <View style={styles.inlineOptions}>
+                {[2, 5, 10, 20].map((value) => {
+                  const active = radius === value;
+                  return (
+                    <TouchableOpacity
+                      key={value}
+                      style={[styles.optionChip, active && styles.optionChipActive]}
+                      onPress={() => setRadius(value)}
+                    >
+                      <Text style={[styles.optionChipText, active && styles.optionChipTextActive]}>
+                        {value}km
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+
+              <Text style={styles.drawerLabel}>Nota minima</Text>
+              <View style={styles.inlineOptions}>
+                {[0, 3, 4, 4.5].map((value) => {
+                  const active = minRating === value;
+                  return (
+                    <TouchableOpacity
+                      key={value}
+                      style={[styles.optionChip, active && styles.optionChipActive]}
+                      onPress={() => setMinRating(value)}
+                    >
+                      <Text style={[styles.optionChipText, active && styles.optionChipTextActive]}>
+                        {value === 0 ? 'Todas' : `${value}+`}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+            </View>
+          ) : null}
+
+          <View style={styles.resultsWrapper}>
+            <Text style={styles.resultsCount}>{filteredResults.length} resultados</Text>
+
+            {isLoadingResults ? (
+              <View style={styles.centerState}>
+                <ActivityIndicator size="large" color={colors.primary} />
+              </View>
+            ) : filteredResults.length === 0 ? (
+              <View style={styles.centerState}>
+                <Text style={styles.emptyTitle}>Nenhum resultado encontrado</Text>
+                <Text style={styles.emptySubtitle}>
+                  {searchError || 'Ajuste o termo ou os filtros para continuar a busca.'}
+                </Text>
+              </View>
+            ) : (
+              <FlatList
+                data={filteredResults}
+                renderItem={renderResultCard}
+                keyExtractor={(item) => item.id}
+                contentContainerStyle={styles.resultsList}
+              />
+            )}
+          </View>
+        </>
       )}
     </SafeAreaView>
   );
@@ -354,83 +428,54 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.background,
   },
-  headerContainer: {
+  header: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: spacing.sm,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.md,
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
-    gap: spacing.sm,
   },
-  cancelButton: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    justifyContent: 'center',
+  iconButton: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
     alignItems: 'center',
+    justifyContent: 'center',
     backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
   },
-  cancelText: {
-    fontSize: fontSize.lg,
-    color: colors.textPrimary,
-    fontWeight: '600',
+  iconButtonText: {
+    color: colors.text,
+    fontSize: fontSize.md,
+    fontWeight: '700',
   },
   searchInput: {
     flex: 1,
-    height: 40,
+    height: 42,
+    borderRadius: 12,
     backgroundColor: colors.surface,
-    borderRadius: spacing.sm,
+    borderWidth: 1,
+    borderColor: colors.border,
     paddingHorizontal: spacing.md,
-    fontSize: fontSize.sm,
-    color: colors.textPrimary,
+    color: colors.text,
+    fontSize: fontSize.md,
   },
-  clearButton: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    justifyContent: 'center',
-    alignItems: 'center',
+  discoveryContent: {
+    padding: spacing.lg,
+    gap: spacing.xl,
   },
-  clearIcon: {
-    fontSize: fontSize.lg,
-  },
-  toggleButton: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: colors.surface,
-  },
-  toggleIcon: {
-    fontSize: fontSize.lg,
-  },
-  micButton: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginLeft: spacing.sm,
-  },
-  micIcon: {
-    fontSize: fontSize.lg,
-  },
-  scrollContent: {
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
-    gap: spacing.lg,
-  },
-  recentSection: {
+  section: {
     gap: spacing.md,
   },
   sectionTitle: {
-    fontSize: fontSize.sm,
+    color: colors.text,
+    fontSize: fontSize.lg,
     fontWeight: '700',
-    color: colors.textPrimary,
   },
-  chipsContainer: {
+  chipsWrap: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: spacing.sm,
@@ -438,194 +483,154 @@ const styles = StyleSheet.create({
   chip: {
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
+    borderRadius: 18,
     backgroundColor: colors.surface,
-    borderRadius: spacing.sm,
     borderWidth: 1,
     borderColor: colors.border,
+  },
+  chipActive: {
+    borderColor: colors.primary,
+    backgroundColor: '#2E1405',
   },
   chipText: {
-    fontSize: fontSize.xs,
-    color: colors.textPrimary,
+    color: colors.textSecondary,
+    fontSize: fontSize.sm,
     fontWeight: '600',
   },
-  categoriesSection: {
-    gap: spacing.md,
-  },
-  grid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'space-between',
-    gap: spacing.md,
-  },
-  categoryCard: {
-    width: '31%',
-    aspectRatio: 1,
-    borderRadius: spacing.md,
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-    justifyContent: 'center',
-    alignItems: 'center',
-    gap: spacing.sm,
-  },
-  categoryEmoji: {
-    fontSize: 28,
-  },
-  categoryName: {
-    fontSize: fontSize.xs,
-    fontWeight: '600',
-    color: colors.textPrimary,
-    textAlign: 'center',
+  chipTextActive: {
+    color: colors.text,
   },
   filtersRow: {
-    maxHeight: 50,
+    maxHeight: 52,
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
   },
   filtersContent: {
-    paddingHorizontal: spacing.lg,
+    paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
     gap: spacing.sm,
   },
   filterChip: {
     paddingHorizontal: spacing.md,
-    paddingVertical: spacing.xs,
+    paddingVertical: spacing.sm,
+    borderRadius: 18,
     backgroundColor: colors.surface,
-    borderRadius: spacing.sm,
     borderWidth: 1,
     borderColor: colors.border,
-  },
-  filterChipText: {
-    fontSize: fontSize.xs,
-    color: colors.textPrimary,
-    fontWeight: '600',
   },
   filterChipActive: {
-    color: colors.primary,
-  },
-  orderChip: {
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.xs,
-    backgroundColor: colors.surface,
-    borderRadius: spacing.sm,
-    borderWidth: 1,
-    borderColor: colors.border,
-    marginRight: spacing.sm,
-  },
-  orderChipText: {
-    fontSize: fontSize.xs,
-    color: colors.textPrimary,
-    fontWeight: '600',
-  },
-  orderChipActive: {
-    backgroundColor: colors.primary,
     borderColor: colors.primary,
+    backgroundColor: '#2E1405',
   },
-  orderChipTextActive: {
-    color: colors.text,
+  filterChipText: {
+    color: colors.textSecondary,
+    fontSize: fontSize.xs,
+    fontWeight: '700',
+  },
+  filterChipTextActive: {
+    color: colors.primary,
   },
   filtersDrawer: {
-    backgroundColor: colors.surface,
-    borderTopWidth: 1,
-    borderTopColor: colors.border,
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
     gap: spacing.md,
-    maxHeight: 200,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.md,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+    backgroundColor: colors.surface,
   },
-  filterLabel: {
+  drawerLabel: {
+    color: colors.text,
     fontSize: fontSize.sm,
     fontWeight: '700',
-    color: colors.textPrimary,
   },
-  sliderContainer: {
+  inlineOptions: {
     flexDirection: 'row',
     gap: spacing.sm,
-    marginBottom: spacing.md,
+    flexWrap: 'wrap',
   },
-  sliderButton: {
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 4,
+  optionChip: {
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderRadius: 16,
     backgroundColor: colors.background,
-    borderRadius: spacing.xs,
     borderWidth: 1,
     borderColor: colors.border,
   },
-  sliderButtonActive: {
-    backgroundColor: colors.primary,
+  optionChipActive: {
     borderColor: colors.primary,
+    backgroundColor: '#2E1405',
   },
-  sliderButtonText: {
-    fontSize: fontSize.xs,
+  optionChipText: {
     color: colors.textSecondary,
-    fontWeight: '600',
+    fontSize: fontSize.xs,
+    fontWeight: '700',
   },
-  sliderButtonTextActive: {
-    color: colors.text,
-  },
-  closeFilterButton: {
-    paddingVertical: spacing.sm,
-    backgroundColor: colors.background,
-    borderRadius: spacing.sm,
-    alignItems: 'center',
-  },
-  closeFilterText: {
-    fontSize: fontSize.sm,
-    fontWeight: '600',
+  optionChipTextActive: {
     color: colors.primary,
   },
-  resultsContainer: {
+  resultsWrapper: {
     flex: 1,
-    paddingVertical: spacing.md,
+    paddingTop: spacing.md,
   },
   resultsCount: {
-    fontSize: fontSize.sm,
-    fontWeight: '600',
     color: colors.textSecondary,
-    paddingHorizontal: spacing.lg,
+    fontSize: fontSize.sm,
+    paddingHorizontal: spacing.md,
     marginBottom: spacing.md,
   },
-  emptyState: {
+  centerState: {
     flex: 1,
-    justifyContent: 'center',
     alignItems: 'center',
-    gap: spacing.md,
+    justifyContent: 'center',
+    paddingHorizontal: spacing.xl,
+    gap: spacing.sm,
   },
-  emptyIcon: {
-    fontSize: 48,
-  },
-  emptyText: {
-    fontSize: fontSize.sm,
+  emptyTitle: {
+    color: colors.text,
+    fontSize: fontSize.lg,
     fontWeight: '700',
-    color: colors.textPrimary,
+    textAlign: 'center',
   },
-  emptySubtext: {
-    fontSize: fontSize.xs,
+  emptySubtitle: {
     color: colors.textSecondary,
+    fontSize: fontSize.sm,
+    textAlign: 'center',
+  },
+  resultsList: {
+    paddingHorizontal: spacing.md,
+    paddingBottom: spacing.xxxl,
+    gap: spacing.sm,
   },
   resultCard: {
     flexDirection: 'row',
-    alignItems: 'center',
+    gap: spacing.md,
+    padding: spacing.sm,
+    borderRadius: 14,
     backgroundColor: colors.surface,
-    borderRadius: spacing.sm,
     borderWidth: 1,
     borderColor: colors.border,
-    overflow: 'hidden',
-    gap: spacing.md,
   },
-  resultImage: {
+  resultMedia: {
     width: 72,
     height: 72,
-    backgroundColor: colors.background,
-    justifyContent: 'center',
+    borderRadius: 12,
+    overflow: 'hidden',
     alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.background,
   },
-  resultEmoji: {
-    fontSize: 32,
+  resultImage: {
+    width: '100%',
+    height: '100%',
   },
-  resultInfo: {
+  resultFallback: {
+    color: colors.textSecondary,
+    fontSize: fontSize.md,
+    fontWeight: '800',
+  },
+  resultBody: {
     flex: 1,
-    paddingVertical: spacing.sm,
+    justifyContent: 'center',
     gap: spacing.xs,
   },
   resultHeader: {
@@ -633,49 +638,33 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: spacing.sm,
   },
-  resultName: {
-    fontSize: fontSize.sm,
-    fontWeight: '700',
-    color: colors.textPrimary,
+  resultTitle: {
     flex: 1,
+    color: colors.text,
+    fontSize: fontSize.md,
+    fontWeight: '700',
   },
   openBadge: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: '#10B981',
+    color: colors.text,
+    fontSize: fontSize.xs,
+    fontWeight: '700',
+    backgroundColor: colors.success,
+    borderRadius: 10,
+    overflow: 'hidden',
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 2,
   },
   resultCategory: {
-    fontSize: fontSize.xs,
     color: colors.textSecondary,
+    fontSize: fontSize.sm,
+  },
+  resultMetaRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.sm,
   },
   resultMeta: {
-    flexDirection: 'row',
-    gap: spacing.md,
-  },
-  resultDistance: {
-    fontSize: fontSize.xs,
     color: colors.textSecondary,
-  },
-  resultRating: {
     fontSize: fontSize.xs,
-    fontWeight: '600',
-    color: colors.primary,
-  },
-  mapContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: colors.surface,
-    gap: spacing.md,
-  },
-  mapPlaceholder: {
-    fontSize: fontSize.lg,
-    fontWeight: '700',
-    color: colors.textSecondary,
-  },
-  mapSubtext: {
-    fontSize: fontSize.sm,
-    color: colors.textTertiary,
   },
 });

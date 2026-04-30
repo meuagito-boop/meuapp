@@ -1,3 +1,5 @@
+import { useFocusEffect, useNavigation, ParamListBase } from '@react-navigation/native';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import React, { useState, useCallback } from 'react';
 import {
   StyleSheet,
@@ -9,14 +11,15 @@ import {
   Alert,
   Switch,
 } from 'react-native';
-import { useNavigation, useFocusEffect } from '@react-navigation/native';
+
+
 import { colors } from '@constants/colors';
-import { spacing, fontSize, componentSizes } from '@constants/design';
+import { spacing, fontSize } from '@constants/design';
 
 /**
  * SettingsScreen - T_CONFIG Design Aprovado
- * Hub de controle do usuário com grupos de configuração
- * 5 grupos: Conta, Localidade, Preferências, Sobre, Zona de perigo
+ * Hub de controle do usuÃ¡rio com grupos de configuraÃ§Ã£o
+ * 5 grupos: Conta, Localidade, PreferÃªncias, Sobre, Zona de perigo
  * 17 sub-telas documentadas
  */
 
@@ -40,10 +43,7 @@ interface SettingItem {
 }
 
 export default function SettingsScreen() {
-  const navigation = useNavigation<any>();
-  const [notificationsEnabled, setNotificationsEnabled] = useState(true);
-  const [privacyPublic, setPrivacyPublic] = useState(false);
-  const [alertNewAccess, setAlertNewAccess] = useState(true);
+  const navigation = useNavigation<NativeStackNavigationProp<ParamListBase>>();
   const [gpsEnabled, setGpsEnabled] = useState(true);
 
   useFocusEffect(
@@ -64,13 +64,6 @@ export default function SettingsScreen() {
           type: 'link',
           route: 'SettingsMyAccount',
         },
-        {
-          id: 'linked-accounts',
-          label: 'Contas Vinculadas',
-          subtitle: 'Google e Apple Sign-In',
-          type: 'link',
-          route: 'SettingsLinkedAccounts',
-        },
       ],
     },
     {
@@ -82,18 +75,19 @@ export default function SettingsScreen() {
           label: 'Cidade Atual',
           subtitle: 'Muda o foco de buscas',
           type: 'link',
+          route: 'SettingsCity',
         },
         {
           id: 'search-radius',
           label: 'Raio de Busca',
-          subtitle: '5km padrão',
+          subtitle: '5km padrÃ£o',
           type: 'link',
           route: 'SettingsSearchRadius',
         },
         {
           id: 'gps-permission',
-          label: 'Permissão de GPS',
-          subtitle: 'Usar localização ao buscar',
+          label: 'PermissÃ£o de GPS',
+          subtitle: 'Usar localizaÃ§Ã£o ao buscar',
           type: 'toggle',
           value: gpsEnabled,
           onValueChange: setGpsEnabled,
@@ -102,25 +96,25 @@ export default function SettingsScreen() {
     },
     {
       id: 'preferences',
-      title: 'Preferências',
+      title: 'PreferÃªncias',
       items: [
         {
           id: 'notifications',
-          label: 'Notificações',
-          subtitle: 'Controle tipos de notificações',
+          label: 'NotificaÃ§Ãµes',
+          subtitle: 'Controle tipos de notificaÃ§Ãµes',
           type: 'link',
           route: 'SettingsNotifications',
         },
         {
           id: 'privacy',
           label: 'Privacidade',
-          subtitle: 'Conta pública, mensagens, check-ins',
+          subtitle: 'Conta pÃºblica, mensagens, check-ins',
           type: 'link',
           route: 'SettingsPrivacy',
         },
         {
           id: 'security',
-          label: 'Segurança',
+          label: 'SeguranÃ§a',
           subtitle: 'Senha, 2FA, dispositivos',
           type: 'link',
           route: 'SettingsSecurity',
@@ -128,16 +122,9 @@ export default function SettingsScreen() {
         {
           id: 'language',
           label: 'Idioma',
-          subtitle: 'Português (Brasil)',
+          subtitle: 'PortuguÃªs (Brasil)',
           type: 'link',
           route: 'SettingsLanguage',
-        },
-        {
-          id: 'payments',
-          label: 'Pagamentos',
-          subtitle: 'Em breve',
-          type: 'link',
-          isDanger: false,
         },
       ],
     },
@@ -148,7 +135,7 @@ export default function SettingsScreen() {
         {
           id: 'about-app',
           label: 'Sobre o Meu Agito',
-          subtitle: 'Versão, legal e suporte',
+          subtitle: 'VersÃ£o, legal e suporte',
           type: 'link',
           route: 'SettingsAbout',
         },
@@ -167,7 +154,7 @@ export default function SettingsScreen() {
           onPress: () => {
             Alert.alert(
               'Desativar Conta',
-              'Sua conta será oculta para outros usuários. Você pode reativar ao fazer login novamente.',
+              'Sua conta serÃ¡ oculta para outros usuÃ¡rios. VocÃª pode reativar ao fazer login novamente.',
               [
                 { text: 'Cancelar', style: 'cancel' },
                 {
@@ -182,7 +169,7 @@ export default function SettingsScreen() {
         {
           id: 'delete',
           label: 'Excluir Conta',
-          subtitle: 'Exclusão permanente e irreversível',
+          subtitle: 'ExclusÃ£o permanente e irreversÃ­vel',
           type: 'action',
           isDanger: true,
           onPress: () => {
@@ -239,7 +226,7 @@ export default function SettingsScreen() {
           )}
         </View>
         {item.type === 'link' && (
-          <Text style={styles.chevron}>›</Text>
+          <Text style={styles.chevron}>â€º</Text>
         )}
       </TouchableOpacity>
     );
@@ -262,7 +249,7 @@ export default function SettingsScreen() {
         <View style={styles.logoBox}>
           <Text style={styles.logoText}>M</Text>
         </View>
-        <Text style={styles.title}>Configurações</Text>
+        <Text style={styles.title}>ConfiguraÃ§Ãµes</Text>
         <View style={styles.headerSpacer} />
       </View>
 

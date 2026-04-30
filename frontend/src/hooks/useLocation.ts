@@ -4,7 +4,7 @@
  */
 
 import { useCallback } from 'react';
-import { locationStore } from '@stores/locationStore';
+import { locationStore, type LocationStore } from '@stores/locationStore';
 
 export const useLocation = () => {
   const store = locationStore();
@@ -61,7 +61,7 @@ export const useLocation = () => {
   );
 
   const createEvent = useCallback(
-    async (eventData: any) => {
+    async (eventData: Parameters<LocationStore['createEvent']>[0]) => {
       try {
         await store.createEvent(eventData);
         return { success: true };
@@ -104,7 +104,7 @@ export const useLocation = () => {
     isLoadingEvents: store.isLoadingEvents,
     isLoadingEstablishments: store.isLoadingEstablishments,
     error: store.error,
-    
+
     // Actions
     getUserLocation,
     watchUserLocation,

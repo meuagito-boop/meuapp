@@ -1,0 +1,827 @@
+import React, { useEffect, useMemo, useState } from 'react';
+import {
+  ActivityIndicator,
+  Alert,
+  Image,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from 'react-native';
+import { ParamListBase, RouteProp, useNavigation, useRoute } from '@react-navigation/native';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+
+import { colors } from '@constants/colors';
+import { fontSize, spacing } from '@constants/design';
+import { catalogService, locationService } from '@services/api';
+import type { CatalogProduct } from '@services/api/CatalogService';
+import type { Event } from '@services/api/LocationService';
+
+type ItemTemplate =
+  | 'prato'
+  | 'produto'
+  | 'quarto'
+  | 'plano'
+  | 'procedimento'
+  | 'servico'
+  | 'evento';
+
+type GenericItemPayload = {
+  id: string;
+  name: string;
+  description: string;
+  category: string;
+  price: string;
+  badge?: string;
+  fallbackLabel?: string;
+  imageUrl?: string;
+};
+
+type ItemRouteParams = {
+  template?: ItemTemplate;
+  productId?: string;
+  establishmentId?: string;
+  establishmentName?: string;
+  item?: GenericItemPayload;
+};
+
+const GENERIC_ACTION_BY_TEMPLATE: Record<
+  Exclude<ItemTemplate, 'produto' | 'evento'>,
+  { label: string; info: string }
+> = {
+  servico: {
+    label: 'Agendar',
+    info: 'Disponivel em fase posterior ao MVP atual.',
+  },
+  prato: {
+    label: 'Adicionar ao carrinho',
+    info: 'Pedido e carrinho continuam fora do escopo deste bloco.',
+  },
+  quarto: {
+    label: 'Reservar',
+    info: 'Reservas ainda nao fazem parte do runtime validado.',
+  },
+  plano: {
+    label: 'Assinar',
+    info: 'Assinaturas ainda nao fazem parte do runtime validado.',
+  },
+  procedimento: {
+    label: 'Agendar',
+    info: 'Agendamentos ainda nao fazem parte do runtime validado.',
+  },
+};
+
+const formatPrice = (value?: number | null) => {
+  if (value == null) {
+    return 'Consulte';
+  }
+
+  return `R$ ${value.toFixed(2).replace('.', ',')}`;
+};
+
+const formatEventDate = (value?: string) => {
+  if (!value) {
+    return 'Data nao informada';
+  }
+
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) {
+    return value;
+  }
+
+  return parsed.toLocaleDateString('pt-BR', {
+    weekday: 'long',
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+  });
+};
+
+const formatTimeWindow = (startTime?: string, endTime?: string) => {
+  if (!startTime && !endTime) {
+    return 'Horario nao informado';
+  }
+
+  if (startTime && endTime) {
+    return `${startTime} - ${endTime}`;
+  }
+
+  return startTime || endTime || 'Horario nao informado';
+};
+
+const formatDistance = (distanceKm?: number | null) => {
+  if (distanceKm == null) {
+    return 'Sem distancia';
+  }
+
+  if (distanceKm < 1) {
+    return `${Math.round(distanceKm * 1000)}m`;
+  }
+
+  return `${distanceKm.toFixed(distanceKm < 10 ? 1 : 0)}km`;
+};
+
+export default function ItemScreen() {
+  const navigation = useNavigation<NativeStackNavigationProp<ParamListBase>>();
+  const route = useRoute<RouteProp<ParamListBase, string>>();
+  const routeParams = route.params as ItemRouteParams | undefined;
+
+  const template: ItemTemplate = routeParams?.template ?? 'servico';
+  const genericItem: GenericItemPayload =
+    routeParams?.item ?? {
+      id: 'item-fallback',
+      name: 'Item',
+      description: 'Detalhes indisponiveis.',
+      category: 'Categoria',
+      price: 'Consulte',
+      fallbackLabel: 'ITM',
+    };
+
+  const [expandedDescription, setExpandedDescription] = useState(false);
+  const [product, setProduct] = useState<CatalogProduct | null>(null);
+  const [event, setEvent] = useState<Event | null>(null);
+  const [isLoadingProduct, setIsLoadingProduct] = useState(false);
+  const [isLoadingEvent, setIsLoadingEvent] = useState(false);
+  const [isSubmittingEventAction, setIsSubmittingEventAction] = useState(false);
+  const [productError, setProductError] = useState<string | null>(null);
+  const [eventError, setEventError] = useState<string | null>(null);
+
+  const resolvedProductId = routeParams?.productId ?? genericItem.id;
+  const resolvedEventId = genericItem.id;
+
+  useEffect(() => {
+    setExpandedDescription(false);
+  }, [genericItem.id, resolvedProductId, resolvedEventId, template]);
+
+  useEffect(() => {
+    if (template !== 'produto' || !resolvedProductId) {
+      setProduct(null);
+      setProductError(null);
+      setIsLoadingProduct(false);
+      return;
+    }
+
+    let isMounted = true;
+    setIsLoadingProduct(true);
+    setProductError(null);
+
+    catalogService
+      .getProduct(resolvedProductId)
+      .then((response) => {
+        if (isMounted) {
+          setProduct(response);
+        }
+      })
+      .catch((error: unknown) => {
+        if (!isMounted) {
+          return;
+        }
+
+        const message = error instanceof Error ? error.message : 'Falha ao carregar o produto.';
+        setProductError(message);
+        setProduct(null);
+      })
+      .finally(() => {
+        if (isMounted) {
+          setIsLoadingProduct(false);
+        }
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [resolvedProductId, template]);
+
+  useEffect(() => {
+    if (template !== 'evento' || !resolvedEventId) {
+      setEvent(null);
+      setEventError(null);
+      setIsLoadingEvent(false);
+      return;
+    }
+
+    let isMounted = true;
+    setIsLoadingEvent(true);
+    setEventError(null);
+
+    locationService
+      .getEvent(resolvedEventId)
+      .then((response) => {
+        if (isMounted) {
+          setEvent(response);
+        }
+      })
+      .catch((error: unknown) => {
+        if (!isMounted) {
+          return;
+        }
+
+        const message = error instanceof Error ? error.message : 'Falha ao carregar o evento.';
+        setEventError(message);
+        setEvent(null);
+      })
+      .finally(() => {
+        if (isMounted) {
+          setIsLoadingEvent(false);
+        }
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [resolvedEventId, template]);
+
+  const productEstablishmentId = product?.establishment?.id ?? routeParams?.establishmentId;
+  const productEstablishmentName =
+    product?.establishment?.name ?? routeParams?.establishmentName ?? 'Estabelecimento';
+
+  const productStatusText = useMemo(() => {
+    if (!product) {
+      return '';
+    }
+
+    if (product.status === 'OUT_OF_STOCK') {
+      return 'Sem estoque no momento';
+    }
+
+    if (product.status === 'INACTIVE') {
+      return 'Produto fora da vitrine';
+    }
+
+    return 'Produto ativo na vitrine publica';
+  }, [product]);
+
+  const handleOpenEstablishment = () => {
+    if (!productEstablishmentId) {
+      navigation.goBack();
+      return;
+    }
+
+    navigation.navigate('MainTabs', {
+      screen: 'Profile',
+      params: {
+        type: 'establishment',
+        establishmentId: productEstablishmentId,
+      },
+    });
+  };
+
+  const handleGenericAction = () => {
+    if (template === 'produto' || template === 'evento') {
+      return;
+    }
+
+    const action = GENERIC_ACTION_BY_TEMPLATE[template];
+    Alert.alert('Fluxo fora do MVP atual', action.info);
+  };
+
+  const handleEventAction = async () => {
+    if (!event) {
+      return;
+    }
+
+    setIsSubmittingEventAction(true);
+
+    try {
+      const response = event.isAttending
+        ? await locationService.cancelAttendance(event.id)
+        : await locationService.attendEvent(event.id);
+
+      setEvent((current) =>
+        current
+          ? {
+              ...current,
+              isAttending: !current.isAttending,
+              attendeesCount: response.attendeeCount,
+              attendees: response.attendeeCount,
+            }
+          : current,
+      );
+
+      Alert.alert(
+        event.isAttending ? 'Presenca cancelada' : 'Presenca confirmada',
+        response.message,
+      );
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Falha ao atualizar presenca.';
+
+      if (message.toLowerCase().includes('already attending')) {
+        setEvent((current) =>
+          current
+            ? {
+                ...current,
+                isAttending: true,
+              }
+            : current,
+        );
+      }
+
+      Alert.alert('Falha ao atualizar presenca', message);
+    } finally {
+      setIsSubmittingEventAction(false);
+    }
+  };
+
+  const renderHeader = (title: string) => (
+    <View style={styles.header}>
+      <TouchableOpacity style={styles.circleButton} onPress={() => navigation.goBack()}>
+        <Text style={styles.circleIcon}>{'<'}</Text>
+      </TouchableOpacity>
+
+      <Text numberOfLines={1} style={styles.headerTitle}>
+        {title}
+      </Text>
+
+      <View style={styles.headerGhost} />
+    </View>
+  );
+
+  if (template === 'produto') {
+    if (isLoadingProduct) {
+      return (
+        <View style={styles.centerState}>
+          <ActivityIndicator size="large" color={colors.primary} />
+          <Text style={styles.centerText}>Carregando produto da vitrine...</Text>
+        </View>
+      );
+    }
+
+    if (productError || !product) {
+      return (
+        <View style={styles.centerState}>
+          <Text style={styles.errorTitle}>Produto indisponivel</Text>
+          <Text style={styles.centerText}>
+            {productError || 'Nao foi possivel carregar este item.'}
+          </Text>
+          <TouchableOpacity style={styles.primaryAction} onPress={() => navigation.goBack()}>
+            <Text style={styles.primaryActionText}>Voltar</Text>
+          </TouchableOpacity>
+        </View>
+      );
+    }
+
+    return (
+      <View style={styles.container}>
+        {renderHeader(product.name)}
+
+        <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+          <View style={styles.gallery}>
+            {product.imageUrl || product.mainImageUrl ? (
+              <Image
+                source={{ uri: product.imageUrl || product.mainImageUrl || undefined }}
+                resizeMode="cover"
+                style={styles.galleryImage}
+              />
+            ) : (
+              <Text style={styles.galleryFallback}>PRD</Text>
+            )}
+          </View>
+
+          <Text style={styles.itemName}>{product.name}</Text>
+          <Text style={styles.itemCategory}>{product.category || 'Produto'}</Text>
+
+          {product.description ? (
+            <>
+              <Text style={styles.itemDescription} numberOfLines={expandedDescription ? undefined : 4}>
+                {product.description}
+              </Text>
+              {product.description.length > 180 ? (
+                <TouchableOpacity onPress={() => setExpandedDescription((current) => !current)}>
+                  <Text style={styles.linkText}>{expandedDescription ? 'Ver menos' : 'Ver mais'}</Text>
+                </TouchableOpacity>
+              ) : null}
+            </>
+          ) : (
+            <Text style={styles.itemDescription}>Sem descricao publicada para este item.</Text>
+          )}
+
+          <TouchableOpacity style={styles.sectionCard} onPress={handleOpenEstablishment}>
+            <Text style={styles.sectionLabel}>Estabelecimento</Text>
+            <Text style={styles.sectionValue}>{productEstablishmentName}</Text>
+          </TouchableOpacity>
+
+          <View style={styles.priceCard}>
+            <Text style={styles.sectionLabel}>Preco publico</Text>
+            <Text style={styles.priceValue}>{formatPrice(product.price)}</Text>
+          </View>
+
+          <View style={styles.sectionCard}>
+            <Text style={styles.sectionLabel}>Status da vitrine</Text>
+            <Text style={styles.sectionText}>{productStatusText}</Text>
+          </View>
+
+          <View style={styles.sectionCard}>
+            <Text style={styles.sectionLabel}>Escopo atual</Text>
+            <Text style={styles.sectionText}>
+              Este fluxo mostra o produto publico e o vinculo com a pagina do estabelecimento.
+              Pedido, carrinho e pagamento continuam fora do escopo deste bloco.
+            </Text>
+          </View>
+
+          <View style={styles.bottomSpacer} />
+        </ScrollView>
+
+        <View style={styles.actionFooter}>
+          <TouchableOpacity style={styles.primaryAction} onPress={handleOpenEstablishment}>
+            <Text style={styles.primaryActionText}>Ver estabelecimento</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    );
+  }
+
+  if (template === 'evento') {
+    if (isLoadingEvent) {
+      return (
+        <View style={styles.centerState}>
+          <ActivityIndicator size="large" color={colors.primary} />
+          <Text style={styles.centerText}>Carregando evento...</Text>
+        </View>
+      );
+    }
+
+    if (eventError || !event) {
+      return (
+        <View style={styles.centerState}>
+          <Text style={styles.errorTitle}>Evento indisponivel</Text>
+          <Text style={styles.centerText}>{eventError || 'Nao foi possivel carregar este evento.'}</Text>
+          <TouchableOpacity style={styles.primaryAction} onPress={() => navigation.goBack()}>
+            <Text style={styles.primaryActionText}>Voltar</Text>
+          </TouchableOpacity>
+        </View>
+      );
+    }
+
+    const eventTitle = event.name || event.title;
+    const eventDate = formatEventDate(event.date || event.startDate);
+    const eventTime = formatTimeWindow(event.startTime, event.endTime);
+    const eventLocation =
+      event.address.trim().length > 0
+        ? event.address
+        : `${event.latitude.toFixed(5)}, ${event.longitude.toFixed(5)}`;
+
+    return (
+      <View style={styles.container}>
+        {renderHeader(eventTitle)}
+
+        <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+          <View style={styles.gallery}>
+            {event.image ? (
+              <Image source={{ uri: event.image }} resizeMode="cover" style={styles.galleryImage} />
+            ) : (
+              <Text style={styles.galleryFallback}>EVT</Text>
+            )}
+          </View>
+
+          <Text style={styles.itemName}>{eventTitle}</Text>
+          <Text style={styles.itemCategory}>{event.category || 'Evento'}</Text>
+
+          <Text style={styles.itemDescription} numberOfLines={expandedDescription ? undefined : 4}>
+            {event.description || 'Evento sem descricao publicada.'}
+          </Text>
+          {event.description && event.description.length > 180 ? (
+            <TouchableOpacity onPress={() => setExpandedDescription((current) => !current)}>
+              <Text style={styles.linkText}>{expandedDescription ? 'Ver menos' : 'Ver mais'}</Text>
+            </TouchableOpacity>
+          ) : null}
+
+          <View style={styles.metricsGrid}>
+            <View style={styles.metricCard}>
+              <Text style={styles.metricLabel}>Data</Text>
+              <Text style={styles.metricValue}>{eventDate}</Text>
+            </View>
+            <View style={styles.metricCard}>
+              <Text style={styles.metricLabel}>Horario</Text>
+              <Text style={styles.metricValue}>{eventTime}</Text>
+            </View>
+            <View style={styles.metricCard}>
+              <Text style={styles.metricLabel}>Presencas</Text>
+              <Text style={styles.metricValue}>{event.attendeesCount}</Text>
+            </View>
+            <View style={styles.metricCard}>
+              <Text style={styles.metricLabel}>Distancia</Text>
+              <Text style={styles.metricValue}>{formatDistance(event.distanceKm)}</Text>
+            </View>
+          </View>
+
+          <View style={styles.sectionCard}>
+            <Text style={styles.sectionLabel}>Organizacao</Text>
+            <Text style={styles.sectionValue}>{event.organizer?.name || event.creator.name}</Text>
+          </View>
+
+          <View style={styles.sectionCard}>
+            <Text style={styles.sectionLabel}>Local</Text>
+            <Text style={styles.sectionText}>{eventLocation}</Text>
+          </View>
+
+          <View style={styles.sectionCard}>
+            <Text style={styles.sectionLabel}>Capacidade</Text>
+            <Text style={styles.sectionText}>
+              {event.maxAttendees
+                ? `${event.attendeesCount} / ${event.maxAttendees} confirmados`
+                : `${event.attendeesCount} confirmados ate agora`}
+            </Text>
+          </View>
+
+          <View style={styles.sectionCard}>
+            <Text style={styles.sectionLabel}>Escopo atual</Text>
+            <Text style={styles.sectionText}>
+              Este fluxo usa a API real de eventos para detalhe e confirmacao de presenca. A
+              deteccao antecipada de presenca ja existente ainda depende de um endpoint autenticado
+              dedicado no backend.
+            </Text>
+          </View>
+
+          <View style={styles.bottomSpacer} />
+        </ScrollView>
+
+        <View style={styles.actionFooter}>
+          <TouchableOpacity
+            style={[
+              styles.primaryAction,
+              event.isAttending ? styles.secondaryAction : null,
+              isSubmittingEventAction ? styles.primaryActionDisabled : null,
+            ]}
+            disabled={isSubmittingEventAction}
+            onPress={handleEventAction}
+          >
+            <Text
+              style={[
+                styles.primaryActionText,
+                event.isAttending ? styles.secondaryActionText : null,
+              ]}
+            >
+              {isSubmittingEventAction
+                ? 'Atualizando...'
+                : event.isAttending
+                ? 'Cancelar presenca'
+                : 'Confirmar presenca'}
+            </Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    );
+  }
+
+  const genericAction = GENERIC_ACTION_BY_TEMPLATE[template];
+
+  return (
+    <View style={styles.container}>
+      {renderHeader(genericItem.name)}
+
+      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+        <View style={styles.gallery}>
+          {genericItem.imageUrl ? (
+            <Image source={{ uri: genericItem.imageUrl }} resizeMode="cover" style={styles.galleryImage} />
+          ) : (
+            <Text style={styles.galleryFallback}>{genericItem.fallbackLabel || 'ITM'}</Text>
+          )}
+          {genericItem.badge ? <Text style={styles.galleryBadge}>{genericItem.badge}</Text> : null}
+        </View>
+
+        <Text style={styles.itemName}>{genericItem.name}</Text>
+        <Text style={styles.itemCategory}>{genericItem.category}</Text>
+        <Text style={styles.itemDescription}>{genericItem.description}</Text>
+
+        <View style={styles.priceCard}>
+          <Text style={styles.sectionLabel}>Preco</Text>
+          <Text style={styles.priceValue}>{genericItem.price}</Text>
+        </View>
+
+        <View style={styles.sectionCard}>
+          <Text style={styles.sectionLabel}>Fluxo atual</Text>
+          <Text style={styles.sectionText}>{genericAction.info}</Text>
+        </View>
+
+        <View style={styles.bottomSpacer} />
+      </ScrollView>
+
+      <View style={styles.actionFooter}>
+        <TouchableOpacity style={styles.primaryAction} onPress={handleGenericAction}>
+          <Text style={styles.primaryActionText}>{genericAction.label}</Text>
+        </TouchableOpacity>
+      </View>
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: colors.background,
+  },
+  centerState: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: spacing.xl,
+    gap: spacing.md,
+    backgroundColor: colors.background,
+  },
+  centerText: {
+    color: colors.textSecondary,
+    fontSize: fontSize.sm,
+    textAlign: 'center',
+    lineHeight: 18,
+  },
+  errorTitle: {
+    color: colors.text,
+    fontSize: fontSize.lg,
+    fontWeight: '700',
+    textAlign: 'center',
+  },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+  },
+  circleButton: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  circleIcon: {
+    color: colors.text,
+    fontSize: fontSize.md,
+    fontWeight: '700',
+  },
+  headerTitle: {
+    flex: 1,
+    color: colors.text,
+    fontSize: fontSize.sm,
+    fontWeight: '700',
+    textAlign: 'center',
+  },
+  headerGhost: {
+    width: 34,
+    height: 34,
+  },
+  content: {
+    paddingHorizontal: spacing.md,
+    paddingBottom: spacing.xxxl,
+    gap: spacing.md,
+  },
+  gallery: {
+    marginTop: spacing.md,
+    minHeight: 240,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
+    justifyContent: 'center',
+    alignItems: 'center',
+    overflow: 'hidden',
+  },
+  galleryImage: {
+    width: '100%',
+    height: '100%',
+  },
+  galleryFallback: {
+    color: colors.textSecondary,
+    fontSize: fontSize.lg,
+    fontWeight: '800',
+  },
+  galleryBadge: {
+    position: 'absolute',
+    top: spacing.sm,
+    right: spacing.sm,
+    color: colors.text,
+    backgroundColor: colors.primary,
+    borderRadius: 10,
+    overflow: 'hidden',
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 2,
+    fontSize: fontSize.xs,
+    fontWeight: '700',
+  },
+  itemName: {
+    color: colors.text,
+    fontSize: fontSize.huge,
+    fontWeight: '800',
+  },
+  itemCategory: {
+    color: colors.textSecondary,
+    fontSize: fontSize.sm,
+    textTransform: 'capitalize',
+  },
+  itemDescription: {
+    color: colors.textSecondary,
+    fontSize: fontSize.sm,
+    lineHeight: 21,
+  },
+  linkText: {
+    color: colors.primary,
+    fontSize: fontSize.sm,
+    fontWeight: '700',
+  },
+  metricsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.md,
+  },
+  metricCard: {
+    flexBasis: '47%',
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 12,
+    backgroundColor: colors.surface,
+    padding: spacing.md,
+    gap: spacing.xs,
+  },
+  metricLabel: {
+    color: colors.textTertiary,
+    fontSize: fontSize.xs,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+  },
+  metricValue: {
+    color: colors.text,
+    fontSize: fontSize.sm,
+    fontWeight: '600',
+    textTransform: 'capitalize',
+  },
+  priceCard: {
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 12,
+    backgroundColor: colors.surface,
+    padding: spacing.md,
+    gap: spacing.xs,
+  },
+  sectionCard: {
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 12,
+    backgroundColor: colors.surface,
+    padding: spacing.md,
+    gap: spacing.sm,
+  },
+  sectionLabel: {
+    color: colors.textTertiary,
+    fontSize: fontSize.xs,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+  },
+  sectionValue: {
+    color: colors.primary,
+    fontSize: fontSize.sm,
+    fontWeight: '700',
+  },
+  sectionText: {
+    color: colors.textSecondary,
+    fontSize: fontSize.sm,
+    lineHeight: 18,
+  },
+  priceValue: {
+    color: colors.primary,
+    fontSize: fontSize.huge,
+    fontWeight: '800',
+  },
+  bottomSpacer: {
+    height: 70,
+  },
+  actionFooter: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+    backgroundColor: colors.background,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.md,
+  },
+  primaryAction: {
+    minHeight: 48,
+    borderRadius: 12,
+    backgroundColor: colors.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  secondaryAction: {
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  primaryActionDisabled: {
+    opacity: 0.7,
+  },
+  primaryActionText: {
+    color: colors.text,
+    fontSize: fontSize.md,
+    fontWeight: '700',
+  },
+  secondaryActionText: {
+    color: colors.primary,
+  },
+});

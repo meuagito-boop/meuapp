@@ -1,0 +1,547 @@
+import React, { useEffect, useMemo, useState } from 'react';
+import {
+  ActivityIndicator,
+  FlatList,
+  Image,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from 'react-native';
+import { ParamListBase, RouteProp, useNavigation, useRoute } from '@react-navigation/native';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+
+import { colors } from '@constants/colors';
+import { fontSize, spacing } from '@constants/design';
+import { catalogService } from '@services/api';
+import type { CatalogProduct } from '@services/api/CatalogService';
+
+type CatalogTemplate =
+  | 'prato'
+  | 'produto'
+  | 'quarto'
+  | 'plano'
+  | 'procedimento'
+  | 'servico'
+  | 'evento';
+
+type CatalogItem = {
+  id: string;
+  name: string;
+  description: string;
+  category: string;
+  price: string;
+  badge?: string;
+  fallbackLabel: string;
+  imageUrl?: string;
+};
+
+type CatalogRouteParams = {
+  template?: CatalogTemplate;
+  establishmentId?: string;
+  establishmentName?: string;
+};
+
+const TEMPLATE_LABEL: Record<CatalogTemplate, string> = {
+  prato: 'Cardapio',
+  produto: 'Vitrine publica',
+  quarto: 'Quartos disponiveis',
+  plano: 'Planos',
+  procedimento: 'Procedimentos',
+  servico: 'Servicos',
+  evento: 'Eventos',
+};
+
+const MOCK_CATALOGS: Record<CatalogTemplate, CatalogItem[]> = {
+  prato: [
+    {
+      id: 'dish-1',
+      name: 'Pizza Margherita',
+      description: 'Molho artesanal, mozzarella e manjericao.',
+      category: 'Pratos',
+      price: 'R$ 49,90',
+      badge: 'Mais pedido',
+      fallbackLabel: 'PZA',
+    },
+  ],
+  produto: [],
+  quarto: [
+    {
+      id: 'room-1',
+      name: 'Suite Deluxe',
+      description: 'Vista especial e cafe da manha incluso.',
+      category: 'Deluxe',
+      price: 'R$ 420 / noite',
+      badge: 'Disponivel',
+      fallbackLabel: 'BED',
+    },
+  ],
+  plano: [
+    {
+      id: 'plan-1',
+      name: 'Plano anual',
+      description: 'Acesso total e economia anual.',
+      category: 'Anual',
+      price: 'R$ 99 / mes',
+      badge: 'Mais escolhido',
+      fallbackLabel: 'SUB',
+    },
+  ],
+  procedimento: [
+    {
+      id: 'proc-1',
+      name: 'Consulta dermatologica',
+      description: 'Avaliacao completa com especialista.',
+      category: 'Consultas',
+      price: 'R$ 180,00',
+      fallbackLabel: 'MED',
+    },
+  ],
+  servico: [
+    {
+      id: 'service-1',
+      name: 'Corte + barba',
+      description: 'Pacote completo com finalizacao.',
+      category: 'Combos',
+      price: 'R$ 75,00',
+      fallbackLabel: 'CUT',
+    },
+  ],
+  evento: [
+    {
+      id: 'event-1',
+      name: 'Noite de rock',
+      description: 'Bandas locais ao vivo.',
+      category: 'Shows',
+      price: 'R$ 35,00',
+      badge: 'Hoje',
+      fallbackLabel: 'EVT',
+    },
+  ],
+};
+
+const CATEGORY_LABELS_BY_TEMPLATE: Record<CatalogTemplate, string[]> = {
+  prato: ['Todos', 'Entradas', 'Pratos', 'Sobremesas', 'Bebidas'],
+  produto: ['Todos'],
+  quarto: ['Todos', 'Standard', 'Deluxe', 'Suite'],
+  plano: ['Todos', 'Mensal', 'Anual'],
+  procedimento: ['Todos', 'Consultas', 'Estetica'],
+  servico: ['Todos', 'Cortes', 'Barba', 'Combos'],
+  evento: ['Todos', 'Hoje', 'Shows'],
+};
+
+const formatPrice = (value?: number | null) => {
+  if (value == null) {
+    return 'Consulte';
+  }
+
+  return `R$ ${value.toFixed(2).replace('.', ',')}`;
+};
+
+const mapProductToCatalogItem = (product: CatalogProduct): CatalogItem => ({
+  id: product.id,
+  name: product.name,
+  description: product.description || 'Sem descricao publicada.',
+  category: product.category || 'Produto',
+  price: formatPrice(product.price),
+  badge: product.status === 'OUT_OF_STOCK' ? 'Sem estoque' : undefined,
+  fallbackLabel: 'PRD',
+  imageUrl: product.imageUrl || product.mainImageUrl || undefined,
+});
+
+export default function CatalogScreen() {
+  const navigation = useNavigation<NativeStackNavigationProp<ParamListBase>>();
+  const route = useRoute<RouteProp<ParamListBase, string>>();
+  const routeParams = route.params as CatalogRouteParams | undefined;
+
+  const establishmentId = routeParams?.establishmentId;
+  const establishmentName = routeParams?.establishmentName ?? 'Estabelecimento';
+  const remoteMode = Boolean(establishmentId);
+  const template: CatalogTemplate = remoteMode ? 'produto' : routeParams?.template ?? 'servico';
+
+  const [query, setQuery] = useState('');
+  const [activeCategory, setActiveCategory] = useState('Todos');
+  const [items, setItems] = useState<CatalogItem[]>(remoteMode ? [] : MOCK_CATALOGS[template]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!remoteMode || !establishmentId) {
+      setItems(MOCK_CATALOGS[template]);
+      setIsLoading(false);
+      setLoadError(null);
+      return;
+    }
+
+    let isMounted = true;
+    setIsLoading(true);
+    setLoadError(null);
+
+    catalogService
+      .getEstablishmentProducts(establishmentId)
+      .then((products) => {
+        if (!isMounted) {
+          return;
+        }
+
+        setItems(products.map(mapProductToCatalogItem));
+      })
+      .catch((error: unknown) => {
+        if (!isMounted) {
+          return;
+        }
+
+        const message = error instanceof Error ? error.message : 'Falha ao carregar a vitrine.';
+        setLoadError(message);
+        setItems([]);
+      })
+      .finally(() => {
+        if (isMounted) {
+          setIsLoading(false);
+        }
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [establishmentId, remoteMode, template]);
+
+  const categories = useMemo(() => {
+    if (!remoteMode) {
+      return CATEGORY_LABELS_BY_TEMPLATE[template];
+    }
+
+    const dynamicCategories = Array.from(
+      new Set(items.map((item) => item.category).filter((category) => category.trim().length > 0))
+    );
+
+    return ['Todos', ...dynamicCategories];
+  }, [items, remoteMode, template]);
+
+  useEffect(() => {
+    if (!categories.includes(activeCategory)) {
+      setActiveCategory('Todos');
+    }
+  }, [activeCategory, categories]);
+
+  const filteredItems = useMemo(() => {
+    const normalizedQuery = query.trim().toLowerCase();
+
+    return items.filter((item) => {
+      const categoryMatches = activeCategory === 'Todos' || item.category === activeCategory;
+      const queryMatches =
+        normalizedQuery.length === 0 ||
+        item.name.toLowerCase().includes(normalizedQuery) ||
+        item.description.toLowerCase().includes(normalizedQuery);
+
+      return categoryMatches && queryMatches;
+    });
+  }, [activeCategory, items, query]);
+
+  return (
+    <View style={styles.container}>
+      <View style={styles.header}>
+        <TouchableOpacity style={styles.circleButton} onPress={() => navigation.goBack()}>
+          <Text style={styles.circleIcon}>{'<'}</Text>
+        </TouchableOpacity>
+
+        <View style={styles.headerTitles}>
+          <Text style={styles.headerTitle} numberOfLines={1}>
+            {establishmentName}
+          </Text>
+          <Text style={styles.headerSubtitle}>{TEMPLATE_LABEL[template]}</Text>
+        </View>
+
+        <View style={styles.circleButton}>
+          <Text style={styles.circleIcon}>SHR</Text>
+        </View>
+      </View>
+
+      <View style={styles.searchContainer}>
+        <Text style={styles.searchIcon}>SRC</Text>
+        <TextInput
+          value={query}
+          onChangeText={setQuery}
+          placeholder={`Buscar em ${TEMPLATE_LABEL[template].toLowerCase()}`}
+          placeholderTextColor={colors.textTertiary}
+          style={styles.searchInput}
+        />
+        {query.length > 0 ? (
+          <TouchableOpacity onPress={() => setQuery('')}>
+            <Text style={styles.clearSearch}>X</Text>
+          </TouchableOpacity>
+        ) : null}
+      </View>
+
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.chipsRow}
+      >
+        {categories.map((category) => {
+          const active = category === activeCategory;
+          return (
+            <TouchableOpacity
+              key={category}
+              style={[styles.chip, active && styles.chipActive]}
+              onPress={() => setActiveCategory(category)}
+            >
+              <Text style={[styles.chipText, active && styles.chipTextActive]}>{category}</Text>
+            </TouchableOpacity>
+          );
+        })}
+      </ScrollView>
+
+      {isLoading ? (
+        <View style={styles.emptyState}>
+          <ActivityIndicator size="large" color={colors.primary} />
+          <Text style={styles.emptySubtitle}>Carregando vitrine publica...</Text>
+        </View>
+      ) : loadError ? (
+        <View style={styles.emptyState}>
+          <Text style={styles.emptyTitle}>Falha ao carregar</Text>
+          <Text style={styles.emptySubtitle}>{loadError}</Text>
+        </View>
+      ) : filteredItems.length === 0 ? (
+        <View style={styles.emptyState}>
+          <Text style={styles.emptyTitle}>
+            {remoteMode ? 'Nenhum item publicado' : 'Nenhum item encontrado'}
+          </Text>
+          <Text style={styles.emptySubtitle}>
+            {remoteMode
+              ? 'A vitrine publica deste estabelecimento ainda nao possui produtos ativos.'
+              : 'Ajuste o termo da busca ou limpe os filtros atuais.'}
+          </Text>
+        </View>
+      ) : (
+        <FlatList
+          data={filteredItems}
+          keyExtractor={(item) => item.id}
+          contentContainerStyle={styles.listContent}
+          renderItem={({ item }) => (
+            <TouchableOpacity
+              style={styles.itemCard}
+              activeOpacity={0.85}
+              onPress={() =>
+                navigation.navigate('Item', {
+                  template,
+                  productId: item.id,
+                  establishmentId,
+                  establishmentName,
+                  item,
+                })
+              }
+            >
+              <View style={styles.itemMediaContainer}>
+                {item.imageUrl ? (
+                  <Image source={{ uri: item.imageUrl }} resizeMode="cover" style={styles.itemImage} />
+                ) : (
+                  <Text style={styles.itemFallback}>{item.fallbackLabel}</Text>
+                )}
+              </View>
+
+              <View style={styles.itemBody}>
+                <Text style={styles.itemName}>{item.name}</Text>
+                <Text style={styles.itemDescription} numberOfLines={2}>
+                  {item.description}
+                </Text>
+                <View style={styles.itemFooter}>
+                  <Text style={styles.itemPrice}>{item.price}</Text>
+                  {item.badge ? <Text style={styles.itemBadge}>{item.badge}</Text> : null}
+                </View>
+              </View>
+            </TouchableOpacity>
+          )}
+        />
+      )}
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: colors.background,
+  },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    gap: spacing.md,
+  },
+  circleButton: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  circleIcon: {
+    color: colors.text,
+    fontSize: fontSize.md,
+    fontWeight: '700',
+  },
+  headerTitles: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  headerTitle: {
+    color: colors.text,
+    fontSize: fontSize.md,
+    fontWeight: '700',
+  },
+  headerSubtitle: {
+    color: colors.textSecondary,
+    fontSize: fontSize.xs,
+    marginTop: 2,
+  },
+  searchContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    margin: spacing.md,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 12,
+    backgroundColor: colors.surface,
+    paddingHorizontal: spacing.md,
+    gap: spacing.sm,
+  },
+  searchIcon: {
+    color: colors.textSecondary,
+    fontSize: fontSize.sm,
+    fontWeight: '700',
+  },
+  searchInput: {
+    flex: 1,
+    color: colors.text,
+    fontSize: fontSize.sm,
+    paddingVertical: spacing.md,
+  },
+  clearSearch: {
+    color: colors.textSecondary,
+    fontSize: fontSize.sm,
+    fontWeight: '700',
+  },
+  chipsRow: {
+    paddingHorizontal: spacing.md,
+    paddingBottom: spacing.sm,
+    gap: spacing.sm,
+  },
+  chip: {
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 16,
+    backgroundColor: colors.surface,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+  },
+  chipActive: {
+    borderColor: colors.primary,
+    backgroundColor: '#1A0F05',
+  },
+  chipText: {
+    color: colors.textSecondary,
+    fontSize: fontSize.xs,
+    fontWeight: '600',
+  },
+  chipTextActive: {
+    color: colors.primary,
+  },
+  listContent: {
+    paddingHorizontal: spacing.md,
+    paddingBottom: spacing.xxxl,
+    gap: spacing.sm,
+  },
+  itemCard: {
+    flexDirection: 'row',
+    backgroundColor: colors.surface,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: colors.border,
+    padding: spacing.sm,
+    gap: spacing.md,
+  },
+  itemMediaContainer: {
+    width: 76,
+    height: 76,
+    borderRadius: 10,
+    overflow: 'hidden',
+    backgroundColor: colors.background,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  itemImage: {
+    width: '100%',
+    height: '100%',
+  },
+  itemFallback: {
+    color: colors.textSecondary,
+    fontSize: fontSize.sm,
+    fontWeight: '800',
+  },
+  itemBody: {
+    flex: 1,
+    gap: spacing.xs,
+    justifyContent: 'center',
+  },
+  itemName: {
+    color: colors.text,
+    fontSize: fontSize.md,
+    fontWeight: '700',
+  },
+  itemDescription: {
+    color: colors.textSecondary,
+    fontSize: fontSize.xs,
+    lineHeight: 18,
+  },
+  itemFooter: {
+    marginTop: spacing.xs,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  itemPrice: {
+    color: colors.primary,
+    fontSize: fontSize.sm,
+    fontWeight: '700',
+  },
+  itemBadge: {
+    color: colors.text,
+    backgroundColor: '#2E1405',
+    borderColor: colors.primary,
+    borderWidth: 1,
+    borderRadius: 10,
+    overflow: 'hidden',
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 2,
+    fontSize: fontSize.xs,
+    fontWeight: '700',
+  },
+  emptyState: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: spacing.lg,
+    gap: spacing.sm,
+  },
+  emptyTitle: {
+    color: colors.text,
+    fontSize: fontSize.lg,
+    fontWeight: '700',
+    textAlign: 'center',
+  },
+  emptySubtitle: {
+    color: colors.textSecondary,
+    fontSize: fontSize.sm,
+    textAlign: 'center',
+    lineHeight: 18,
+  },
+});

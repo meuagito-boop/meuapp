@@ -1,160 +1,116 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
-  StyleSheet,
-  View,
-  Text,
-  ScrollView,
-  TouchableOpacity,
+  Alert,
   KeyboardAvoidingView,
   Platform,
-  Alert,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
-import { useAuth } from '@hooks/useAuth';
-import { Button, Input, Loading } from '@components';
+import { ParamListBase, useNavigation } from '@react-navigation/native';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+
+import { Button, Input } from '@components';
 import { colors } from '@constants/colors';
-import { spacing, fontSize, componentSizes } from '@constants/design';
+import { componentSizes, fontSize, spacing } from '@constants/design';
+import { useAuth } from '@hooks/useAuth';
+import { openLegalDocument } from '@services/legal/LegalLinks';
 
-/**
- * LoginScreen - T03 Design Approve
- * Métodos: Google · Apple (iOS) · Telefone · Email/Senha
- * Validações LGPD compliantes, rate limiting, termos obrigatórios
- */
 export default function LoginScreen() {
-  const navigation = useNavigation();
-  const { login, isLoading, error, clearError, require2FA, tempEmail } = useAuth();
+  const navigation = useNavigation<NativeStackNavigationProp<ParamListBase>>();
+  const { login, error, clearError, require2FA, tempEmail } = useAuth();
 
-  // Form state
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [emailError, setEmailError] = useState('');
   const [passwordError, setPasswordError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Validar email em tempo real
   const validateEmail = (text: string) => {
     setEmail(text);
     if (text && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(text)) {
-      setEmailError('Digite um e-mail válido');
-    } else {
-      setEmailError('');
+      setEmailError('Digite um e-mail valido');
+      return;
     }
+
+    setEmailError('');
   };
 
-  // Limpar erro ao digitar
   const handlePasswordChange = (text: string) => {
     setPassword(text);
     setPasswordError('');
-    if (error) clearError();
+    if (error) {
+      clearError();
+    }
   };
 
-  // Login com email/senha
   const handleEmailLogin = async () => {
-    // Validação preliminar
     if (!email.trim()) {
-      setEmailError('O e-mail é obrigatório');
+      setEmailError('O e-mail e obrigatorio');
       return;
     }
-    if (emailError) return;
+
+    if (emailError) {
+      return;
+    }
+
     if (!password) {
-      setPasswordError('A senha é obrigatória');
+      setPasswordError('A senha e obrigatoria');
       return;
     }
+
     if (password.length < 8) {
       setPasswordError('A senha deve ter pelo menos 8 caracteres');
       return;
     }
 
     setIsSubmitting(true);
-    const result = await login(email, password);
+    const result = await login(email.trim().toLowerCase(), password);
 
     if (!result.success) {
-      // Erro genérico por segurança (SEC)
       Alert.alert('Erro', 'E-mail ou senha incorretos');
       setPassword('');
-    } else if (require2FA) {
-      // 2FA necessário
-      navigation.navigate('TwoFA' as never, { email: tempEmail } as never);
-    } else {
-      // Login bem-sucedido
-      navigation.navigate('Home' as never);
     }
 
     setIsSubmitting(false);
   };
 
-  // Se já requer 2FA, skip desta tela
   useEffect(() => {
     if (require2FA && tempEmail) {
-      navigation.navigate('TwoFA' as never, { email: tempEmail } as never);
+      navigation.navigate('TwoFactorLogin' as never);
     }
-  }, [require2FA, tempEmail, navigation]);
+  }, [navigation, require2FA, tempEmail]);
 
   return (
     <KeyboardAvoidingView
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       style={styles.container}
     >
-      <ScrollView
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-      >
-        {/* Logo */}
+      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         <View style={styles.logoContainer}>
           <Text style={styles.logoText}>M</Text>
         </View>
 
-        {/* Título */}
         <Text style={styles.title}>Entre ou crie sua conta</Text>
-        <Text style={styles.subtitle}>
-          Descubra o que está rolando na sua cidade
-        </Text>
+        <Text style={styles.subtitle}>Descubra o que esta rolando na sua cidade</Text>
 
-        {/* Botões Sociais */}
-        <View style={styles.socialContainer}>
-          {/* Google */}
-          <Button
-            label="Continuar com Google"
-            onPress={() => {
-              Alert.alert('Em Breve', 'Google Sign-In será implementado');
-            }}
-            variant="secondary"
-            fullWidth
-            style={{ marginBottom: spacing.md }}
-          />
-
-          {/* Apple (iOS only) */}
-          {Platform.OS === 'ios' && (
-            <Button
-              label="Continuar com Apple"
-              onPress={() => {
-                Alert.alert('Em Breve', 'Apple Sign-In será implementado');
-              }}
-              variant="secondary"
-              fullWidth
-              style={{ marginBottom: spacing.md }}
-            />
-          )}
-
-          {/* Telefone */}
-          <Button
-            label="Continuar com telefone"
-            onPress={() => navigation.navigate('SMSLogin' as never)}
-            variant="ghost"
-            fullWidth
-            style={{ marginBottom: spacing.xl }}
-          />
+        <View style={styles.authScopeCard}>
+          <Text style={styles.authScopeTitle}>Acesso validado neste build</Text>
+          <Text style={styles.authScopeText}>
+            O fluxo publico atual usa e-mail e senha. Se sua conta tiver 2FA habilitado, o app
+            continua com o desafio do autenticador na etapa seguinte.
+          </Text>
         </View>
 
-        {/* Divisor */}
         <View style={styles.dividerContainer}>
           <View style={styles.dividerLine} />
-          <Text style={styles.dividerText}>ou continue com e-mail</Text>
+          <Text style={styles.dividerText}>continuar com e-mail</Text>
           <View style={styles.dividerLine} />
         </View>
 
-        {/* Form Email/Senha */}
-        <View style={{ marginTop: spacing.xxl }}>
+        <View style={styles.formSection}>
           <Input
             label="Email"
             placeholder="seu@email.com"
@@ -168,61 +124,68 @@ export default function LoginScreen() {
 
           <Input
             label="Senha"
-            placeholder="••••••••"
+            placeholder="********"
             value={password}
             onChangeText={handlePasswordChange}
             isPassword
             editable={!isSubmitting}
-            error={passwordError || error}
+            error={passwordError || error || undefined}
           />
 
-          {/* Erro genérico de autenticação */}
-          {error && !emailError && !passwordError && (
+          {error && !emailError && !passwordError ? (
             <Text style={styles.errorMessage}>{error}</Text>
-          )}
+          ) : null}
         </View>
 
-        {/* Botão Entrar */}
         <Button
           label="Entrar"
           onPress={handleEmailLogin}
-disabled={isSubmitting || !!emailError}
+          disabled={isSubmitting || !!emailError}
           loading={isSubmitting}
           fullWidth
-          style={{ marginTop: spacing.xl }}
+          style={styles.loginButton}
         />
 
-        {/* Links auxiliares */}
         <TouchableOpacity
           onPress={() => navigation.navigate('ForgotPassword' as never)}
-          style={{ marginTop: spacing.lg }}
+          style={styles.linkButton}
         >
           <Text style={styles.link}>Esqueci minha senha</Text>
         </TouchableOpacity>
 
         <TouchableOpacity
-          onPress={() => navigation.navigate('SignUp' as never)}
-          style={{ marginTop: spacing.md, marginBottom: spacing.xxxl }}
+          onPress={() => navigation.navigate('ProfileSelection' as never)}
+          style={styles.linkButtonCompact}
         >
           <Text style={styles.link}>Criar conta com e-mail</Text>
         </TouchableOpacity>
 
-        {/* Termos & Privacidade */}
+        <TouchableOpacity
+          onPress={() => navigation.navigate('VerifyEmail' as never)}
+          style={styles.linkButtonFinal}
+        >
+          <Text style={styles.link}>Reenviar verificacao de e-mail</Text>
+        </TouchableOpacity>
+
         <View style={styles.footer}>
           <Text style={styles.footerText}>
-            Ao usar o app você concorda com nossos{' '}
+            Ao usar o app voce concorda com nossos{' '}
             <Text
               style={styles.footerLink}
-              onPress={() => Alert.alert('Termos')}
+              onPress={() => {
+                void openLegalDocument('terms');
+              }}
             >
               Termos de uso
             </Text>{' '}
             e{' '}
             <Text
               style={styles.footerLink}
-              onPress={() => Alert.alert('Privacidade')}
+              onPress={() => {
+                void openLegalDocument('privacy');
+              }}
             >
-              Política de privacidade
+              Politica de privacidade
             </Text>
           </Text>
         </View>
@@ -267,10 +230,25 @@ const styles = StyleSheet.create({
     fontSize: fontSize.md,
     color: colors.textSecondary,
     textAlign: 'center',
-    marginBottom: spacing.xxxl,
+    marginBottom: spacing.xl,
   },
-  socialContainer: {
-    gap: spacing.md,
+  authScopeCard: {
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 12,
+    backgroundColor: colors.surface,
+    padding: spacing.md,
+    gap: spacing.xs,
+  },
+  authScopeTitle: {
+    color: colors.text,
+    fontSize: fontSize.sm,
+    fontWeight: '700',
+  },
+  authScopeText: {
+    color: colors.textSecondary,
+    fontSize: fontSize.sm,
+    lineHeight: 18,
   },
   dividerContainer: {
     flexDirection: 'row',
@@ -287,11 +265,27 @@ const styles = StyleSheet.create({
     color: colors.textTertiary,
     fontSize: fontSize.sm,
   },
+  formSection: {
+    marginTop: spacing.xl,
+  },
   errorMessage: {
     color: colors.error,
     fontSize: fontSize.sm,
     marginTop: spacing.md,
     fontWeight: '500',
+  },
+  loginButton: {
+    marginTop: spacing.xl,
+  },
+  linkButton: {
+    marginTop: spacing.lg,
+  },
+  linkButtonCompact: {
+    marginTop: spacing.md,
+  },
+  linkButtonFinal: {
+    marginTop: spacing.md,
+    marginBottom: spacing.xxxl,
   },
   link: {
     color: colors.primary,

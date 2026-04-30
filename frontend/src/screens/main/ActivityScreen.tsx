@@ -1,148 +1,105 @@
-import React, { useState, useCallback } from 'react';
+import { useNavigation, ParamListBase } from '@react-navigation/native';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import React from 'react';
 import {
-  StyleSheet,
-  View,
-  Text,
-  ScrollView,
-  TouchableOpacity,
-  SafeAreaView,
   Alert,
+  SafeAreaView,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from 'react-native';
-import { useNavigation, useFocusEffect } from '@react-navigation/native';
+
 import { colors } from '@constants/colors';
-import { spacing, fontSize, componentSizes } from '@constants/design';
+import { spacing, fontSize } from '@constants/design';
 
-/**
- * ActivityScreen - T_ATIVIDADE Design Aprovado
- * Hub pessoal do usuário com 5 cards
- * Favoritos e Histórico ativo (Fase 1.0)
- * Pedidos, Agendamentos, Reservas em breve (Fase 1.2+)
- */
-
-interface ActivityCard {
+type ActivityCard = {
   id: string;
   title: string;
   subtitle: string;
-  icon: string;
-  phase: '1.0' | '1.2+';
-  color: string;
+  iconLabel: string;
+  status: 'info' | 'coming_soon';
   route?: string;
-  badge?: number;
-}
+};
 
 const ACTIVITY_CARDS: ActivityCard[] = [
   {
     id: 'favorites',
-    title: 'Meus Favoritos',
-    subtitle: 'Lugares e eventos salvos',
-    icon: '❤️',
-    phase: '1.0',
-    color: '#E8640A',
+    title: 'Favoritos',
+    subtitle: 'Estado atual do recurso e proximo passo',
+    iconLabel: 'FV',
+    status: 'info',
     route: 'ActivityFavorites',
-    badge: 5,
   },
   {
     id: 'orders',
-    title: 'Meus Pedidos',
-    subtitle: 'Delivery e compras',
-    icon: '🛒',
-    phase: '1.2+',
-    color: '#3498DB',
+    title: 'Pedidos',
+    subtitle: 'Fluxo comercial fora do escopo atual',
+    iconLabel: 'PD',
+    status: 'coming_soon',
   },
   {
     id: 'appointments',
-    title: 'Meus Agendamentos',
-    subtitle: 'Serviços e procedimentos',
-    icon: '📅',
-    phase: '1.2+',
-    color: '#9B59B6',
+    title: 'Agendamentos',
+    subtitle: 'Fase posterior ao MVP atual',
+    iconLabel: 'AG',
+    status: 'coming_soon',
   },
   {
     id: 'reservations',
-    title: 'Minhas Reservas',
-    subtitle: 'Hotel e restaurante',
-    icon: '🏨',
-    phase: '1.2+',
-    color: '#27AE60',
+    title: 'Reservas',
+    subtitle: 'Fase posterior ao MVP atual',
+    iconLabel: 'RS',
+    status: 'coming_soon',
   },
   {
     id: 'history',
-    title: 'Histórico de Atividades',
-    subtitle: 'Check-ins, buscas e vistos',
-    icon: '📍',
-    phase: '1.0',
-    color: '#F39C12',
+    title: 'Historico',
+    subtitle: 'Estado atual do recurso e proximo passo',
+    iconLabel: 'HI',
+    status: 'info',
     route: 'ActivityHistory',
   },
 ];
 
 export default function ActivityScreen() {
-  const navigation = useNavigation<any>();
-  const [loadingCards, setLoadingCards] = useState<string[]>([]);
-
-  useFocusEffect(
-    useCallback(() => {
-      // Reset loading state when screen is focused
-      setLoadingCards([]);
-    }, []),
-  );
+  const navigation = useNavigation<NativeStackNavigationProp<ParamListBase>>();
 
   const handleCardPress = (card: ActivityCard) => {
-    if (card.phase === '1.2+') {
-      Alert.alert('Em breve', `${card.title} estará disponível em breve.`);
+    if (card.status === 'coming_soon') {
+      Alert.alert('Em breve', `${card.title} ainda nao faz parte do MVP entregue neste build.`);
       return;
     }
 
     if (card.route) {
-      // Push new stack screen for child navigation
       navigation.push(card.route);
     }
   };
 
   const renderCard = (card: ActivityCard) => {
-    const isActive = card.phase === '1.0';
-    const opacity = isActive ? 1 : 0.6;
+    const isInteractive = card.status === 'info' && Boolean(card.route);
 
     return (
       <TouchableOpacity
         key={card.id}
-        style={[
-          styles.card,
-          !isActive && styles.cardDisabled,
-          { opacity },
-        ]}
+        style={[styles.card, !isInteractive && styles.cardMuted]}
         onPress={() => handleCardPress(card)}
-        activeOpacity={isActive ? 0.7 : 1}
+        activeOpacity={isInteractive ? 0.7 : 0.9}
       >
-        {/* Icon */}
-        <View
-          style={[
-            styles.cardIcon,
-            { backgroundColor: card.color + '15' },
-          ]}
-        >
-          <Text style={styles.cardIconText}>{card.icon}</Text>
+        <View style={styles.cardIcon}>
+          <Text style={styles.cardIconText}>{card.iconLabel}</Text>
         </View>
 
-        {/* Content */}
         <View style={styles.cardContent}>
           <Text style={styles.cardTitle}>{card.title}</Text>
           <Text style={styles.cardSubtitle}>{card.subtitle}</Text>
         </View>
 
-        {/* Badge or Phase Label */}
         <View style={styles.cardRight}>
-          {isActive && card.badge ? (
-            <View style={[styles.badge, { backgroundColor: card.color }]}>
-              <Text style={styles.badgeText}>{card.badge}</Text>
-            </View>
-          ) : null}
-          {!isActive && (
-            <Text style={styles.phaseLabel}>Em breve</Text>
-          )}
-          {isActive && (
-            <Text style={styles.chevron}>›</Text>
-          )}
+          <Text style={[styles.statusLabel, card.status === 'info' ? styles.statusInfo : styles.statusSoon]}>
+            {card.status === 'info' ? 'Status' : 'Depois'}
+          </Text>
         </View>
       </TouchableOpacity>
     );
@@ -163,6 +120,14 @@ export default function ActivityScreen() {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
       >
+        <View style={styles.infoPanel}>
+          <Text style={styles.infoTitle}>Painel de status do app</Text>
+          <Text style={styles.infoText}>
+            Esta area nao deve mais simular dados locais como se os recursos estivessem sincronizados.
+            Os cards abaixo mostram o que ja existe e o que continua fora do escopo atual.
+          </Text>
+        </View>
+
         {ACTIVITY_CARDS.map((card) => renderCard(card))}
       </ScrollView>
     </SafeAreaView>
@@ -214,6 +179,24 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.md,
     gap: spacing.md,
   },
+  infoPanel: {
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 16,
+    backgroundColor: colors.surface,
+    padding: spacing.md,
+    gap: spacing.sm,
+  },
+  infoTitle: {
+    color: colors.text,
+    fontSize: fontSize.md,
+    fontWeight: '800',
+  },
+  infoText: {
+    color: colors.textSecondary,
+    fontSize: fontSize.sm,
+    lineHeight: 20,
+  },
   card: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -225,61 +208,50 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
     backgroundColor: colors.surface,
   },
-  cardDisabled: {
-    borderStyle: 'dashed',
+  cardMuted: {
+    opacity: 0.85,
   },
   cardIcon: {
-    width: 44,
-    height: 44,
-    borderRadius: 13,
+    width: 48,
+    height: 48,
+    borderRadius: 14,
+    backgroundColor: colors.background,
     justifyContent: 'center',
     alignItems: 'center',
+    borderWidth: 1,
+    borderColor: colors.border,
   },
   cardIconText: {
-    fontSize: 22,
+    color: colors.primary,
+    fontSize: fontSize.sm,
+    fontWeight: '800',
   },
   cardContent: {
     flex: 1,
+    gap: spacing.xs,
   },
   cardTitle: {
-    fontSize: fontSize.md,
-    fontWeight: '700',
     color: colors.text,
-    marginBottom: spacing.xs,
+    fontSize: fontSize.md,
+    fontWeight: '800',
   },
   cardSubtitle: {
-    fontSize: fontSize.sm,
     color: colors.textSecondary,
+    fontSize: fontSize.sm,
+    lineHeight: 18,
   },
   cardRight: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
+    alignItems: 'flex-end',
   },
-  badge: {
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xs,
-    borderRadius: 12,
-    justifyContent: 'center',
-    alignItems: 'center',
-    minWidth: 32,
-  },
-  badgeText: {
+  statusLabel: {
     fontSize: fontSize.xs,
-    fontWeight: '700',
-    color: colors.text,
+    fontWeight: '800',
+    textTransform: 'uppercase',
   },
-  phaseLabel: {
-    fontSize: fontSize.xs,
-    fontWeight: '700',
-    color: colors.textTertiary,
-    backgroundColor: colors.surface,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xs,
-    borderRadius: 12,
+  statusInfo: {
+    color: colors.primary,
   },
-  chevron: {
-    fontSize: 16,
+  statusSoon: {
     color: colors.textTertiary,
   },
 });

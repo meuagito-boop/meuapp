@@ -1,3 +1,5 @@
+import { useFocusEffect, useNavigation, ParamListBase } from '@react-navigation/native';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import React, { useState, useCallback } from 'react';
 import {
   StyleSheet,
@@ -10,9 +12,9 @@ import {
   Alert,
   ActivityIndicator,
 } from 'react-native';
-import { useNavigation, useFocusEffect } from '@react-navigation/native';
+
 import { colors } from '@constants/colors';
-import { spacing, fontSize, componentSizes } from '@constants/design';
+import { spacing, fontSize } from '@constants/design';
 
 /**
  * SettingsMyAccount - Sub-tela de Minha Conta
@@ -30,15 +32,15 @@ interface AccountData {
 }
 
 export default function SettingsMyAccountScreen() {
-  const navigation = useNavigation<any>();
+  const navigation = useNavigation<NativeStackNavigationProp<ParamListBase>>();
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [hasChanges, setHasChanges] = useState(false);
   const [account, setAccount] = useState<AccountData>({
-    avatar: '👤',
-    name: 'João Silva',
+    avatar: 'ðŸ‘¤',
+    name: 'JoÃ£o Silva',
     username: 'joao.silva',
-    bio: 'Descobrindo os melhores lugares da cidade 🌆',
+    bio: 'Descobrindo os melhores lugares da cidade ðŸŒ†',
     email: 'joao@example.com',
     phone: '(11) 98765-4321',
   });
@@ -57,9 +59,9 @@ export default function SettingsMyAccountScreen() {
   };
 
   const handleChangePhoto = () => {
-    Alert.alert('Alterar Foto', 'Funcionalidade de câmera/galeria', [
+    Alert.alert('Alterar Foto', 'Funcionalidade de cÃ¢mera/galeria', [
       { text: 'Cancelar', style: 'cancel' },
-      { text: 'Câmera', onPress: () => {} },
+      { text: 'CÃ¢mera', onPress: () => {} },
       { text: 'Galeria', onPress: () => {} },
     ]);
   };
@@ -71,7 +73,7 @@ export default function SettingsMyAccountScreen() {
     try {
       // Simulate API call
       await new Promise((resolve) => setTimeout(resolve, 1000));
-      Alert.alert('✓ Perfil salvo com sucesso');
+      Alert.alert('âœ“ Perfil salvo com sucesso');
       setHasChanges(false);
     } finally {
       setIsSaving(false);
@@ -93,7 +95,7 @@ export default function SettingsMyAccountScreen() {
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()}>
           <View style={styles.backButton}>
-            <Text style={styles.backIcon}>←</Text>
+            <Text style={styles.backIcon}>â†</Text>
           </View>
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Minha Conta</Text>
@@ -150,7 +152,7 @@ export default function SettingsMyAccountScreen() {
               onChangeText={(text) => handleFieldChange('username', text)}
               placeholderTextColor={colors.textTertiary}
             />
-            <Text style={styles.fieldHint}>Seu identificador único no app</Text>
+            <Text style={styles.fieldHint}>Seu identificador Ãºnico no app</Text>
           </View>
 
           <View style={styles.formField}>

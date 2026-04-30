@@ -1,54 +1,65 @@
-import React, { useEffect } from 'react';
-import { StyleSheet, View, Text } from 'react-native';
+import React, { useEffect, useMemo, useState } from 'react';
 import * as SplashScreen from 'expo-splash-screen';
-import * as Font from 'expo-font';
 import { NavigationContainer } from '@react-navigation/native';
-import { QueryClientProvider, QueryClient } from '@tanstack/react-query';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { Platform } from 'react-native';
 
 import RootNavigator from '@screens/navigation/RootNavigator';
-import { GeolocationService } from '@services/geolocationService';
+import { WebPreviewNavigator } from '@screens/dev/WebPreviewNavigator';
+import { pushRegistrationService } from '@services/push/PushRegistrationService';
+import { authStore } from '@stores/authStore';
 import { locationStore } from '@stores/locationStore';
+import { logger } from '@utils/logger';
 
-// Manter splash screen visível enquanto carregando
-SplashScreen.preventAutoHideAsync();
+// Keep native splash visible until bootstrap finishes.
+void SplashScreen.preventAutoHideAsync();
 
 const queryClient = new QueryClient();
 
+const getPreviewScreenFromQuery = (): string | null => {
+  if (Platform.OS !== 'web' || typeof window === 'undefined') {
+    return null;
+  }
+
+  const params = new URLSearchParams(window.location.search);
+  return params.get('preview');
+};
+
 export default function App() {
-  const [isReady, setIsReady] = React.useState(false);
-  const { setLoading, setLocation, setError } = locationStore();
+  const [isReady, setIsReady] = useState(false);
+  const previewScreenName = useMemo(() => getPreviewScreenFromQuery(), []);
+  const { isAuthenticated, needsOnboarding } = authStore();
 
   useEffect(() => {
-    async function prepare() {
+    const prepare = async () => {
       try {
-        // Carregar fontes customizadas (opcional - não falha se fontes ausentes)
-        try {
-          await Font.loadAsync({
-            'Montserrat-Bold': require('@assets/fonts/Montserrat-Bold.ttf'),
-            'Montserrat-Regular': require('@assets/fonts/Montserrat-Regular.ttf'),
-            'Montserrat-SemiBold': require('@assets/fonts/Montserrat-SemiBold.ttf'),
-          });
-        } catch (fontError) {
-          console.warn('Fontes não encontradas, usando fontes padrão:', fontError);
+        if (!previewScreenName) {
+          try {
+            await locationStore.getState().getUserLocation();
+          } catch (locationError) {
+            logger.warn('Falha ao obter localizacao inicial:', locationError);
+          }
         }
-
-        // Obter localização do usuário
-        await GeolocationService.getCurrentLocation();
-
-        setIsReady(true);
-      } catch (e) {
-        console.warn(e);
-        // Se erro ao carregar, ainda continua
-        setLocation(-23.5505, -46.6333); // São Paulo padrão
-        setIsReady(true);
       } finally {
-        // Esconder splash screen quando tudo estiver pronto
+        setIsReady(true);
         await SplashScreen.hideAsync();
       }
+    };
+
+    void prepare();
+  }, [previewScreenName]);
+
+  useEffect(() => {
+    if (!isReady || previewScreenName !== null) {
+      return;
     }
 
-    prepare();
-  }, []);
+    if (!isAuthenticated || needsOnboarding) {
+      return;
+    }
+
+    void pushRegistrationService.registerCurrentDevice();
+  }, [isAuthenticated, isReady, needsOnboarding, previewScreenName]);
 
   if (!isReady) {
     return null;
@@ -57,17 +68,12 @@ export default function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <NavigationContainer>
-        <RootNavigator />
+        {previewScreenName !== null ? (
+          <WebPreviewNavigator previewScreenName={previewScreenName} />
+        ) : (
+          <RootNavigator />
+        )}
       </NavigationContainer>
     </QueryClientProvider>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#fff',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-});

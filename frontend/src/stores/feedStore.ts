@@ -1,15 +1,21 @@
 import { create } from 'zustand';
 import { feedService } from '../services/api/index';
+import type { FeedMode } from '../services/api/FeedService';
 
 export interface Post {
   id: string;
   content: string;
   images?: string[];
+  imageUrls?: string[];
   video?: string;
+  locationName?: string | null;
+  latitude?: number | null;
+  longitude?: number | null;
   author: {
     id: string;
     name: string;
     avatar?: string;
+    profileType?: 'USER' | 'ESTABLISHMENT';
   };
   likesCount: number;
   commentsCount: number;
@@ -41,12 +47,33 @@ export interface PaginatedResponse<T> {
   totalPages: number;
 }
 
+const mergeUniquePosts = (existing: Post[], incoming: Post[]) => {
+  const seen = new Set(existing.map((post) => post.id));
+  const merged = [...existing];
+
+  for (const post of incoming) {
+    if (!seen.has(post.id)) {
+      merged.push(post);
+      seen.add(post.id);
+    }
+  }
+
+  return merged;
+};
+
+const mapPostCollection = (posts: Post[], postId: string, mapper: (post: Post) => Post) =>
+  posts.map((post) => (post.id === postId ? mapper(post) : post));
+
 export interface FeedStore {
-  // State
   posts: Post[];
+  agitoPosts: Post[];
+  agitoMode: FeedMode;
+  agitoCursor: string | null;
+  agitoHasMore: boolean;
   explorePosts: Post[];
   comments: Map<string, PaginatedResponse<Comment>>;
   isLoadingFeed: boolean;
+  isLoadingAgito: boolean;
   isLoadingExplore: boolean;
   feedPage: number;
   explorePage: number;
@@ -54,8 +81,9 @@ export interface FeedStore {
   exploreHasMore: boolean;
   error: string | null;
 
-  // Actions
   getFeed: (page?: number, limit?: number) => Promise<void>;
+  getAgitoFeed: (mode?: FeedMode, options?: { reset?: boolean; limit?: number }) => Promise<void>;
+  setAgitoMode: (mode: FeedMode) => void;
   getExplorePosts: (page?: number, limit?: number) => Promise<void>;
   getPost: (postId: string) => Promise<Post>;
   createPost: (content: string, images?: string[], video?: string) => Promise<void>;
@@ -70,17 +98,23 @@ export interface FeedStore {
   deleteComment: (commentId: string, postId: string) => Promise<void>;
   getUserPosts: (userId: string, page?: number, limit?: number) => Promise<Post[]>;
   refreshFeed: () => Promise<void>;
+  refreshAgitoFeed: () => Promise<void>;
   loadMoreFeed: () => Promise<void>;
+  loadMoreAgitoFeed: () => Promise<void>;
   loadMoreExplore: () => Promise<void>;
   clearError: () => void;
 }
 
 export const feedStore = create<FeedStore>((set, get) => ({
-  // Initial state
   posts: [],
+  agitoPosts: [],
+  agitoMode: 'mixed',
+  agitoCursor: null,
+  agitoHasMore: true,
   explorePosts: [],
   comments: new Map(),
   isLoadingFeed: false,
+  isLoadingAgito: false,
   isLoadingExplore: false,
   feedPage: 1,
   explorePage: 1,
@@ -88,7 +122,6 @@ export const feedStore = create<FeedStore>((set, get) => ({
   exploreHasMore: true,
   error: null,
 
-  // Actions
   getFeed: async (page = 1, limit = 20) => {
     set({ isLoadingFeed: true, error: null });
     try {
@@ -116,6 +149,47 @@ export const feedStore = create<FeedStore>((set, get) => ({
     }
   },
 
+  getAgitoFeed: async (mode, options) => {
+    const resolvedMode = mode ?? get().agitoMode;
+    const reset = options?.reset ?? false;
+    const limit = options?.limit ?? 15;
+
+    set({
+      isLoadingAgito: true,
+      error: null,
+      ...(mode ? { agitoMode: resolvedMode } : {}),
+    });
+
+    try {
+      const response = await feedService.getAgitoFeed({
+        mode: resolvedMode,
+        limit,
+        cursor: reset ? undefined : get().agitoCursor ?? undefined,
+      });
+
+      set((state) => ({
+        agitoPosts: reset ? response.data : mergeUniquePosts(state.agitoPosts, response.data),
+        agitoMode: resolvedMode,
+        agitoCursor: response.nextCursor,
+        agitoHasMore: response.hasMore,
+        isLoadingAgito: false,
+      }));
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Erro ao carregar feed social';
+      set({ error: message, isLoadingAgito: false });
+      throw error;
+    }
+  },
+
+  setAgitoMode: (mode) => {
+    set({
+      agitoMode: mode,
+      agitoCursor: null,
+      agitoHasMore: true,
+      agitoPosts: [],
+    });
+  },
+
   getExplorePosts: async (page = 1, limit = 20) => {
     set({ isLoadingExplore: true, error: null });
     try {
@@ -137,7 +211,7 @@ export const feedStore = create<FeedStore>((set, get) => ({
         }));
       }
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Erro ao carregar exploração';
+      const message = error instanceof Error ? error.message : 'Erro ao carregar exploracao';
       set({ error: message, isLoadingExplore: false });
       throw error;
     }
@@ -155,7 +229,7 @@ export const feedStore = create<FeedStore>((set, get) => ({
   },
 
   createPost: async (content, images, video) => {
-    set({ isLoadingFeed: true, error: null });
+    set({ isLoadingFeed: true, isLoadingAgito: true, error: null });
     try {
       const newPost = await feedService.createPost({
         content,
@@ -165,11 +239,13 @@ export const feedStore = create<FeedStore>((set, get) => ({
 
       set((state) => ({
         posts: [newPost, ...state.posts],
+        agitoPosts: [newPost, ...state.agitoPosts],
         isLoadingFeed: false,
+        isLoadingAgito: false,
       }));
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Erro ao criar post';
-      set({ error: message, isLoadingFeed: false });
+      set({ error: message, isLoadingFeed: false, isLoadingAgito: false });
       throw error;
     }
   },
@@ -184,7 +260,9 @@ export const feedStore = create<FeedStore>((set, get) => ({
       });
 
       set((state) => ({
-        posts: state.posts.map((p) => (p.id === postId ? updatedPost : p)),
+        posts: mapPostCollection(state.posts, postId, () => updatedPost),
+        agitoPosts: mapPostCollection(state.agitoPosts, postId, () => updatedPost),
+        explorePosts: mapPostCollection(state.explorePosts, postId, () => updatedPost),
       }));
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Erro ao atualizar post';
@@ -199,8 +277,9 @@ export const feedStore = create<FeedStore>((set, get) => ({
       await feedService.deletePost(postId);
 
       set((state) => ({
-        posts: state.posts.filter((p) => p.id !== postId),
-        explorePosts: state.explorePosts.filter((p) => p.id !== postId),
+        posts: state.posts.filter((post) => post.id !== postId),
+        agitoPosts: state.agitoPosts.filter((post) => post.id !== postId),
+        explorePosts: state.explorePosts.filter((post) => post.id !== postId),
       }));
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Erro ao deletar post';
@@ -214,21 +293,17 @@ export const feedStore = create<FeedStore>((set, get) => ({
     try {
       await feedService.likePost(postId);
 
-      // Atualizar posts
-      const updatePostLike = (posts: Post[]) =>
-        posts.map((p) =>
-          p.id === postId
-            ? {
-                ...p,
-                isLiked: true,
-                likesCount: p.likesCount + 1,
-              }
-            : p,
-        );
+      const applyLike = (posts: Post[]) =>
+        mapPostCollection(posts, postId, (post) => ({
+          ...post,
+          isLiked: true,
+          likesCount: post.likesCount + 1,
+        }));
 
       set((state) => ({
-        posts: updatePostLike(state.posts),
-        explorePosts: updatePostLike(state.explorePosts),
+        posts: applyLike(state.posts),
+        agitoPosts: applyLike(state.agitoPosts),
+        explorePosts: applyLike(state.explorePosts),
       }));
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Erro ao curtir post';
@@ -242,21 +317,17 @@ export const feedStore = create<FeedStore>((set, get) => ({
     try {
       await feedService.unlikePost(postId);
 
-      // Atualizar posts
-      const updatePostUnlike = (posts: Post[]) =>
-        posts.map((p) =>
-          p.id === postId
-            ? {
-                ...p,
-                isLiked: false,
-                likesCount: Math.max(0, p.likesCount - 1),
-              }
-            : p,
-        );
+      const applyUnlike = (posts: Post[]) =>
+        mapPostCollection(posts, postId, (post) => ({
+          ...post,
+          isLiked: false,
+          likesCount: Math.max(0, post.likesCount - 1),
+        }));
 
       set((state) => ({
-        posts: updatePostUnlike(state.posts),
-        explorePosts: updatePostUnlike(state.explorePosts),
+        posts: applyUnlike(state.posts),
+        agitoPosts: applyUnlike(state.agitoPosts),
+        explorePosts: applyUnlike(state.explorePosts),
       }));
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Erro ao descurtir post';
@@ -274,7 +345,7 @@ export const feedStore = create<FeedStore>((set, get) => ({
         comments: new Map(state.comments).set(postId, response),
       }));
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Erro ao carregar comentários';
+      const message = error instanceof Error ? error.message : 'Erro ao carregar comentarios';
       set({ error: message });
       throw error;
     }
@@ -287,25 +358,26 @@ export const feedStore = create<FeedStore>((set, get) => ({
         content,
       });
 
-      // Atualizar post com novo comentário
       set((state) => ({
-        posts: state.posts.map((p) =>
-          p.id === postId ? { ...p, commentsCount: p.commentsCount + 1 } : p,
-        ),
-        explorePosts: state.explorePosts.map((p) =>
-          p.id === postId ? { ...p, commentsCount: p.commentsCount + 1 } : p,
-        ),
-        // Adicionar comentário à lista
-        comments: new Map(state.comments).set(
-          postId,
-          {
-            data: [newComment, ...(state.comments.get(postId)?.data || [])],
-            total: (state.comments.get(postId)?.total || 0) + 1,
-            page: 1,
-            limit: 20,
-            totalPages: Math.ceil(((state.comments.get(postId)?.total || 0) + 1) / 20),
-          },
-        ),
+        posts: mapPostCollection(state.posts, postId, (post) => ({
+          ...post,
+          commentsCount: post.commentsCount + 1,
+        })),
+        agitoPosts: mapPostCollection(state.agitoPosts, postId, (post) => ({
+          ...post,
+          commentsCount: post.commentsCount + 1,
+        })),
+        explorePosts: mapPostCollection(state.explorePosts, postId, (post) => ({
+          ...post,
+          commentsCount: post.commentsCount + 1,
+        })),
+        comments: new Map(state.comments).set(postId, {
+          data: [newComment, ...(state.comments.get(postId)?.data || [])],
+          total: (state.comments.get(postId)?.total || 0) + 1,
+          page: 1,
+          limit: 20,
+          totalPages: Math.ceil(((state.comments.get(postId)?.total || 0) + 1) / 20),
+        }),
       }));
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Erro ao comentar';
@@ -319,28 +391,29 @@ export const feedStore = create<FeedStore>((set, get) => ({
     try {
       await feedService.likeComment(commentId);
 
-      // Atualizar comentário
       set((state) => {
         const comments = state.comments.get(postId);
-        if (!comments) return state;
+        if (!comments) {
+          return state;
+        }
 
         return {
           comments: new Map(state.comments).set(postId, {
             ...comments,
-            data: comments.data.map((c) =>
-              c.id === commentId
+            data: comments.data.map((comment) =>
+              comment.id === commentId
                 ? {
-                    ...c,
+                    ...comment,
                     isLiked: true,
-                    likesCount: c.likesCount + 1,
+                    likesCount: comment.likesCount + 1,
                   }
-                : c,
+                : comment
             ),
           }),
         };
       });
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Erro ao curtir comentário';
+      const message = error instanceof Error ? error.message : 'Erro ao curtir comentario';
       set({ error: message });
       throw error;
     }
@@ -351,28 +424,29 @@ export const feedStore = create<FeedStore>((set, get) => ({
     try {
       await feedService.unlikeComment(commentId);
 
-      // Atualizar comentário
       set((state) => {
         const comments = state.comments.get(postId);
-        if (!comments) return state;
+        if (!comments) {
+          return state;
+        }
 
         return {
           comments: new Map(state.comments).set(postId, {
             ...comments,
-            data: comments.data.map((c) =>
-              c.id === commentId
+            data: comments.data.map((comment) =>
+              comment.id === commentId
                 ? {
-                    ...c,
+                    ...comment,
                     isLiked: false,
-                    likesCount: Math.max(0, c.likesCount - 1),
+                    likesCount: Math.max(0, comment.likesCount - 1),
                   }
-                : c,
+                : comment
             ),
           }),
         };
       });
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Erro ao descurtir comentário';
+      const message = error instanceof Error ? error.message : 'Erro ao descurtir comentario';
       set({ error: message });
       throw error;
     }
@@ -383,24 +457,34 @@ export const feedStore = create<FeedStore>((set, get) => ({
     try {
       await feedService.deleteComment(commentId);
 
-      // Remover comentário
       set((state) => {
         const comments = state.comments.get(postId);
-        if (!comments) return state;
+        if (!comments) {
+          return state;
+        }
 
         return {
           comments: new Map(state.comments).set(postId, {
             ...comments,
-            data: comments.data.filter((c) => c.id !== commentId),
+            data: comments.data.filter((comment) => comment.id !== commentId),
             total: Math.max(0, comments.total - 1),
           }),
-          posts: state.posts.map((p) =>
-            p.id === postId ? { ...p, commentsCount: Math.max(0, p.commentsCount - 1) } : p,
-          ),
+          posts: mapPostCollection(state.posts, postId, (post) => ({
+            ...post,
+            commentsCount: Math.max(0, post.commentsCount - 1),
+          })),
+          agitoPosts: mapPostCollection(state.agitoPosts, postId, (post) => ({
+            ...post,
+            commentsCount: Math.max(0, post.commentsCount - 1),
+          })),
+          explorePosts: mapPostCollection(state.explorePosts, postId, (post) => ({
+            ...post,
+            commentsCount: Math.max(0, post.commentsCount - 1),
+          })),
         };
       });
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Erro ao deletar comentário';
+      const message = error instanceof Error ? error.message : 'Erro ao deletar comentario';
       set({ error: message });
       throw error;
     }
@@ -412,7 +496,7 @@ export const feedStore = create<FeedStore>((set, get) => ({
       const response = await feedService.getUserPosts(userId, page, limit);
       return response.data;
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Erro ao carregar posts do usuário';
+      const message = error instanceof Error ? error.message : 'Erro ao carregar posts do usuario';
       set({ error: message });
       throw error;
     }
@@ -422,11 +506,24 @@ export const feedStore = create<FeedStore>((set, get) => ({
     await get().getFeed(1);
   },
 
+  refreshAgitoFeed: async () => {
+    await get().getAgitoFeed(get().agitoMode, { reset: true });
+  },
+
   loadMoreFeed: async () => {
     const { feedPage, feedHasMore } = get();
     if (feedHasMore) {
       await get().getFeed(feedPage + 1);
     }
+  },
+
+  loadMoreAgitoFeed: async () => {
+    const { agitoHasMore, isLoadingAgito, agitoMode } = get();
+    if (!agitoHasMore || isLoadingAgito) {
+      return;
+    }
+
+    await get().getAgitoFeed(agitoMode);
   },
 
   loadMoreExplore: async () => {

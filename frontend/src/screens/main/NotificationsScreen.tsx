@@ -1,24 +1,28 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
+import { useEffect } from 'react';
 import {
   StyleSheet,
   View,
   Text,
-  FlatList,
   TouchableOpacity,
   SafeAreaView,
   SectionList,
   Alert,
+  ActivityIndicator,
+  RefreshControl,
 } from 'react-native';
-import { useNavigation, useFocusEffect } from '@react-navigation/native';
+import { useFocusEffect, useNavigation, ParamListBase } from '@react-navigation/native';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+
+
+
+
 import { colors } from '@constants/colors';
 import { spacing, fontSize } from '@constants/design';
-
-/**
- * NotificationsScreen - T13 Design Aprovado
- * Central de Notificações com lista cronológica única
- * 4 tipos: Social (1.2+), Estabelecimentos, Pedidos (1.2+), Sistema
- * Fase 1.0: Estabelecimentos e Sistema ativos
- */
+import { notificationsService } from '@services/api';
+import type { NotificationItem as ApiNotificationItem } from '@services/api/NotificationsService';
+import socketManager from '@services/socket/SocketIOManager';
+import { logger } from '@utils/logger';
 
 interface NotificationItem {
   id: string;
@@ -30,95 +34,222 @@ interface NotificationItem {
   badgeColor: string;
   timestamp: Date;
   read: boolean;
-  miniature?: string;
-  action?: string;
-  actionDestination?: string;
+  entityType?: string | null;
+  entityId?: string | null;
+  payload?: Record<string, unknown> | null;
+  relatedUserId?: string | null;
+  relatedPostId?: string | null;
 }
 
-const MOCK_NOTIFICATIONS: NotificationItem[] = [
-  {
-    id: 'n1',
-    type: 'establishment',
-    title: 'Barbearia Vintage',
-    text: 'publicou um novo Momento.',
-    avatar: '💈',
-    badge: '▶',
+const TYPE_META: Record<
+  string,
+  { avatar: string; badge: string; badgeColor: string; normalizedType: NotificationItem['type'] }
+> = {
+  social: {
+    avatar: '??',
+    badge: 'S',
     badgeColor: '#E8640A',
-    timestamp: new Date(Date.now() - 1000 * 60 * 5),
-    read: false,
-    action: 'View Story',
-    actionDestination: 'FeedSocial',
+    normalizedType: 'social',
   },
-  {
-    id: 'n2',
-    type: 'establishment',
-    title: 'Pizzaria Do Nino',
-    text: 'tem promoção hoje: 20% off no almoço.',
-    avatar: '🍕',
-    badge: '%',
+  establishment: {
+    avatar: '??',
+    badge: 'E',
     badgeColor: '#27AE60',
-    timestamp: new Date(Date.now() - 1000 * 60 * 20),
-    read: false,
-    action: 'View Promo',
+    normalizedType: 'establishment',
   },
-  {
-    id: 'n3',
-    type: 'system',
-    title: 'Bem-vindo',
-    text: 'Bem-vindo ao Meu Agito! Explore o que está rolando na sua cidade.',
-    avatar: '📱',
+  order: {
+    avatar: '??',
+    badge: 'P',
+    badgeColor: '#2A9FD8',
+    normalizedType: 'order',
+  },
+  system: {
+    avatar: '??',
     badge: 'M',
     badgeColor: '#E8640A',
-    timestamp: new Date(Date.now() - 1000 * 60 * 60 * 2),
-    read: true,
+    normalizedType: 'system',
   },
-  {
-    id: 'n4',
-    type: 'system',
-    title: 'Alerta de Segurança',
-    text: 'Novo acesso detectado na sua conta de São Paulo, SP. Se não foi você, proteja agora.',
-    avatar: '🔒',
-    badge: '!',
-    badgeColor: '#E8640A',
-    timestamp: new Date(Date.now() - 1000 * 60 * 60 * 5),
-    read: true,
-    action: 'Review',
-    actionDestination: 'Settings',
+};
+
+const mapApiNotification = (item: ApiNotificationItem): NotificationItem => {
+  const meta = TYPE_META[item.type] || TYPE_META.system;
+
+  return {
+    id: item.id,
+    type: meta.normalizedType,
+    title: item.title,
+    text: item.body,
+    avatar: meta.avatar,
+    badge: meta.badge,
+    badgeColor: meta.badgeColor,
+    timestamp: new Date(item.createdAt),
+    read: item.isRead,
+    entityType: item.entityType,
+    entityId: item.entityId,
+    payload: item.payload,
+    relatedUserId: item.relatedUserId,
+    relatedPostId: item.relatedPostId,
+  };
+};
+
+const mapSocketNotification = (
+  item: Partial<ApiNotificationItem> & {
+    id: string;
+    type: string;
+    title: string;
+    body?: string;
+    message?: string;
+    createdAt?: string;
   },
-];
+): NotificationItem => {
+  const meta = TYPE_META[item.type] || TYPE_META.system;
+
+  return {
+    id: item.id,
+    type: meta.normalizedType,
+    title: item.title,
+    text: item.body || item.message || '',
+    avatar: meta.avatar,
+    badge: meta.badge,
+    badgeColor: meta.badgeColor,
+    timestamp: item.createdAt ? new Date(item.createdAt) : new Date(),
+    read: item.isRead ?? false,
+    entityType: item.entityType,
+    entityId: item.entityId,
+    payload: item.payload,
+    relatedUserId: item.relatedUserId,
+    relatedPostId: item.relatedPostId,
+  };
+};
 
 export default function NotificationsScreen() {
-  const navigation = useNavigation<any>();
-  const [notifications, setNotifications] = useState<NotificationItem[]>(MOCK_NOTIFICATIONS);
-  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const navigation = useNavigation<NativeStackNavigationProp<ParamListBase>>();
+  const [notifications, setNotifications] = useState<NotificationItem[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const loadNotifications = useCallback(async () => {
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      const response = await notificationsService.list({ page: 1, limit: 100 });
+      setNotifications(response.data.map(mapApiNotification));
+    } catch (loadError) {
+      const message =
+        loadError instanceof Error ? loadError.message : 'Falha ao carregar notificacoes';
+      setError(message);
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
 
   useFocusEffect(
     useCallback(() => {
-      // Mark all as read when screen is focused
-      setNotifications((prev) =>
-        prev.map((notif) => (notif.read ? notif : { ...notif, read: true })),
-      );
-    }, []),
+      void loadNotifications();
+    }, [loadNotifications]),
   );
+
+  useEffect(() => {
+    const unsubscribe = socketManager.on('notification:new', (incomingNotification) => {
+      setNotifications((previousNotifications) => {
+        const mappedNotification = mapSocketNotification(incomingNotification);
+        const withoutPreviousVersion = previousNotifications.filter(
+          (notification) => notification.id !== mappedNotification.id,
+        );
+
+        return [mappedNotification, ...withoutPreviousVersion].sort(
+          (left, right) => right.timestamp.getTime() - left.timestamp.getTime(),
+        );
+      });
+    });
+
+    return unsubscribe;
+  }, []);
+
+  const onRefresh = useCallback(async () => {
+    setIsRefreshing(true);
+    await loadNotifications();
+    setIsRefreshing(false);
+  }, [loadNotifications]);
 
   const unreadCount = notifications.filter((n) => !n.read).length;
   const hasUnread = unreadCount > 0;
 
-  const groupedNotifications = groupByDate(notifications);
+  const groupedNotifications = useMemo(() => groupByDate(notifications), [notifications]);
 
-  const handleMarkAllAsRead = () => {
-    setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
-  };
-
-  const handleDeleteNotification = (id: string) => {
-    setNotifications((prev) => prev.filter((n) => n.id !== id));
-  };
-
-  const handleNotificationPress = (notif: NotificationItem) => {
-    if (notif.actionDestination) {
-      navigation.navigate(notif.actionDestination);
+  const handleMarkAllAsRead = useCallback(async () => {
+    try {
+      await notificationsService.markAllAsRead();
+      setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
+    } catch (markError) {
+      const message = markError instanceof Error ? markError.message : 'Falha ao marcar notificacoes';
+      Alert.alert('Erro', message);
     }
-  };
+  }, []);
+
+  const handleDeleteNotification = useCallback((id: string) => {
+    Alert.alert('Excluir notificacao', 'Deseja remover esta notificacao?', [
+      {
+        text: 'Cancelar',
+        style: 'cancel',
+      },
+      {
+        text: 'Excluir',
+        style: 'destructive',
+        onPress: async () => {
+          try {
+            await notificationsService.delete(id);
+            setNotifications((prev) => prev.filter((item) => item.id !== id));
+          } catch (deleteError) {
+            const message =
+              deleteError instanceof Error ? deleteError.message : 'Falha ao excluir notificacao';
+            Alert.alert('Erro', message);
+          }
+        },
+      },
+    ]);
+  }, []);
+
+  const markAsReadLocally = useCallback((id: string) => {
+    setNotifications((prev) =>
+      prev.map((item) => (item.id === id ? { ...item, read: true } : item)),
+    );
+  }, []);
+
+  const handleNotificationPress = useCallback(
+    async (notification: NotificationItem) => {
+      if (!notification.read) {
+        try {
+          await notificationsService.markAsRead(notification.id);
+          markAsReadLocally(notification.id);
+        } catch (markError) {
+          logger.warn('Falha ao marcar notificacao como lida:', markError);
+        }
+      }
+
+      if (notification.relatedPostId) {
+        navigation.navigate('MainTabs', { screen: 'Feed' });
+        return;
+      }
+
+      if (notification.entityType === 'conversation' || notification.payload?.conversationId) {
+        navigation.navigate('MainTabs', { screen: 'Chat' });
+        return;
+      }
+
+      if (notification.relatedUserId) {
+        navigation.navigate('MainTabs', { screen: 'Profile' });
+        return;
+      }
+
+      if (notification.type === 'system') {
+        navigation.navigate('MainTabs', { screen: 'Settings' });
+      }
+    },
+    [markAsReadLocally, navigation],
+  );
 
   const formatTime = (date: Date): string => {
     const now = new Date();
@@ -135,14 +266,15 @@ export default function NotificationsScreen() {
       const days = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sab'];
       return days[date.getDay()];
     }
-    return date.toLocaleDateString('pt-BR', { day: 'short', month: 'short' });
+    return date.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' });
   };
 
   const renderNotificationItem = ({ item }: { item: NotificationItem }) => (
     <TouchableOpacity
       style={[styles.notifItem, item.read ? styles.notifItemRead : styles.notifItemUnread]}
       activeOpacity={0.7}
-      onPress={() => handleNotificationPress(item)}
+      onPress={() => void handleNotificationPress(item)}
+      onLongPress={() => handleDeleteNotification(item.id)}
     >
       {!item.read && <View style={styles.unreadDot} />}
 
@@ -159,16 +291,10 @@ export default function NotificationsScreen() {
         </Text>
         <Text style={styles.notifTime}>{formatTime(item.timestamp)}</Text>
       </View>
-
-      {item.miniature && (
-        <View style={styles.notifThumb}>
-          <Text>{item.miniature}</Text>
-        </View>
-      )}
     </TouchableOpacity>
   );
 
-  const renderSectionHeader = ({ section }: { section: any }) => (
+  const renderSectionHeader = ({ section }: { section: { title: string } }) => (
     <View style={styles.dateHeader}>
       <Text style={styles.dateHeaderText}>{section.title}</Text>
     </View>
@@ -176,10 +302,10 @@ export default function NotificationsScreen() {
 
   const emptyState = () => (
     <View style={styles.emptyContainer}>
-      <Text style={styles.emptyIcon}>🔔</Text>
-      <Text style={styles.emptyTitle}>Nenhuma notificação ainda</Text>
+      <Text style={styles.emptyIcon}>??</Text>
+      <Text style={styles.emptyTitle}>Nenhuma notificacao ainda</Text>
       <Text style={styles.emptySubtitle}>
-        Você receberá notificações sobre atividades relevantes
+        {error || 'Voce recebera notificacoes sobre atividades relevantes'}
       </Text>
     </View>
   );
@@ -189,28 +315,32 @@ export default function NotificationsScreen() {
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()}>
           <View style={styles.backButton}>
-            <Text style={styles.backIcon}>←</Text>
+            <Text style={styles.backIcon}>?</Text>
           </View>
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Notificações</Text>
-        {hasUnread && (
-          <TouchableOpacity onPress={handleMarkAllAsRead}>
+        <Text style={styles.headerTitle}>Notificacoes</Text>
+        {hasUnread ? (
+          <TouchableOpacity onPress={() => void handleMarkAllAsRead()}>
             <Text style={styles.headerAction}>Marcar lidas</Text>
           </TouchableOpacity>
+        ) : (
+          <View style={styles.headerSpacer} />
         )}
-        {!hasUnread && <View style={styles.headerSpacer} />}
       </View>
 
       {hasUnread && (
         <View style={styles.unreadCounter}>
           <Text style={styles.unreadCounterText}>
-            🔔 <Text style={styles.unreadCounterNumber}>{unreadCount}</Text> novas
-            notificações
+            ?? <Text style={styles.unreadCounterNumber}>{unreadCount}</Text> novas notificacoes
           </Text>
         </View>
       )}
 
-      {notifications.length === 0 ? (
+      {isLoading && notifications.length === 0 ? (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={colors.primary} />
+        </View>
+      ) : notifications.length === 0 ? (
         emptyState()
       ) : (
         <SectionList
@@ -219,7 +349,13 @@ export default function NotificationsScreen() {
           renderItem={renderNotificationItem}
           renderSectionHeader={renderSectionHeader}
           contentContainerStyle={styles.listContent}
-          scrollEnabled={true}
+          refreshControl={
+            <RefreshControl
+              refreshing={isRefreshing}
+              onRefresh={() => void onRefresh()}
+              tintColor={colors.primary}
+            />
+          }
         />
       )}
     </SafeAreaView>
@@ -235,31 +371,39 @@ function groupByDate(
   const yesterday = new Date(today);
   yesterday.setDate(yesterday.getDate() - 1);
 
-  const groups: { [key: string]: NotificationItem[] } = {
+  const groups: Record<string, NotificationItem[]> = {
     HOJE: [],
     ONTEM: [],
   };
 
-  notifications.forEach((notif) => {
-    const notifDate = new Date(notif.timestamp);
-    notifDate.setHours(0, 0, 0, 0);
+  notifications.forEach((notification) => {
+    const normalizedDate = new Date(notification.timestamp);
+    normalizedDate.setHours(0, 0, 0, 0);
 
-    if (notifDate.getTime() === today.getTime()) {
-      groups['HOJE'].push(notif);
-    } else if (notifDate.getTime() === yesterday.getTime()) {
-      groups['ONTEM'].push(notif);
-    } else {
-      const dateKey = notif.timestamp.toLocaleDateString('pt-BR', {
-        day: '2-digit',
-        month: 'short',
-      });
-      if (!groups[dateKey]) groups[dateKey] = [];
-      groups[dateKey].push(notif);
+    if (normalizedDate.getTime() === today.getTime()) {
+      groups.HOJE.push(notification);
+      return;
     }
+
+    if (normalizedDate.getTime() === yesterday.getTime()) {
+      groups.ONTEM.push(notification);
+      return;
+    }
+
+    const dateKey = notification.timestamp.toLocaleDateString('pt-BR', {
+      day: '2-digit',
+      month: 'short',
+    });
+
+    if (!groups[dateKey]) {
+      groups[dateKey] = [];
+    }
+
+    groups[dateKey].push(notification);
   });
 
   return Object.entries(groups)
-    .filter(([_, items]) => items.length > 0)
+    .filter(([, items]) => items.length > 0)
     .map(([title, data]) => ({ title, data }));
 }
 
@@ -411,16 +555,10 @@ const styles = StyleSheet.create({
     fontSize: fontSize.xs,
     color: colors.textTertiary,
   },
-  notifThumb: {
-    width: 44,
-    height: 44,
-    borderRadius: 8,
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
+  loadingContainer: {
+    flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    fontSize: 18,
   },
   emptyContainer: {
     flex: 1,

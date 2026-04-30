@@ -43,7 +43,7 @@ export const Input: React.FC<InputProps> = ({
 
   return (
     <View style={[styles.container, containerStyle]}>
-      {label && <Text style={styles.label}>{label}</Text>}
+      {label ? <Text style={styles.label}>{label}</Text> : null}
 
       <View
         style={[
@@ -54,7 +54,7 @@ export const Input: React.FC<InputProps> = ({
           },
         ]}
       >
-        {icon && <View style={styles.iconLeft}>{icon}</View>}
+        {icon ? <View style={styles.iconLeft}>{icon}</View> : null}
 
         <TextInput
           style={[
@@ -70,7 +70,7 @@ export const Input: React.FC<InputProps> = ({
           {...props}
         />
 
-        {initialIsPassword && (
+        {initialIsPassword ? (
           <TouchableOpacity
             onPress={() => setShowPassword(!showPassword)}
             style={styles.iconRight}
@@ -79,19 +79,19 @@ export const Input: React.FC<InputProps> = ({
               {showPassword ? '👁' : '🔒'}
             </Text>
           </TouchableOpacity>
-        )}
+        ) : null}
 
-        {rightIcon && !initialIsPassword && (
+        {rightIcon && !initialIsPassword ? (
           <TouchableOpacity
             onPress={onRightIconPress}
             style={styles.iconRight}
           >
             {rightIcon}
           </TouchableOpacity>
-        )}
+        ) : null}
       </View>
 
-      {error && <Text style={styles.errorText}>{error}</Text>}
+      {error ? <Text style={styles.errorText}>{error}</Text> : null}
     </View>
   );
 };

@@ -8,7 +8,22 @@ Frontend mobile da aplicação Meu Agito, desenvolvido com React Native e Expo.
 - npm ou yarn
 - Expo CLI: `npm install -g expo-cli`
 - iOS (opcional): Xcode + iOS Simulator
-- Android (opcional): Android Studio + Android Emulator
+- Android (opcional): Android SDK Platform-Tools + SDK ou Android Studio
+
+## Android local sem Android Studio
+
+- O projeto nao exige Android Studio para manter `adb`.
+- Se o SDK Android ficar fora do caminho padrao, configure `ANDROID_SDK_ROOT` ou `ANDROID_HOME`.
+- Para instalacoes futuras em `F:`, o caminho funciona normalmente desde que `platform-tools/adb.exe` exista e a variavel de ambiente aponte para esse SDK.
+- O bootstrap local do projeto assume por padrao:
+  - `JAVA_HOME=F:\Meus Programas\Android Studio\jbr`
+  - `ANDROID_HOME=F:\Android\Sdk`
+  - `GRADLE_USER_HOME=F:\Android\Gradle`
+- Para gravar essas variaveis no usuario atual e gerar `android/local.properties`, rode:
+
+```powershell
+npm run android:setup
+```
 
 ## 🚀 Começar Rápido
 

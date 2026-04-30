@@ -2,11 +2,11 @@
 
 ## Overview
 
-O projeto utiliza **Zustand** para gerenciamento de estado global. Cada store é responsável por uma área específica da aplicação:
+O projeto utiliza **Zustand** para gerenciamento de estado global. Cada store Ã© responsÃ¡vel por uma Ã¡rea especÃ­fica da aplicaÃ§Ã£o:
 
-- **authStore**: Autenticação e tokens
-- **userStore**: Perfil de usuário e relacionamentos
-- **feedStore**: Posts, comentários e curtidas
+- **authStore**: AutenticaÃ§Ã£o e tokens
+- **userStore**: Perfil de usuÃ¡rio e relacionamentos
+- **feedStore**: Posts, comentÃ¡rios e curtidas
 - **chatStore**: Conversas e mensagens
 - **locationStore**: Eventos e estabelecimentos
 
@@ -21,19 +21,19 @@ npm install @react-native-async-storage/async-storage
 
 ## 1. Auth Store
 
-Gerencia autenticação, tokens e estado de login/logout.
+Gerencia autenticaÃ§Ã£o, tokens e estado de login/logout.
 
 ### State
 
 ```typescript
 {
-  user: UserAuth | null;           // Usuário logado
+  user: UserAuth | null;           // UsuÃ¡rio logado
   tokens: AuthTokens | null;       // Access + Refresh tokens
-  isAuthenticated: boolean;        // Está logado?
-  isLoading: boolean;              // Carregando requisição
+  isAuthenticated: boolean;        // EstÃ¡ logado?
+  isLoading: boolean;              // Carregando requisiÃ§Ã£o
   error: string | null;            // Mensagem de erro
   require2FA: boolean;             // Precisa de 2FA
-  tempEmail: string | null;        // Email temporário para 2FA
+  tempEmail: string | null;        // Email temporÃ¡rio para 2FA
 }
 ```
 
@@ -58,13 +58,13 @@ export function LoginScreen() {
 
   return (
     <View>
-      <TextInput 
-        value={email} 
+      <TextInput
+        value={email}
         onChangeText={setEmail}
         placeholder="Email"
       />
-      <TextInput 
-        value={password} 
+      <TextInput
+        value={password}
         onChangeText={setPassword}
         placeholder="Senha"
         secureTextEntry
@@ -82,30 +82,30 @@ export function LoginScreen() {
 
 ### Methods
 
-- `signup(email, name, password)` - Registrar novo usuário
+- `signup(email, name, password)` - Registrar novo usuÃ¡rio
 - `login(email, password)` - Fazer login
-- `loginWith2FA(email, code)` - Login com código 2FA
+- `loginWith2FA(email, code)` - Login com cÃ³digo 2FA
 - `logout()` - Fazer logout
 - `refreshToken()` - Renovar access token
-- `setup2FA()` - Configurar autenticação 2FA
-- `verify2FA(code, secret)` - Verificar código 2FA
+- `setup2FA()` - Configurar autenticaÃ§Ã£o 2FA
+- `verify2FA(code, secret)` - Verificar cÃ³digo 2FA
 - `requestPasswordReset(email)` - Solicitar reset de senha
 - `resetPassword(token, newPassword)` - Resetar senha
 - `changePassword(current, new)` - Alterar senha atual
 - `clearError()` - Limpar mensagem de erro
-- `setUser(user)` - Definir usuário logado
+- `setUser(user)` - Definir usuÃ¡rio logado
 
 ---
 
 ## 2. User Store
 
-Gerencia perfil de usuário, followers e following.
+Gerencia perfil de usuÃ¡rio, followers e following.
 
 ### State
 
 ```typescript
 {
-  profile: UserProfile | null;                    // Perfil do usuário
+  profile: UserProfile | null;                    // Perfil do usuÃ¡rio
   followers: PaginatedResponse<UserProfile>;      // Lista de seguidores
   following: PaginatedResponse<UserProfile>;      // Lista seguindo
   searchResults: PaginatedResponse<UserProfile>;  // Resultados de busca
@@ -158,7 +158,7 @@ export function ProfileScreen({ userId }: { userId: string }) {
           <Text>{profile.bio}</Text>
           <Text>Seguidores: {profile.followersCount}</Text>
           <Text>Seguindo: {profile.followingCount}</Text>
-          <Button 
+          <Button
             onPress={() => handleAvatarUpload(pickerResult.uri)}
             title="Alterar Avatar"
           />
@@ -171,38 +171,38 @@ export function ProfileScreen({ userId }: { userId: string }) {
 
 ### Methods
 
-- `getProfile()` - Carregar perfil do usuário logado
-- `getUserProfile(userId)` - Carregar perfil de outro usuário
-- `updateProfile(data)` - Atualizar informações do perfil
+- `getProfile()` - Carregar perfil do usuÃ¡rio logado
+- `getUserProfile(userId)` - Carregar perfil de outro usuÃ¡rio
+- `updateProfile(data)` - Atualizar informaÃ§Ãµes do perfil
 - `uploadAvatar(uri, filename, onProgress)` - Enviar novo avatar
-- `followUser(userId)` - Seguir um usuário
+- `followUser(userId)` - Seguir um usuÃ¡rio
 - `unfollowUser(userId)` - Deixar de seguir
 - `getFollowers(userId, page, limit)` - Listar seguidores
 - `getFollowing(userId, page, limit)` - Listar seguindo
-- `searchUsers(query, page, limit)` - Buscar usuários
-- `deleteAccount()` - Deletar conta do usuário
+- `searchUsers(query, page, limit)` - Buscar usuÃ¡rios
+- `deleteAccount()` - Deletar conta do usuÃ¡rio
 - `clearError()` - Limpar erro
-- `isFollowingUser(userId)` - Verificar se segue usuário
+- `isFollowingUser(userId)` - Verificar se segue usuÃ¡rio
 
 ---
 
 ## 3. Feed Store
 
-Gerencia posts, comentários, curtidas e feed.
+Gerencia posts, comentÃ¡rios, curtidas e feed.
 
 ### State
 
 ```typescript
 {
   posts: Post[];                          // Posts do feed
-  explorePosts: Post[];                   // Posts exploração
-  comments: Map<postId, Comment[]>;       // Comentários por post
+  explorePosts: Post[];                   // Posts exploraÃ§Ã£o
+  comments: Map<postId, Comment[]>;       // ComentÃ¡rios por post
   isLoadingFeed: boolean;
   isLoadingExplore: boolean;
-  feedPage: number;                       // Página atual do feed
-  explorePage: number;                    // Página atual exploração
+  feedPage: number;                       // PÃ¡gina atual do feed
+  explorePage: number;                    // PÃ¡gina atual exploraÃ§Ã£o
   feedHasMore: boolean;                   // Tem mais posts no feed?
-  exploreHasMore: boolean;                // Tem mais posts exploração?
+  exploreHasMore: boolean;                // Tem mais posts exploraÃ§Ã£o?
   error: string | null;
 }
 ```
@@ -257,11 +257,11 @@ export function HomeScreen() {
           onPress={() => (item.isLiked ? unlikePost(item.id) : likePost(item.id))}
         >
           <Text style={{ color: item.isLiked ? 'red' : '#666' }}>
-            ❤️ {item.likesCount}
+            â¤ï¸ {item.likesCount}
           </Text>
         </TouchableOpacity>
         <TouchableOpacity style={{ marginLeft: 20 }}>
-          <Text>💬 {item.commentsCount}</Text>
+          <Text>ðŸ’¬ {item.commentsCount}</Text>
         </TouchableOpacity>
       </View>
     </View>
@@ -284,22 +284,22 @@ export function HomeScreen() {
 ### Methods
 
 - `getFeed(page, limit)` - Carregar feed personalizado
-- `getExplorePosts(page, limit)` - Carregar exploração pública
+- `getExplorePosts(page, limit)` - Carregar exploraÃ§Ã£o pÃºblica
 - `getPost(postId)` - Carregar detalhes de um post
 - `createPost(content, images, video)` - Criar novo post
 - `updatePost(postId, data)` - Editar post
 - `deletePost(postId)` - Deletar post
 - `likePost(postId)` - Curtir post
 - `unlikePost(postId)` - Descurtir post
-- `getComments(postId, page, limit)` - Carregar comentários
+- `getComments(postId, page, limit)` - Carregar comentÃ¡rios
 - `createComment(postId, content)` - Comentar
-- `likeComment(commentId, postId)` - Curtir comentário
-- `unlikeComment(commentId, postId)` - Descurtir comentário
-- `deleteComment(commentId, postId)` - Deletar comentário
-- `getUserPosts(userId, page, limit)` - Posts de um usuário
+- `likeComment(commentId, postId)` - Curtir comentÃ¡rio
+- `unlikeComment(commentId, postId)` - Descurtir comentÃ¡rio
+- `deleteComment(commentId, postId)` - Deletar comentÃ¡rio
+- `getUserPosts(userId, page, limit)` - Posts de um usuÃ¡rio
 - `refreshFeed()` - Atualizar feed (pull-to-refresh)
 - `loadMoreFeed()` - Carregar mais posts
-- `loadMoreExplore()` - Carregar mais exploração
+- `loadMoreExplore()` - Carregar mais exploraÃ§Ã£o
 - `clearError()` - Limpar erro
 
 ---
@@ -316,8 +316,8 @@ Gerencia conversas e mensagens em tempo real.
   messages: Map<conversationId, Message[]>;       // Mensagens por conversa
   currentConversation: Conversation | null;       // Conversa aberta
   currentConversationMessages: Message[];         // Mensagens da conversa aberta
-  unreadCount: UnreadCount | null;                // Contagem não lidos
-  typingUsers: Map<conversationId, Set<userId>>; // Quem está digitando
+  unreadCount: UnreadCount | null;                // Contagem nÃ£o lidos
+  typingUsers: Map<conversationId, Set<userId>>; // Quem estÃ¡ digitando
   isLoadingConversations: boolean;
   isLoadingMessages: boolean;
   isSendingMessage: boolean;
@@ -344,7 +344,7 @@ export function ChatScreen() {
 
   const handleSendMessage = async () => {
     if (!currentConversation) return;
-    
+
     try {
       await sendMessage(currentConversation.id, text);
       setText('');
@@ -384,7 +384,7 @@ export function ChatScreen() {
 
       {typingList.size > 0 && (
         <Text style={{ padding: 10, fontStyle: 'italic' }}>
-          {Array.from(typingList).join(', ')} está digitando...
+          {Array.from(typingList).join(', ')} estÃ¡ digitando...
         </Text>
       )}
 
@@ -418,11 +418,11 @@ export function ChatScreen() {
 - `deleteMessage(messageId, conversationId)` - Deletar mensagem
 - `markAsRead(conversationId)` - Marcar como lido
 - `searchConversations(query)` - Buscar conversas
-- `getUnreadCount()` - Contar não lidos
+- `getUnreadCount()` - Contar nÃ£o lidos
 - `archiveConversation(conversationId)` - Arquivar conversa
 - `setCurrentConversation(conversation)` - Definir conversa atual
 - `loadMoreMessages(conversationId)` - Carregar mais mensagens
-- `setTypingUser(conversationId, userId)` - Marcador de digitação
+- `setTypingUser(conversationId, userId)` - Marcador de digitaÃ§Ã£o
 - `removeTypingUser(conversationId, userId)` - Remover marcador
 - `addMessage(message)` - Adicionar mensagem (Socket.io)
 - `clearError()` - Limpar erro
@@ -431,19 +431,19 @@ export function ChatScreen() {
 
 ## 5. Location Store
 
-Gerencia eventos e estabelecimentos baseados em localização.
+Gerencia eventos e estabelecimentos baseados em localizaÃ§Ã£o.
 
 ### State
 
 ```typescript
 {
-  userLocation: Coordinates | null;               // Localização do usuário
-  events: Event[];                                // Eventos próximos
-  establishments: Establishment[];                // Estabelecimentos próximos
+  userLocation: Coordinates | null;               // LocalizaÃ§Ã£o do usuÃ¡rio
+  events: Event[];                                // Eventos prÃ³ximos
+  establishments: Establishment[];                // Estabelecimentos prÃ³ximos
   eventDetails: Map<eventId, Event>;              // Detalhes de eventos
   establishmentDetails: Map<estabId, Estab>;     // Detalhes estabelecimentos
-  eventReviews: Map<eventId, Review[]>;           // Avaliações eventos
-  establishmentReviews: Map<estabId, Review[]>;  // Avaliações estabelecimentos
+  eventReviews: Map<eventId, Review[]>;           // AvaliaÃ§Ãµes eventos
+  establishmentReviews: Map<estabId, Review[]>;  // AvaliaÃ§Ãµes estabelecimentos
   favorites: string[];                            // IDs estabelecimentos favoritos
   isLoadingLocation: boolean;
   isLoadingEvents: boolean;
@@ -534,20 +534,20 @@ export function EventsScreen() {
 ### Methods
 
 **Location:**
-- `getUserLocation()` - Obter localização atual do usuário
-- `watchUserLocation(callback)` - Monitorar localização em tempo real
+- `getUserLocation()` - Obter localizaÃ§Ã£o atual do usuÃ¡rio
+- `watchUserLocation(callback)` - Monitorar localizaÃ§Ã£o em tempo real
 - `stopWatchingLocation()` - Parar de monitorar
 
 **Events:**
-- `getNearbyEvents(lat, lng, distance, page, limit)` - Buscar eventos próximos
+- `getNearbyEvents(lat, lng, distance, page, limit)` - Buscar eventos prÃ³ximos
 - `getEvent(eventId)` - Detalhes de um evento
 - `createEvent(data)` - Criar novo evento
 - `updateEvent(eventId, data)` - Editar evento
 - `deleteEvent(eventId)` - Deletar evento
 - `attendEvent(eventId)` - Participar de evento
-- `cancelAttendance(eventId)` - Cancelar participação
+- `cancelAttendance(eventId)` - Cancelar participaÃ§Ã£o
 - `getEventAttendees(eventId, page, limit)` - Lista de participantes
-- `getEventReviews(eventId, page, limit)` - Avaliações do evento
+- `getEventReviews(eventId, page, limit)` - AvaliaÃ§Ãµes do evento
 - `createEventReview(eventId, rating, comment)` - Avaliar evento
 
 **Establishments:**
@@ -558,9 +558,9 @@ export function EventsScreen() {
 - `deleteEstablishment(estabId)` - Deletar estabelecimento
 - `favoriteEstablishment(estabId)` - Adicionar aos favoritos
 - `unfavoriteEstablishment(estabId)` - Remover dos favoritos
-- `getEstablishmentReviews(estabId, page, limit)` - Avaliações
+- `getEstablishmentReviews(estabId, page, limit)` - AvaliaÃ§Ãµes
 - `createEstablishmentReview(estabId, rating, comment)` - Avaliar estabelecimento
-- `isFavorited(estabId)` - Verificar se é favorito
+- `isFavorited(estabId)` - Verificar se Ã© favorito
 
 ---
 
@@ -586,7 +586,7 @@ export function MyComponent() {
 ### 2. Async Operations
 
 ```typescript
-// Store action já retorna promessa
+// Store action jÃ¡ retorna promessa
 try {
   await feedStore().createPost(content);
   // Post criado com sucesso
@@ -647,10 +647,10 @@ describe('Auth Store', () => {
 
 | Store | Purpose | Key Methods |
 |-------|---------|-------------|
-| **authStore** | Autenticação | login, logout, refreshToken |
+| **authStore** | AutenticaÃ§Ã£o | login, logout, refreshToken |
 | **userStore** | Perfil | getProfile, updateProfile, followUser |
 | **feedStore** | Posts | getFeed, createPost, likePost |
 | **chatStore** | Mensagens | sendMessage, markAsRead, createConversation |
 | **locationStore** | Locais | getNearbyEvents, favoriteEstablishment |
 
-Todos os stores incluem tratamento de erro e estados de carregamento para melhor experiência de usuário.
+Todos os stores incluem tratamento de erro e estados de carregamento para melhor experiÃªncia de usuÃ¡rio.

@@ -1,3 +1,5 @@
+import { useFocusEffect, useNavigation, ParamListBase } from '@react-navigation/native';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import React, { useState, useCallback } from 'react';
 import {
   StyleSheet,
@@ -8,22 +10,23 @@ import {
   SafeAreaView,
   Switch,
 } from 'react-native';
-import { useNavigation, useFocusEffect } from '@react-navigation/native';
+
+
 import { colors } from '@constants/colors';
 import { spacing, fontSize } from '@constants/design';
 
 /**
- * SettingsPrivacy - Sub-tela de Privacidade  
+ * SettingsPrivacy - Sub-tela de Privacidade
  * Tela 08 de T_CONFIG
- * Conta pública, mensagens, check-ins, bloqueados
+ * Conta pÃºblica, mensagens, check-ins, bloqueados
  */
 
 export default function SettingsPrivacyScreen() {
-  const navigation = useNavigation<any>();
+  const navigation = useNavigation<NativeStackNavigationProp<ParamListBase>>();
   const [publicAccount, setPublicAccount] = useState(false);
   const [messages, setMessages] = useState<'anyone' | 'following' | 'nobody'>('anyone');
   const [checkins, setCheckins] = useState<'all' | 'followers' | 'private'>('all');
-  const [blockedCount, setBlockedCount] = useState(0);
+  const [blockedCount] = useState(0);
 
   useFocusEffect(
     useCallback(() => {
@@ -36,7 +39,7 @@ export default function SettingsPrivacyScreen() {
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()}>
           <View style={styles.backButton}>
-            <Text style={styles.backIcon}>←</Text>
+            <Text style={styles.backIcon}>â†</Text>
           </View>
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Privacidade</Text>
@@ -48,14 +51,14 @@ export default function SettingsPrivacyScreen() {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
       >
-        {/* Conta Pública */}
+        {/* Conta PÃºblica */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Conta Pública</Text>
+            <Text style={styles.sectionTitle}>Conta PÃºblica</Text>
           </View>
           <View style={styles.item}>
             <View style={styles.itemInfo}>
-              <Text style={styles.itemLabel}>Conta Pública</Text>
+              <Text style={styles.itemLabel}>Conta PÃºblica</Text>
               <Text style={styles.itemSubtitle}>
                 {publicAccount
                   ? 'Qualquer pessoa pode ver seu perfil'
@@ -82,12 +85,12 @@ export default function SettingsPrivacyScreen() {
             onPress={() => setMessages('anyone')}
           />
           <RadioOption
-            label="Só quem sigo"
+            label="SÃ³ quem sigo"
             selected={messages === 'following'}
             onPress={() => setMessages('following')}
           />
           <RadioOption
-            label="Ninguém"
+            label="NinguÃ©m"
             selected={messages === 'nobody'}
             onPress={() => setMessages('nobody')}
           />
@@ -99,17 +102,17 @@ export default function SettingsPrivacyScreen() {
             <Text style={styles.sectionTitle}>Visibilidade de Check-ins</Text>
           </View>
           <RadioOption
-            label="Visíveis para todos"
+            label="VisÃ­veis para todos"
             selected={checkins === 'all'}
             onPress={() => setCheckins('all')}
           />
           <RadioOption
-            label="Só meus seguidores"
+            label="SÃ³ meus seguidores"
             selected={checkins === 'followers'}
             onPress={() => setCheckins('followers')}
           />
           <RadioOption
-            label="Só eu"
+            label="SÃ³ eu"
             selected={checkins === 'private'}
             onPress={() => setCheckins('private')}
           />
@@ -119,10 +122,10 @@ export default function SettingsPrivacyScreen() {
         <View style={styles.section}>
           <TouchableOpacity style={styles.item} onPress={() => navigation.push('SettingsBlockedUsers')}>
             <View style={styles.itemInfo}>
-              <Text style={styles.itemLabel}>Usuários Bloqueados</Text>
-              <Text style={styles.itemSubtitle}>{blockedCount} usuários</Text>
+              <Text style={styles.itemLabel}>UsuÃ¡rios Bloqueados</Text>
+              <Text style={styles.itemSubtitle}>{blockedCount} usuÃ¡rios</Text>
             </View>
-            <Text style={styles.chevron}>›</Text>
+            <Text style={styles.chevron}>â€º</Text>
           </TouchableOpacity>
         </View>
       </ScrollView>

@@ -1,4 +1,5 @@
 import * as Location from 'expo-location';
+import { logger } from '@utils/logger';
 
 export interface Coordinates {
   latitude: number;
@@ -11,7 +12,13 @@ export interface Coordinates {
 
 class GeolocationService {
   private permissionAsked = false;
-  private watchId: string | null = null;
+  private watchId: Location.LocationSubscription | null = null;
+
+  private isPermissionDenied(error: unknown): boolean {
+    const message = error instanceof Error ? error.message : String(error);
+    const normalizedMessage = message.toLowerCase();
+    return normalizedMessage.includes('permiss') && normalizedMessage.includes('negad');
+  }
 
   /**
    * Solicitar permissão de localização
@@ -21,7 +28,7 @@ class GeolocationService {
       const { status } = await Location.requestForegroundPermissionsAsync();
       return status === 'granted';
     } catch (error) {
-      console.error('Erro ao solicitar permissão:', error);
+      logger.warn('Falha ao solicitar permissao de localizacao:', error);
       return false;
     }
   }
@@ -34,7 +41,7 @@ class GeolocationService {
       const { status } = await Location.getForegroundPermissionsAsync();
       return status === 'granted';
     } catch (error) {
-      console.error('Erro ao verificar permissão:', error);
+      logger.warn('Falha ao verificar permissao de localizacao:', error);
       return false;
     }
   }
@@ -66,7 +73,11 @@ class GeolocationService {
         speed: location.coords.speed ?? undefined,
       };
     } catch (error) {
-      console.error('Erro ao obter localização:', error);
+      if (this.isPermissionDenied(error)) {
+        logger.warn('Permissao de localizacao nao concedida. Usando fallback.');
+      } else {
+        logger.error('Erro ao obter localizacao:', error);
+      }
       throw error;
     }
   }
@@ -80,7 +91,7 @@ class GeolocationService {
     try {
       return await this.getCurrentLocation();
     } catch (error) {
-      console.warn('Falha ao obter localização, usando padrão:', error);
+      logger.warn('Falha ao obter localização, usando padrão:', error);
 
       if (defaultCoordinates) {
         return defaultCoordinates;
@@ -101,7 +112,7 @@ class GeolocationService {
   async watchLocation(
     onLocationChange: (location: Coordinates) => void,
     onError?: (error: Error) => void,
-  ): Promise<string> {
+  ): Promise<Location.LocationSubscription> {
     try {
       const hasPermission = await this.hasPermission();
 
@@ -112,7 +123,7 @@ class GeolocationService {
         }
       }
 
-      const watchId = await Location.watchPositionAsync(
+      const watchSubscription = await Location.watchPositionAsync(
         {
           accuracy: Location.Accuracy.High,
           timeInterval: 5000, // atualizar a cada 5 segundos
@@ -130,8 +141,8 @@ class GeolocationService {
         },
       );
 
-      this.watchId = watchId;
-      return watchId;
+      this.watchId = watchSubscription;
+      return watchSubscription;
     } catch (error) {
       const err = error instanceof Error ? error : new Error(String(error));
       if (onError) {
@@ -147,10 +158,10 @@ class GeolocationService {
   async stopWatching(): Promise<void> {
     if (this.watchId) {
       try {
-        await Location.removeWatchAsync(this.watchId);
+        this.watchId.remove();
         this.watchId = null;
       } catch (error) {
-        console.error('Erro ao parar de monitorar:', error);
+        logger.error('Erro ao parar de monitorar:', error);
       }
     }
   }
@@ -197,7 +208,7 @@ class GeolocationService {
         longitude: result.longitude,
       }));
     } catch (error) {
-      console.error('Erro ao fazer geocode:', error);
+      logger.error('Erro ao fazer geocode:', error);
       throw error;
     }
   }
@@ -221,7 +232,7 @@ class GeolocationService {
 
       return results;
     } catch (error) {
-      console.error('Erro ao fazer reverse geocode:', error);
+      logger.error('Erro ao fazer reverse geocode:', error);
       throw error;
     }
   }
@@ -250,7 +261,7 @@ class GeolocationService {
 
       return `${latitude.toFixed(4)}, ${longitude.toFixed(4)}`;
     } catch (error) {
-      console.error('Erro ao obter endereço formatado:', error);
+      logger.error('Erro ao obter endereço formatado:', error);
       return `${latitude.toFixed(4)}, ${longitude.toFixed(4)}`;
     }
   }

@@ -10,3 +10,5 @@ dist/
 coverage/
 .expo/
 .expo-shared/
+google-services.json
+android/app/google-services.json

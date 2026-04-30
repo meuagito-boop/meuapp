@@ -1,58 +1,74 @@
 import React, { useEffect } from 'react';
-import { StyleSheet, View, Text, ActivityIndicator } from 'react-native';
-import { useNavigation, useFocusEffect } from '@react-navigation/native';
-// Usando locationStore de @stores/
+import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
+import { useNavigation, ParamListBase } from '@react-navigation/native';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+
+
+
+import AsyncStorage from '@react-native-async-storage/async-storage';
+
 import { authStore } from '@stores/authStore';
+import { locationStore } from '@stores/locationStore';
+import { colors } from '@constants/colors';
+import { logger } from '@utils/logger';
+
+const ONBOARDING_STORAGE_KEY = 'meuagito_onboarding_completo';
 
 export default function SplashScreen() {
-  const navigation = useNavigation();
-  const { isLoading: isLoadingLocation } = useLocationStore();
-  const { isAuthenticated, refreshToken, logout, user } = authStore();
+  const navigation = useNavigation<NativeStackNavigationProp<ParamListBase>>();
+  const { isLoadingLocation } = locationStore();
+  const { isAuthenticated, needsOnboarding, pendingOnboardingScreen, refreshToken, logout, user } =
+    authStore();
 
   useEffect(() => {
+    let timer: ReturnType<typeof setTimeout> | null = null;
+
     const initializeApp = async () => {
       try {
-        // Se usuário está autenticado, tentar refresh do token
         if (isAuthenticated && user) {
           try {
             await refreshToken();
-            // Refresh bem-sucedido, navegar para app
-            navigation.navigate('Home' as never);
-          } catch (error) {
-            // Refresh falhou, logout e voltar para login
+            if (needsOnboarding && pendingOnboardingScreen) {
+              navigation.replace(pendingOnboardingScreen);
+            }
+            return;
+          } catch {
             await logout();
-            navigation.navigate('Login' as never);
+            const onboardingDone = await AsyncStorage.getItem(ONBOARDING_STORAGE_KEY);
+            navigation.replace(onboardingDone === 'true' ? 'Login' : 'Onboarding');
           }
-        } else {
-          // Sem autenticação, ir para login (após 1.5s de splash)
-          const timer = setTimeout(() => {
-            navigation.navigate('Login' as never);
-          }, 1500);
-          return () => clearTimeout(timer);
+          return;
         }
+
+        const onboardingDone = await AsyncStorage.getItem(ONBOARDING_STORAGE_KEY);
+        timer = setTimeout(() => {
+          navigation.replace(onboardingDone === 'true' ? 'Login' : 'Onboarding');
+        }, 900);
       } catch (error) {
-        console.error('Error initializing app:', error);
-        // Em caso de erro inesperado, ir para login
-        const timer = setTimeout(() => {
-          navigation.navigate('Login' as never);
-        }, 1500);
-        return () => clearTimeout(timer);
+        logger.error('Error initializing app:', error);
+        navigation.replace('Login');
       }
     };
 
-    initializeApp();
-  }, [navigation, isAuthenticated, user, refreshToken, logout]);
+    void initializeApp();
+
+    return () => {
+      if (timer) {
+        clearTimeout(timer);
+      }
+    };
+  }, [isAuthenticated, logout, navigation, needsOnboarding, pendingOnboardingScreen, refreshToken, user]);
 
   return (
     <View style={styles.container}>
       <View style={styles.content}>
         <Text style={styles.title}>Meu Agito</Text>
-        <Text style={styles.subtitle}>Descobra estabelecimentos e eventos perto de você</Text>
+        <Text style={styles.subtitle}>Descubra estabelecimentos e eventos perto de voce</Text>
 
         <View style={styles.loaderContainer}>
-          <ActivityIndicator size="large" color="#FF6B6B" />
+          <ActivityIndicator size="large" color={colors.primary} />
           <Text style={styles.loadingText}>
-            {isLoadingLocation ? 'Obtendo sua localização...' : 'Inicializando...'}
+            {isLoadingLocation ? 'Obtendo sua localizacao...' : 'Inicializando...'}
           </Text>
         </View>
       </View>
@@ -67,7 +83,7 @@ export default function SplashScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: colors.background,
     justifyContent: 'space-between',
     alignItems: 'center',
   },
@@ -75,18 +91,18 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+    paddingHorizontal: 24,
   },
   title: {
     fontSize: 48,
     fontWeight: 'bold',
-    color: '#FF6B6B',
+    color: colors.primary,
     marginBottom: 10,
   },
   subtitle: {
     fontSize: 16,
-    color: '#666',
+    color: colors.textSecondary,
     textAlign: 'center',
-    paddingHorizontal: 30,
     marginBottom: 40,
   },
   loaderContainer: {
@@ -95,19 +111,13 @@ const styles = StyleSheet.create({
   loadingText: {
     marginTop: 15,
     fontSize: 14,
-    color: '#666',
-  },
-  locationInfo: {
-    marginTop: 20,
-    padding: 15,
-    backgroundColor: '#f5f5f5',
-    borderRadius: 10,
-  },
-  locationText: {
-    fontSize: 12,
-    color: '#333',
+    color: colors.textSecondary,
   },
   footer: {
     paddingBottom: 30,
+  },
+  versionText: {
+    fontSize: 12,
+    color: colors.textTertiary,
   },
 });

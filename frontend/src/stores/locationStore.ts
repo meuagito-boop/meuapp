@@ -1,6 +1,12 @@
 import { create } from 'zustand';
 import { locationService } from '../services/api/index';
 import GeolocationService, { Coordinates } from '../services/geolocation/GeolocationService';
+import type {
+  CreateEstablishmentRequest,
+  CreateEventRequest,
+  EventAttendee,
+} from '../services/api/LocationService';
+import { logger } from '@utils/logger';
 
 export interface Event {
   id: string;
@@ -83,7 +89,7 @@ export interface LocationStore {
 
   // Actions
   getUserLocation: () => Promise<Coordinates>;
-  watchUserLocation: (onLocationChange?: (location: Coordinates) => void) => Promise<string>;
+  watchUserLocation: (onLocationChange?: (location: Coordinates) => void) => Promise<unknown>;
   stopWatchingLocation: () => Promise<void>;
   getNearbyEvents: (
     latitude?: number,
@@ -93,22 +99,12 @@ export interface LocationStore {
     limit?: number,
   ) => Promise<void>;
   getEvent: (eventId: string) => Promise<void>;
-  createEvent: (data: {
-    title: string;
-    description: string;
-    latitude: number;
-    longitude: number;
-    address: string;
-    startDate: string;
-    endDate: string;
-    category: string;
-    image?: string;
-  }) => Promise<void>;
-  updateEvent: (eventId: string, data: any) => Promise<void>;
+  createEvent: (data: CreateEventRequest) => Promise<void>;
+  updateEvent: (eventId: string, data: Partial<CreateEventRequest>) => Promise<void>;
   deleteEvent: (eventId: string) => Promise<void>;
   attendEvent: (eventId: string) => Promise<void>;
   cancelAttendance: (eventId: string) => Promise<void>;
-  getEventAttendees: (eventId: string, page?: number, limit?: number) => Promise<any>;
+  getEventAttendees: (eventId: string, page?: number, limit?: number) => Promise<PaginatedResponse<EventAttendee>>;
   getEventReviews: (eventId: string, page?: number, limit?: number) => Promise<void>;
   createEventReview: (eventId: string, rating: number, comment: string) => Promise<void>;
   getNearbyEstablishments: (
@@ -120,8 +116,8 @@ export interface LocationStore {
     limit?: number,
   ) => Promise<void>;
   getEstablishment: (establishmentId: string) => Promise<void>;
-  createEstablishment: (data: any) => Promise<void>;
-  updateEstablishment: (establishmentId: string, data: any) => Promise<void>;
+  createEstablishment: (data: CreateEstablishmentRequest) => Promise<void>;
+  updateEstablishment: (establishmentId: string, data: Partial<CreateEstablishmentRequest>) => Promise<void>;
   deleteEstablishment: (establishmentId: string) => Promise<void>;
   favoriteEstablishment: (establishmentId: string) => Promise<void>;
   unfavoriteEstablishment: (establishmentId: string) => Promise<void>;
@@ -176,7 +172,7 @@ export const locationStore = create<LocationStore>((set, get) => ({
           onLocationChange?.(location);
         },
         (error) => {
-          console.error('Erro ao monitorar localização:', error);
+          logger.error('Erro ao monitorar localização:', error);
           set({ error: error.message });
         },
       );
@@ -370,16 +366,23 @@ export const locationStore = create<LocationStore>((set, get) => ({
     try {
       const review = await locationService.createEventReview(eventId, { rating, comment });
 
-      // Atualizar avaliações
       set((state) => {
-        const reviews = state.eventReviews.get(eventId);
-        if (reviews) {
-          reviews.data.unshift(review);
+        const current = state.eventReviews.get(eventId);
+        if (!current) {
+          return state;
         }
-        return { eventReviews: state.eventReviews };
+
+        const nextReviews = new Map(state.eventReviews);
+        nextReviews.set(eventId, {
+          ...current,
+          data: [review, ...current.data],
+          total: current.total + 1,
+        });
+
+        return { eventReviews: nextReviews };
       });
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Erro ao criar avaliação';
+      const message = error instanceof Error ? error.message : 'Erro ao criar avaliacao';
       set({ error: message });
       throw error;
     }
@@ -579,16 +582,23 @@ export const locationStore = create<LocationStore>((set, get) => ({
         comment,
       });
 
-      // Atualizar avaliações
       set((state) => {
-        const reviews = state.establishmentReviews.get(establishmentId);
-        if (reviews) {
-          reviews.data.unshift(review);
+        const current = state.establishmentReviews.get(establishmentId);
+        if (!current) {
+          return state;
         }
-        return { establishmentReviews: state.establishmentReviews };
+
+        const nextReviews = new Map(state.establishmentReviews);
+        nextReviews.set(establishmentId, {
+          ...current,
+          data: [review, ...current.data],
+          total: current.total + 1,
+        });
+
+        return { establishmentReviews: nextReviews };
       });
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Erro ao criar avaliação';
+      const message = error instanceof Error ? error.message : 'Erro ao criar avaliacao';
       set({ error: message });
       throw error;
     }

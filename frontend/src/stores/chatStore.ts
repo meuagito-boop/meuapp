@@ -1,6 +1,13 @@
 import { create } from 'zustand';
 import { chatService } from '../services/api/index';
-import SocketIOManager from '../services/socket/SocketIOManager';
+import { authStore } from './authStore';
+import { logger } from '@utils/logger';
+
+export interface ConversationParticipant {
+  id: string;
+  name: string;
+  avatar?: string;
+}
 
 export interface Conversation {
   id: string;
@@ -9,11 +16,16 @@ export interface Conversation {
     name: string;
     avatar?: string;
   };
+  participants: ConversationParticipant[];
   lastMessage?: {
+    id?: string;
+    senderId?: string;
+    senderName?: string;
     content: string;
     createdAt: string;
   };
   unreadCount: number;
+  messagesCount: number;
   createdAt: string;
   updatedAt: string;
 }
@@ -31,9 +43,11 @@ export interface Message {
     name: string;
     avatar?: string;
   };
+  readBy?: Array<{ id: string }>;
   isEdited: boolean;
   createdAt: string;
   updatedAt: string;
+  editedAt?: string;
 }
 
 export interface UnreadCount {
@@ -82,6 +96,131 @@ export interface ChatStore {
   clearError: () => void;
 }
 
+type ApiConversation = {
+  id: string;
+  recipient?: {
+    id: string;
+    name: string;
+    avatar?: string;
+  };
+  participants?: ConversationParticipant[];
+  messages?: Array<{
+    id: string;
+    content: string;
+    createdAt: string;
+    sender?: {
+      id: string;
+      name: string;
+      avatar?: string;
+    };
+  }>;
+  lastMessage?: {
+    id?: string;
+    content: string;
+    createdAt: string;
+    sender?: {
+      id: string;
+      name: string;
+      avatar?: string;
+    };
+  };
+  unreadCount?: number;
+  _count?: {
+    messages?: number;
+  };
+  createdAt: string;
+  updatedAt: string;
+};
+
+type ApiUnreadCount = {
+  total?: number;
+  byConversation?: Record<string, number> | Array<{ conversationId: string; unreadCount: number }>;
+};
+
+const toUnreadMap = (
+  byConversation?: Record<string, number> | Array<{ conversationId: string; unreadCount: number }>,
+) => {
+  if (!byConversation) {
+    return new Map<string, number>();
+  }
+
+  if (Array.isArray(byConversation)) {
+    return new Map(
+      byConversation
+        .filter((entry) => entry?.conversationId)
+        .map((entry) => [entry.conversationId, entry.unreadCount || 0] as const),
+    );
+  }
+
+  return new Map(Object.entries(byConversation));
+};
+
+const toUnreadRecord = (
+  byConversation?: Record<string, number> | Array<{ conversationId: string; unreadCount: number }>,
+): Record<string, number> => Object.fromEntries(toUnreadMap(byConversation));
+
+const normalizeConversation = (
+  conversation: ApiConversation,
+  currentUserId: string | null,
+  unreadByConversation: Map<string, number>,
+): Conversation => {
+  const participants = conversation.participants || [];
+  const recipientFromParticipants =
+    participants.find((participant) => participant.id !== currentUserId) || participants[0];
+
+  const recipient = conversation.recipient ||
+    recipientFromParticipants || {
+      id: 'unknown',
+      name: 'Contato',
+    };
+
+  const rawLastMessage = conversation.lastMessage || conversation.messages?.[0];
+  const unreadCount =
+    conversation.unreadCount ??
+    unreadByConversation.get(conversation.id) ??
+    0;
+
+  return {
+    id: conversation.id,
+    recipient: {
+      id: recipient.id,
+      name: recipient.name,
+      avatar: recipient.avatar,
+    },
+    participants,
+    lastMessage: rawLastMessage
+      ? {
+          id: rawLastMessage.id,
+          senderId: rawLastMessage.sender?.id,
+          senderName: rawLastMessage.sender?.name,
+          content: rawLastMessage.content,
+          createdAt: rawLastMessage.createdAt,
+        }
+      : undefined,
+    unreadCount,
+    messagesCount: conversation._count?.messages ?? 0,
+    createdAt: conversation.createdAt,
+    updatedAt: conversation.updatedAt,
+  };
+};
+
+const withSocketManager = async (
+  action: (socketManager: {
+    joinConversation: (conversationId: string) => void;
+    sendMessage: (conversationId: string, content: string) => void;
+    editMessage: (messageId: string, conversationId: string, content: string) => void;
+    deleteMessage: (messageId: string, conversationId: string) => void;
+    markConversationAsRead: (conversationId: string) => void;
+  }) => void,
+) => {
+  try {
+    const { default: socketManager } = await import('../services/socket/SocketIOManager');
+    action(socketManager);
+  } catch (error) {
+    logger.warn('Erro no Socket.IO Manager:', error);
+  }
+};
+
 export const chatStore = create<ChatStore>((set, get) => ({
   // Initial state
   conversations: [],
@@ -100,12 +239,15 @@ export const chatStore = create<ChatStore>((set, get) => ({
     set({ error: null });
     try {
       const conversation = await chatService.createConversation(recipientId);
+      const currentUserId = authStore.getState().user?.id ?? null;
+      const unreadMap = toUnreadMap(get().unreadCount?.byConversation);
+      const normalized = normalizeConversation(conversation as unknown as ApiConversation, currentUserId, unreadMap);
 
       set((state) => ({
-        conversations: [conversation, ...state.conversations],
+        conversations: [normalized, ...state.conversations.filter((item) => item.id !== normalized.id)],
       }));
 
-      return conversation;
+      return normalized;
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Erro ao criar conversa';
       set({ error: message });
@@ -117,9 +259,26 @@ export const chatStore = create<ChatStore>((set, get) => ({
     set({ isLoadingConversations: true, error: null });
     try {
       const response = await chatService.listConversations(page, limit);
-      set({
-        conversations: page === 1 ? response.data : [...get().conversations, ...response.data],
-        isLoadingConversations: false,
+      const currentUserId = authStore.getState().user?.id ?? null;
+      const unreadMap = toUnreadMap(get().unreadCount?.byConversation);
+      const normalized = response.data.map((item) =>
+        normalizeConversation(item as unknown as ApiConversation, currentUserId, unreadMap),
+      );
+
+      set((state) => {
+        const conversations = page === 1
+          ? normalized
+          : [...state.conversations, ...normalized].reduce((acc, item) => {
+              if (!acc.find((existing) => existing.id === item.id)) {
+                acc.push(item);
+              }
+              return acc;
+            }, [] as Conversation[]);
+
+        return {
+          conversations,
+          isLoadingConversations: false,
+        };
       });
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Erro ao carregar conversas';
@@ -132,13 +291,18 @@ export const chatStore = create<ChatStore>((set, get) => ({
     set({ isLoadingMessages: true, error: null });
     try {
       const conversation = await chatService.getConversation(conversationId);
+      const currentUserId = authStore.getState().user?.id ?? null;
+      const unreadMap = toUnreadMap(get().unreadCount?.byConversation);
+      const normalized = normalizeConversation(conversation as unknown as ApiConversation, currentUserId, unreadMap);
       set({
-        currentConversation: conversation,
+        currentConversation: normalized,
         isLoadingMessages: false,
       });
 
       // Entrar na conversa via Socket.io
-      SocketIOManager.joinConversation(conversationId);
+      await withSocketManager((socketManager) => {
+        socketManager.joinConversation(conversationId);
+      });
 
       // Carregar mensagens
       await get().getMessages(conversationId);
@@ -190,15 +354,34 @@ export const chatStore = create<ChatStore>((set, get) => ({
       // Atualizar lista local
       set((state) => {
         const messages = state.messages.get(conversationId) || [];
+        const updatedConversationList = state.conversations.map((conversation) =>
+          conversation.id === conversationId
+            ? {
+                ...conversation,
+                lastMessage: {
+                  id: message.id,
+                  senderId: message.sender.id,
+                  senderName: message.sender.name,
+                  content: message.content,
+                  createdAt: message.createdAt,
+                },
+                updatedAt: message.createdAt,
+              }
+            : conversation,
+        );
+
         return {
           messages: new Map(state.messages).set(conversationId, [...messages, message]),
           currentConversationMessages: [...state.currentConversationMessages, message],
+          conversations: updatedConversationList,
           isSendingMessage: false,
         };
       });
 
       // Emitir via Socket.io
-      SocketIOManager.sendMessage(conversationId, content);
+      void withSocketManager((socketManager) => {
+        socketManager.sendMessage(conversationId, content);
+      });
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Erro ao enviar mensagem';
       set({ error: message, isSendingMessage: false });
@@ -226,7 +409,9 @@ export const chatStore = create<ChatStore>((set, get) => ({
       });
 
       // Emitir via Socket.io
-      SocketIOManager.editMessage(messageId, conversationId, content);
+      void withSocketManager((socketManager) => {
+        socketManager.editMessage(messageId, conversationId, content);
+      });
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Erro ao editar mensagem';
       set({ error: message });
@@ -254,7 +439,9 @@ export const chatStore = create<ChatStore>((set, get) => ({
       });
 
       // Emitir via Socket.io
-      SocketIOManager.deleteMessage(messageId, conversationId);
+      void withSocketManager((socketManager) => {
+        socketManager.deleteMessage(messageId, conversationId);
+      });
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Erro ao deletar mensagem';
       set({ error: message });
@@ -271,7 +458,9 @@ export const chatStore = create<ChatStore>((set, get) => ({
       await get().getUnreadCount();
 
       // Emitir via Socket.io
-      SocketIOManager.markConversationAsRead(conversationId);
+      void withSocketManager((socketManager) => {
+        socketManager.markConversationAsRead(conversationId);
+      });
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Erro ao marcar como lido';
       set({ error: message });
@@ -283,8 +472,13 @@ export const chatStore = create<ChatStore>((set, get) => ({
     set({ isLoadingConversations: true, error: null });
     try {
       const results = await chatService.searchConversations(query);
+      const currentUserId = authStore.getState().user?.id ?? null;
+      const unreadMap = toUnreadMap(get().unreadCount?.byConversation);
+      const normalized = results.map((item) =>
+        normalizeConversation(item as unknown as ApiConversation, currentUserId, unreadMap),
+      );
       set({
-        conversations: results,
+        conversations: normalized,
         isLoadingConversations: false,
       });
     } catch (error) {
@@ -296,10 +490,30 @@ export const chatStore = create<ChatStore>((set, get) => ({
 
   getUnreadCount: async () => {
     try {
-      const unreadCount = await chatService.getUnreadCount();
-      set({ unreadCount });
+      const unreadCount = await chatService.getUnreadCount() as ApiUnreadCount;
+      const byConversation = toUnreadRecord(unreadCount.byConversation);
+      const total =
+        typeof unreadCount.total === 'number'
+          ? unreadCount.total
+          : Object.values(byConversation).reduce((acc, value) => acc + value, 0);
+      set((state) => ({
+        unreadCount: {
+          total,
+          byConversation,
+        },
+        conversations: state.conversations.map((conversation) => ({
+          ...conversation,
+          unreadCount: byConversation[conversation.id] ?? 0,
+        })),
+        currentConversation: state.currentConversation
+          ? {
+              ...state.currentConversation,
+              unreadCount: byConversation[state.currentConversation.id] ?? 0,
+            }
+          : null,
+      }));
     } catch (error) {
-      console.error('Erro ao carregar contagem de não lidos:', error);
+      logger.error('Erro ao carregar contagem de nao lidos:', error);
     }
   },
 
@@ -338,7 +552,7 @@ export const chatStore = create<ChatStore>((set, get) => ({
       return { typingUsers };
     });
 
-    // Limpar após 3 segundos
+    // Limpar apÃ³s 3 segundos
     setTimeout(() => {
       get().removeTypingUser(conversationId, userId);
     }, 3000);
@@ -364,21 +578,57 @@ export const chatStore = create<ChatStore>((set, get) => ({
     set((state) => {
       const conversationId = message.conversationId;
       const messages = state.messages.get(conversationId) || [];
-
-      // Não adicionar se já existe
+      const currentUserId = authStore.getState().user?.id ?? null;
+      // Nao adicionar se ja existe
       if (messages.find((m) => m.id === message.id)) {
         return state;
       }
-
       const newMessages = new Map(state.messages);
       newMessages.set(conversationId, [...messages, message]);
-
+      const isCurrentConversation = conversationId === state.currentConversation?.id;
+      const isIncomingMessage = message.sender.id !== currentUserId;
+      const byConversation = { ...(state.unreadCount?.byConversation ?? {}) };
+      const previousUnread = byConversation[conversationId] ?? 0;
+      const nextUnread = !isCurrentConversation && isIncomingMessage ? previousUnread + 1 : previousUnread;
+      byConversation[conversationId] = nextUnread;
+      const totalUnread = Object.values(byConversation).reduce((acc, value) => acc + value, 0);
+      const lastMessage = {
+        id: message.id,
+        senderId: message.sender.id,
+        senderName: message.sender.name,
+        content: message.content,
+        createdAt: message.createdAt,
+      };
+      const conversations = state.conversations.map((conversation) =>
+        conversation.id === conversationId
+          ? {
+              ...conversation,
+              lastMessage,
+              updatedAt: message.createdAt,
+              unreadCount: nextUnread,
+            }
+          : conversation,
+      );
+      const currentConversation = state.currentConversation?.id === conversationId
+        ? {
+            ...state.currentConversation,
+            lastMessage,
+            updatedAt: message.createdAt,
+            unreadCount: 0,
+          }
+        : state.currentConversation;
       return {
         messages: newMessages,
         currentConversationMessages:
-          conversationId === state.currentConversation?.id
+          isCurrentConversation
             ? [...state.currentConversationMessages, message]
             : state.currentConversationMessages,
+        conversations,
+        currentConversation,
+        unreadCount: {
+          total: totalUnread,
+          byConversation,
+        },
       };
     });
   },

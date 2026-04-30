@@ -6,19 +6,37 @@ export interface LoginRequest {
 }
 
 export interface SignupRequest {
-  name: string;
   email: string;
+  firstName: string;
+  lastName: string;
+  birthDate: string; // YYYY-MM-DD
+  name?: string;
   password: string;
   passwordConfirm: string;
+  profileType: 'USER' | 'ESTABLISHMENT';
 }
 
 export interface AuthResponse {
-  id: string;
-  name: string;
-  email: string;
+  id?: string;
+  name?: string;
+  email?: string;
   avatar?: string;
-  accessToken: string;
-  refreshToken: string;
+  user?: {
+    id: string;
+    name: string;
+    email: string;
+    avatar?: string;
+    profileType?: 'USER' | 'ESTABLISHMENT';
+  };
+  accessToken?: string;
+  refreshToken?: string;
+  require2FA?: boolean;
+  requiresTwoFactor?: boolean;
+  tempToken?: string;
+  tempUserId?: string;
+  userId?: string;
+  verificationEmailSent?: boolean;
+  profileType?: 'USER' | 'ESTABLISHMENT';
 }
 
 export interface Setup2FAResponse {
@@ -28,7 +46,14 @@ export interface Setup2FAResponse {
 
 export interface Verify2FARequest {
   code: string;
-  secret: string;
+}
+
+export interface Disable2FAResponse {
+  message: string;
+}
+
+export interface VerifyEmailRequest {
+  token: string;
 }
 
 class AuthService {
@@ -55,27 +80,34 @@ class AuthService {
   /**
    * Login com 2FA
    */
-  async loginWith2FA(email: string, code: string): Promise<AuthResponse> {
-    return this.apiClient.post('/auth/login/2fa', {
-      email,
+  async loginWith2FA(userId: string, code: string, tempToken: string): Promise<AuthResponse> {
+    return this.apiClient.post('/auth/verify-2fa-login', {
+      userId,
       code,
+      tempToken,
     });
   }
 
   /**
    * Refresh token
    */
-  async refreshToken(refreshToken: string): Promise<{ accessToken: string }> {
-    return this.apiClient.post('/auth/refresh', {
-      refreshToken,
-    });
+  async refreshToken(refreshToken: string): Promise<{ accessToken: string; refreshToken?: string }> {
+    return this.apiClient.post(
+      '/auth/refresh',
+      undefined,
+      {
+        headers: {
+          Authorization: `Bearer ${refreshToken}`,
+        },
+      },
+    );
   }
 
   /**
    * Logout
    */
   async logout(): Promise<void> {
-    await this.apiClient.get('/auth/logout');
+    await this.apiClient.post('/auth/logout');
     await this.apiClient.logout();
   }
 
@@ -83,30 +115,35 @@ class AuthService {
    * Setup 2FA
    */
   async setup2FA(): Promise<Setup2FAResponse> {
-    return this.apiClient.post('/auth/2fa/setup');
+    return this.apiClient.post('/auth/enable-2fa');
   }
 
   /**
    * Verify 2FA
    */
   async verify2FA(data: Verify2FARequest): Promise<{ message: string }> {
-    return this.apiClient.post('/auth/2fa/verify', data);
+    return this.apiClient.post('/auth/verify-2fa', data);
+  }
+
+  async disable2FA(): Promise<Disable2FAResponse> {
+    return this.apiClient.post('/auth/disable-2fa');
   }
 
   /**
    * Reset password (request)
    */
   async requestPasswordReset(email: string): Promise<{ message: string }> {
-    return this.apiClient.post('/auth/password-reset', { email });
+    return this.apiClient.post('/auth/request-password-reset', { email });
   }
 
   /**
    * Reset password (confirm)
    */
   async resetPassword(token: string, newPassword: string): Promise<{ message: string }> {
-    return this.apiClient.post('/auth/password-reset/confirm', {
+    return this.apiClient.post('/auth/reset-password', {
       token,
-      newPassword,
+      password: newPassword,
+      passwordConfirm: newPassword,
     });
   }
 
@@ -117,7 +154,22 @@ class AuthService {
     return this.apiClient.post('/auth/change-password', {
       currentPassword,
       newPassword,
+      passwordConfirm: newPassword,
     });
+  }
+
+  /**
+   * Verify email
+   */
+  async verifyEmail(data: VerifyEmailRequest): Promise<{ message: string }> {
+    return this.apiClient.post('/auth/verify-email', data);
+  }
+
+  /**
+   * Resend verification email
+   */
+  async resendVerificationEmail(email: string): Promise<{ message: string; email: string }> {
+    return this.apiClient.post('/auth/resend-verification-email', { email });
   }
 }
 

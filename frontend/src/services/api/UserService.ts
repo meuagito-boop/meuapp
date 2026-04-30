@@ -6,11 +6,18 @@ export interface UserProfile {
   email: string;
   avatar?: string;
   bio?: string;
+  coverImage?: string;
   location?: string;
   website?: string;
-  followers: number;
-  following: number;
-  isFollowing?: boolean;
+  followersCount: number;
+  followingCount: number;
+  postsCount: number;
+  followers?: number;
+  following?: number;
+  isFollowing: boolean;
+  twoFactorEnabled?: boolean;
+  emailVerified?: boolean;
+  createdAt: string;
 }
 
 export interface UpdateProfileRequest {
@@ -35,30 +42,18 @@ class UserService {
     this.apiClient = apiClient;
   }
 
-  /**
-   * Obter perfil do usuário logado
-   */
   async getProfile(): Promise<UserProfile> {
     return this.apiClient.get('/users/me');
   }
 
-  /**
-   * Obter perfil de outro usuário
-   */
   async getUserProfile(userId: string): Promise<UserProfile> {
     return this.apiClient.get(`/users/${userId}`);
   }
 
-  /**
-   * Atualizar perfil
-   */
   async updateProfile(data: UpdateProfileRequest): Promise<UserProfile> {
     return this.apiClient.put('/users/me', data);
   }
 
-  /**
-   * Upload avatar
-   */
   async uploadAvatar(
     uri: string,
     filename: string,
@@ -75,63 +70,34 @@ class UserService {
     );
   }
 
-  /**
-   * Seguir usuário
-   */
   async followUser(userId: string): Promise<{ message: string }> {
     return this.apiClient.post(`/users/${userId}/follow`);
   }
 
-  /**
-   * Deixar de seguir usuário
-   */
   async unfollowUser(userId: string): Promise<{ message: string }> {
     return this.apiClient.delete(`/users/${userId}/follow`);
   }
 
-  /**
-   * Listar seguidores
-   */
-  async getFollowers(
-    userId: string,
-    page = 1,
-    limit = 20,
-  ): Promise<PaginatedResponse<UserProfile>> {
+  async getFollowers(userId: string, page = 1, limit = 20): Promise<PaginatedResponse<UserProfile>> {
     return this.apiClient.get(`/users/${userId}/followers`, {
       params: { page, limit },
     });
   }
 
-  /**
-   * Listar seguindo
-   */
-  async getFollowing(
-    userId: string,
-    page = 1,
-    limit = 20,
-  ): Promise<PaginatedResponse<UserProfile>> {
+  async getFollowing(userId: string, page = 1, limit = 20): Promise<PaginatedResponse<UserProfile>> {
     return this.apiClient.get(`/users/${userId}/following`, {
       params: { page, limit },
     });
   }
 
-  /**
-   * Deletar conta
-   */
   async deleteAccount(): Promise<{ message: string }> {
-    return this.apiClient.delete('/users/me');
+    const currentUser = await this.getProfile();
+    return this.apiClient.delete(`/users/${currentUser.id}`);
   }
 
-  /**
-   * Listar usuários (com busca)
-   */
-  async searchUsers(
-    query: string,
-    page = 1,
-    limit = 20,
-  ): Promise<PaginatedResponse<UserProfile>> {
-    return this.apiClient.get('/users/search', {
-      params: { q: query, page, limit },
+  async searchUsers(query: string, page = 1, limit = 20): Promise<PaginatedResponse<UserProfile>> {
+    return this.apiClient.get('/users', {
+      params: { search: query, page, limit },
     });
   }
 }

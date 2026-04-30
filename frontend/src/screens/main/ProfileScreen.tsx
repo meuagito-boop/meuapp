@@ -1,340 +1,555 @@
-import React, { useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
-  StyleSheet,
-  View,
-  Text,
+  ActivityIndicator,
+  Image,
+  Linking,
   ScrollView,
+  StyleSheet,
+  Text,
   TouchableOpacity,
-  SafeAreaView,
-  FlatList,
+  View,
 } from 'react-native';
-import { useNavigation, useRoute } from '@react-navigation/native';
-import { colors } from '@constants/colors';
-import { spacing, fontSize, componentSizes } from '@constants/design';
+import { ParamListBase, RouteProp, useNavigation, useRoute } from '@react-navigation/native';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
-/**
- * ProfileScreen - T_PERFIL Design Aprovado
- * Template universal para usuários e estabelecimentos
- * 5 abas: Tudo, Mídia, Depoimentos, Avaliações (estab), Serviços (estab)
- */
+import { colors } from '@constants/colors';
+import { componentSizes, fontSize, spacing } from '@constants/design';
+import { authStore } from '@stores/authStore';
+import { catalogService, locationService } from '@services/api';
+import type { CatalogProduct } from '@services/api/CatalogService';
+import type { Establishment, Review } from '@services/api/LocationService';
 
 type ProfileType = 'user' | 'establishment';
+type EstablishmentTab = 'Tudo' | 'Midia' | 'Avaliacoes' | 'Servicos';
+type ProfileRouteParams = {
+  type?: ProfileType;
+  establishmentId?: string;
+  ownerView?: boolean;
+};
 
-interface ProfileData {
-  id: string;
-  type: ProfileType;
-  name: string;
-  emoji: string;
-  stats: {
-    followers: number;
-    following?: number;
-    posts?: number;
-    rating?: number;
-    reviews?: number;
-    distance?: number;
-  };
-  bio: string;
-  isFollowing: boolean;
-  isSaved?: boolean;
+const ESTABLISHMENT_TABS: EstablishmentTab[] = ['Tudo', 'Midia', 'Avaliacoes', 'Servicos'];
+
+const DAY_LABELS: Record<string, string> = {
+  monday: 'Segunda',
+  tuesday: 'Terca',
+  wednesday: 'Quarta',
+  thursday: 'Quinta',
+  friday: 'Sexta',
+  saturday: 'Sabado',
+  sunday: 'Domingo',
+};
+
+const formatPrice = (value?: number | null) => {
+  if (value == null) {
+    return 'Consulte';
+  }
+
+  return `R$ ${value.toFixed(2).replace('.', ',')}`;
+};
+
+const formatDistance = (distanceKm?: number | null) => {
+  if (distanceKm == null) {
+    return 'Sem distancia';
+  }
+
+  if (distanceKm < 1) {
+    return `${Math.round(distanceKm * 1000)}m`;
+  }
+
+  return `${distanceKm.toFixed(distanceKm < 10 ? 1 : 0)}km`;
+};
+
+const getInitials = (value: string) =>
+  value
+    .split(' ')
+    .map((chunk) => chunk.trim().charAt(0))
+    .filter(Boolean)
+    .slice(0, 2)
+    .join('')
+    .toUpperCase();
+
+const getMediaUrls = (establishment: Establishment | null) => {
+  if (!establishment) {
+    return [];
+  }
+
+  return Array.from(
+    new Set(
+      [
+        establishment.coverImageUrl ?? null,
+        establishment.logoUrl ?? null,
+        establishment.image ?? null,
+        ...establishment.galleryUrls,
+      ].filter((item): item is string => typeof item === 'string' && item.length > 0)
+    )
+  );
+};
+
+const getOpeningHoursRows = (openingHours: Establishment['openingHours']) => {
+  if (!openingHours) {
+    return [];
+  }
+
+  return Object.entries(openingHours)
+    .map(([day, value]) => {
+      if (!Array.isArray(value) || value.length === 0) {
+        return null;
+      }
+
+      const windows = value
+        .map((item) => {
+          if (!item || typeof item !== 'object') {
+            return null;
+          }
+
+          const opensAt = typeof (item as { opensAt?: unknown }).opensAt === 'string'
+            ? (item as { opensAt: string }).opensAt
+            : null;
+          const closesAt = typeof (item as { closesAt?: unknown }).closesAt === 'string'
+            ? (item as { closesAt: string }).closesAt
+            : null;
+
+          if (!opensAt || !closesAt) {
+            return null;
+          }
+
+          return `${opensAt} - ${closesAt}`;
+        })
+        .filter((item): item is string => typeof item === 'string');
+
+      if (windows.length === 0) {
+        return null;
+      }
+
+      return {
+        label: DAY_LABELS[day] ?? day,
+        value: windows.join(', '),
+      };
+    })
+    .filter(
+      (item): item is { label: string; value: string } =>
+        Boolean(item) && typeof item === 'object'
+    );
+};
+
+async function openExternalUrl(url: string) {
+  const supported = await Linking.canOpenURL(url);
+  if (supported) {
+    await Linking.openURL(url);
+  }
 }
 
-const MOCK_USER_PROFILE: ProfileData = {
-  id: '1',
-  type: 'user',
-  name: 'João Silva',
-  emoji: '👤',
-  stats: {
-    followers: 1234,
-    following: 567,
-    posts: 89,
-  },
-  bio: 'Descobrindo os melhores lugares da cidade 🌆',
-  isFollowing: false,
-};
-
-const MOCK_ESTABLISHMENT_PROFILE: ProfileData = {
-  id: '2',
-  type: 'establishment',
-  name: 'Pizzaria Do Nino',
-  emoji: '🍕',
-  stats: {
-    followers: 5432,
-    rating: 4.8,
-    reviews: 245,
-    distance: 0.5,
-  },
-  bio: 'Autêntica pizza napolitana desde 2010 🇮🇹',
-  isFollowing: false,
-  isSaved: false,
-};
-
-const TABS = {
-  user: ['Tudo', 'Mídia', 'Depoimentos'],
-  establishment: ['Tudo', 'Mídia', 'Depoimentos', 'Avaliações', 'Serviços'],
-};
-
 export default function ProfileScreen() {
-  const route = useRoute();
-  const profileType: ProfileType = (route.params?.type as ProfileType) || 'establishment';
-  const profile = profileType === 'user' ? MOCK_USER_PROFILE : MOCK_ESTABLISHMENT_PROFILE;
+  const navigation = useNavigation<NativeStackNavigationProp<ParamListBase>>();
+  const route = useRoute<RouteProp<ParamListBase, string>>();
+  const routeParams = route.params as ProfileRouteParams | undefined;
+  const user = authStore((state) => state.user);
 
-  const [activeTab, setActiveTab] = useState(0);
-  const [isFollowing, setIsFollowing] = useState(profile.isFollowing);
-  const [isSaved, setIsSaved] = useState(profile.isSaved || false);
+  const requestedType: ProfileType =
+    routeParams?.type ?? (user?.profileType === 'ESTABLISHMENT' ? 'establishment' : 'user');
+  const requestedEstablishmentId = routeParams?.establishmentId;
+  const isOwnerEstablishmentView =
+    requestedType === 'establishment' &&
+    user?.profileType === 'ESTABLISHMENT' &&
+    (!requestedEstablishmentId || routeParams?.ownerView === true);
 
-  const mockPosts = [
-    { id: '1', emoji: '📸', title: 'Post 1', description: 'Descrição curta' },
-    { id: '2', emoji: '🎉', title: 'Post 2', description: 'Descrição curta' },
-    { id: '3', emoji: '⭐', title: 'Post 3', description: 'Descrição curta' },
-  ];
+  const [activeTab, setActiveTab] = useState<EstablishmentTab>('Tudo');
+  const [isLoading, setIsLoading] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [establishment, setEstablishment] = useState<Establishment | null>(null);
+  const [products, setProducts] = useState<CatalogProduct[]>([]);
 
-  const mockReviews = [
-    { id: '1', author: 'Maria A.', rating: 5, text: 'Excelente! Comida deliciosa e atendimento perfeito.' },
-    { id: '2', author: 'Pedro S.', rating: 4.5, text: 'Muito bom, só achei um pouco caro.' },
-  ];
+  useEffect(() => {
+    setActiveTab('Tudo');
+  }, [requestedEstablishmentId, requestedType]);
 
-  const mockServices = [
-    { id: '1', name: 'Dinescape de Gourmet', price: '$$$$' },
-    { id: '2', name: 'Mesas Externas', price: '-' },
-    { id: '3', name: 'Entrega', price: '-' },
-  ];
+  useEffect(() => {
+    let isMounted = true;
 
-  const tabs = TABS[profileType];
+    const loadEstablishmentProfile = async () => {
+      if (requestedType !== 'establishment') {
+        setEstablishment(null);
+        setProducts([]);
+        setLoadError(null);
+        setIsLoading(false);
+        return;
+      }
 
-  const renderHeader = () => (
-    <View style={styles.profileHeader}>
-      <View
-        style={[
-          styles.avatar,
-          profileType === 'establishment'
-            ? styles.avatarSquare
-            : styles.avatarCircular,
-        ]}
-      >
-        <Text style={styles.avatarEmoji}>{profile.emoji}</Text>
-      </View>
+      if (!isOwnerEstablishmentView && !requestedEstablishmentId) {
+        setLoadError('Perfil de estabelecimento sem identificador.');
+        setEstablishment(null);
+        setProducts([]);
+        setIsLoading(false);
+        return;
+      }
 
-      <View style={styles.profileInfo}>
-        <Text style={styles.profileName}>{profile.name}</Text>
-        <Text style={styles.profileBio}>{profile.bio}</Text>
+      setIsLoading(true);
+      setLoadError(null);
 
-        <View style={styles.statsContainer}>
-          {profileType === 'user' ? (
-            <>
-              <View style={styles.stat}>
-                <Text style={styles.statValue}>{profile.stats.followers}</Text>
-                <Text style={styles.statLabel}>Seguidores</Text>
-              </View>
-              <View style={styles.stat}>
-                <Text style={styles.statValue}>{profile.stats.following}</Text>
-                <Text style={styles.statLabel}>Seguindo</Text>
-              </View>
-              <View style={styles.stat}>
-                <Text style={styles.statValue}>{profile.stats.posts}</Text>
-                <Text style={styles.statLabel}>Posts</Text>
-              </View>
-            </>
-          ) : (
-            <>
-              <View style={styles.stat}>
-                <Text style={styles.statValue}>{profile.stats.followers}</Text>
-                <Text style={styles.statLabel}>Seguidores</Text>
-              </View>
-              <View style={styles.stat}>
-                <Text style={styles.statValue}>
-                  ⭐ {profile.stats.rating}
-                </Text>
-                <Text style={styles.statLabel}>{profile.stats.reviews} avaliações</Text>
-              </View>
-              <View style={styles.stat}>
-                <Text style={styles.statValue}>{profile.stats.distance}km</Text>
-                <Text style={styles.statLabel}>De você</Text>
-              </View>
-            </>
-          )}
+      try {
+        const nextEstablishment = isOwnerEstablishmentView
+          ? await locationService.getOwnedEstablishment()
+          : await locationService.getEstablishment(requestedEstablishmentId as string);
+        const nextProducts = await catalogService.getEstablishmentProducts(nextEstablishment.id);
+
+        if (!isMounted) {
+          return;
+        }
+
+        setEstablishment(nextEstablishment);
+        setProducts(nextProducts);
+      } catch (error) {
+        if (!isMounted) {
+          return;
+        }
+
+        const message =
+          error instanceof Error
+            ? error.message
+            : 'Falha ao carregar o perfil do estabelecimento.';
+        setLoadError(message);
+        setEstablishment(null);
+        setProducts([]);
+      } finally {
+        if (isMounted) {
+          setIsLoading(false);
+        }
+      }
+    };
+
+    void loadEstablishmentProfile();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [isOwnerEstablishmentView, requestedEstablishmentId, requestedType]);
+
+  const mediaUrls = useMemo(() => getMediaUrls(establishment), [establishment]);
+  const openingHoursRows = useMemo(
+    () => getOpeningHoursRows(establishment?.openingHours ?? null),
+    [establishment?.openingHours]
+  );
+
+  const handleOpenCatalog = () => {
+    if (!establishment) {
+      return;
+    }
+
+    navigation.getParent()?.navigate('Catalog', {
+      establishmentId: establishment.id,
+      establishmentName: establishment.name,
+      template: 'produto',
+    });
+  };
+
+  const handleOpenProduct = (product: CatalogProduct) => {
+    if (!establishment) {
+      return;
+    }
+
+    navigation.getParent()?.navigate('Item', {
+      template: 'produto',
+      productId: product.id,
+      establishmentId: establishment.id,
+      establishmentName: establishment.name,
+    });
+  };
+
+  const handleOpenMaps = () => {
+    if (!establishment) {
+      return;
+    }
+
+    const query =
+      establishment.address.trim().length > 0
+        ? encodeURIComponent(establishment.address)
+        : encodeURIComponent(`${establishment.latitude},${establishment.longitude}`);
+
+    void openExternalUrl(`https://www.google.com/maps/search/?api=1&query=${query}`);
+  };
+
+  const renderUserProfile = () => (
+    <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+      <View style={styles.profileHeader}>
+        <View style={[styles.avatar, styles.avatarCircular]}>
+          <Text style={styles.avatarFallback}>{getInitials(user?.name || 'Conta')}</Text>
         </View>
 
-        <View style={styles.actionsContainer}>
-          {profileType === 'establishment' ? (
-            <>
-              <TouchableOpacity style={styles.actionButton}>
-                <Text style={styles.actionButtonIcon}>☎️</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.actionButton}>
-                <Text style={styles.actionButtonIcon}>📍</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.actionButton}>
-                <Text style={styles.actionButtonIcon}>↗️</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[
-                  styles.actionButton,
-                  isSaved && styles.actionButtonActive,
-                ]}
-                onPress={() => setIsSaved(!isSaved)}
-              >
-                <Text style={styles.actionButtonIcon}>{isSaved ? '💜' : '🤍'}</Text>
-              </TouchableOpacity>
-            </>
-          ) : (
-            <TouchableOpacity
-              style={[
-                styles.followButton,
-                isFollowing && styles.followButtonActive,
-              ]}
-              onPress={() => setIsFollowing(!isFollowing)}
-            >
-              <Text style={styles.followButtonText}>
-                {isFollowing ? 'Seguindo' : 'Seguir'}
-              </Text>
-            </TouchableOpacity>
-          )}
+        <View style={styles.identityBlock}>
+          <Text style={styles.profileName}>{user?.name || 'Sua conta'}</Text>
+          <Text style={styles.profileSubtitle}>{user?.email || 'Sem email cadastrado'}</Text>
         </View>
       </View>
+
+      <View style={styles.infoCard}>
+        <Text style={styles.cardTitle}>Conta pessoal</Text>
+        <Text style={styles.cardText}>
+          Este espaco mostra os dados reais da sua conta. O perfil publico de estabelecimento foi
+          tratado separadamente porque ele e o alvo dos blocos 4 e 5.
+        </Text>
+      </View>
+    </ScrollView>
+  );
+
+  const renderInfoRow = (label: string, value: string) => (
+    <View style={styles.infoRow} key={label}>
+      <Text style={styles.infoLabel}>{label}</Text>
+      <Text style={styles.infoValue}>{value}</Text>
     </View>
   );
 
-  const renderTabs = () => (
-    <View style={styles.tabsContainer}>
-      {tabs.map((tab, idx) => (
-        <TouchableOpacity
-          key={idx}
-          style={[styles.tab, activeTab === idx && styles.tabActive]}
-          onPress={() => setActiveTab(idx)}
-        >
-          <Text style={[styles.tabLabel, activeTab === idx && styles.tabLabelActive]}>
-            {tab}
+  const renderProductsPreview = () => {
+    if (products.length === 0) {
+      return (
+        <View style={styles.emptyCard}>
+          <Text style={styles.emptyTitle}>Nenhum item publicado</Text>
+          <Text style={styles.emptyText}>
+            Esta vitrine ainda nao possui produtos ativos publicados.
           </Text>
-        </TouchableOpacity>
-      ))}
-    </View>
-  );
+        </View>
+      );
+    }
 
-  const renderTudoTab = () => (
-    <View style={styles.tabContent}>
-      <FlatList
-        data={mockPosts}
-        renderItem={({ item }) => (
-          <TouchableOpacity style={styles.postCard}>
-            <View style={styles.postImage}>
-              <Text style={styles.postEmoji}>{item.emoji}</Text>
+    return (
+      <View style={styles.productList}>
+        {products.slice(0, 6).map((product) => (
+          <TouchableOpacity
+            key={product.id}
+            style={styles.productCard}
+            activeOpacity={0.85}
+            onPress={() => handleOpenProduct(product)}
+          >
+            <View style={styles.productMedia}>
+              {product.imageUrl || product.mainImageUrl ? (
+                <Image
+                  source={{ uri: product.imageUrl || product.mainImageUrl || undefined }}
+                  style={styles.productImage}
+                  resizeMode="cover"
+                />
+              ) : (
+                <Text style={styles.productFallback}>PRD</Text>
+              )}
             </View>
-            <View style={styles.postInfo}>
-              <Text style={styles.postTitle}>{item.title}</Text>
-              <Text style={styles.postDescription}>{item.description}</Text>
-            </View>
-          </TouchableOpacity>
-        )}
-        keyExtractor={(item) => item.id}
-        scrollEnabled={false}
-        contentContainerStyle={{ gap: spacing.md }}
-      />
-    </View>
-  );
 
-  const renderMidiaTab = () => (
-    <View style={styles.tabContent}>
-      <View style={styles.gridContainer}>
-        {Array.from({ length: 6 }).map((_, i) => (
-          <TouchableOpacity key={i} style={styles.gridItem}>
-            <Text style={styles.gridEmoji}>📸</Text>
+            <View style={styles.productBody}>
+              <Text style={styles.productName} numberOfLines={1}>
+                {product.name}
+              </Text>
+              <Text style={styles.productCategory} numberOfLines={1}>
+                {product.category || 'Produto'}
+              </Text>
+              <Text style={styles.productPrice}>{formatPrice(product.price)}</Text>
+            </View>
           </TouchableOpacity>
         ))}
-      </View>
-    </View>
-  );
 
-  const renderDepoimentosTab = () => (
-    <View style={styles.tabContent}>
-      <FlatList
-        data={Array.from({ length: 3 })}
-        renderItem={() => (
-          <View style={styles.testimonialCard}>
-            <View style={styles.testimonialHeader}>
-              <View style={styles.testimonialAvatar}>
-                <Text style={styles.testimonialAvatarEmoji}>👤</Text>
-              </View>
-              <View style={styles.testimonialMeta}>
-                <Text style={styles.testimonialName}>Seguidor</Text>
-                <Text style={styles.testimonialTime}>há 2 dias</Text>
-              </View>
+        <TouchableOpacity style={styles.catalogButton} onPress={handleOpenCatalog}>
+          <Text style={styles.catalogButtonText}>Ver vitrine completa</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  };
+
+  const renderEstablishmentContent = () => {
+    if (isLoading) {
+      return (
+        <View style={styles.centerState}>
+          <ActivityIndicator size="large" color={colors.primary} />
+        </View>
+      );
+    }
+
+    if (loadError || !establishment) {
+      return (
+        <View style={styles.centerState}>
+          <Text style={styles.emptyTitle}>Perfil indisponivel</Text>
+          <Text style={styles.emptyText}>
+            {loadError || 'Nao foi possivel localizar a pagina deste estabelecimento.'}
+          </Text>
+        </View>
+      );
+    }
+
+    const whatsappUrl = establishment.whatsapp
+      ? `https://wa.me/${establishment.whatsapp.replace(/\D/g, '')}`
+      : null;
+
+    return (
+      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+        <View style={styles.profileHeader}>
+          {establishment.logoUrl || establishment.image ? (
+            <Image
+              source={{ uri: establishment.logoUrl || establishment.image || undefined }}
+              style={[styles.avatar, styles.avatarSquare]}
+              resizeMode="cover"
+            />
+          ) : (
+            <View style={[styles.avatar, styles.avatarSquare]}>
+              <Text style={styles.avatarFallback}>{getInitials(establishment.name)}</Text>
             </View>
-            <Text style={styles.testimonialText}>
-              "Adorei a experiência, tudo perfeito!"
+          )}
+
+          <View style={styles.identityBlock}>
+            <Text style={styles.profileName}>{establishment.name}</Text>
+            <Text style={styles.profileSubtitle}>
+              {establishment.category}
+              {establishment.subcategory ? ` · ${establishment.subcategory}` : ''}
             </Text>
+            <Text style={styles.profileCaption}>
+              {isOwnerEstablishmentView ? 'Sua pagina publica' : formatDistance(establishment.distanceKm)}
+            </Text>
+            {establishment.isOpenNow ? <Text style={styles.badge}>ABERTO AGORA</Text> : null}
           </View>
-        )}
-        keyExtractor={(_, i) => String(i)}
-        scrollEnabled={false}
-      />
-    </View>
-  );
+        </View>
 
-  const renderAvaliacoesTab = () => (
-    <View style={styles.tabContent}>
-      <View style={styles.ratingSummary}>
-        <Text style={styles.ratingValue}>4.8</Text>
-        <Text style={styles.ratingLabel}>⭐ 245 avaliações</Text>
-      </View>
-      <FlatList
-        data={mockReviews}
-        renderItem={({ item }) => (
-          <View style={styles.reviewCard}>
-            <View style={styles.reviewHeader}>
-              <Text style={styles.reviewAuthor}>{item.author}</Text>
-              <Text style={styles.reviewRating}>⭐ {item.rating}</Text>
+        {establishment.description ? (
+          <View style={styles.infoCard}>
+            <Text style={styles.cardTitle}>Descricao</Text>
+            <Text style={styles.cardText}>{establishment.description}</Text>
+          </View>
+        ) : null}
+
+        <View style={styles.statsRow}>
+          <View style={styles.statCard}>
+            <Text style={styles.statValue}>{establishment.rating.toFixed(1)}</Text>
+            <Text style={styles.statLabel}>Nota</Text>
+          </View>
+          <View style={styles.statCard}>
+            <Text style={styles.statValue}>{establishment.reviewsCount}</Text>
+            <Text style={styles.statLabel}>Aval.</Text>
+          </View>
+          <View style={styles.statCard}>
+            <Text style={styles.statValue}>{products.length}</Text>
+            <Text style={styles.statLabel}>Itens</Text>
+          </View>
+          <View style={styles.statCard}>
+            <Text style={styles.statValue}>{establishment.isOpenNow ? 'Sim' : 'Nao'}</Text>
+            <Text style={styles.statLabel}>Aberto</Text>
+          </View>
+        </View>
+
+        <View style={styles.actionsRow}>
+          {establishment.phone ? (
+            <TouchableOpacity
+              style={styles.actionChip}
+              onPress={() => void openExternalUrl(`tel:${establishment.phone}`)}
+            >
+              <Text style={styles.actionChipText}>Ligar</Text>
+            </TouchableOpacity>
+          ) : null}
+          {whatsappUrl ? (
+            <TouchableOpacity
+              style={styles.actionChip}
+              onPress={() => void openExternalUrl(whatsappUrl)}
+            >
+              <Text style={styles.actionChipText}>WhatsApp</Text>
+            </TouchableOpacity>
+          ) : null}
+          <TouchableOpacity style={styles.actionChip} onPress={handleOpenMaps}>
+            <Text style={styles.actionChipText}>Como chegar</Text>
+          </TouchableOpacity>
+          {establishment.website ? (
+            <TouchableOpacity
+              style={styles.actionChip}
+              onPress={() => void openExternalUrl(establishment.website as string)}
+            >
+              <Text style={styles.actionChipText}>Website</Text>
+            </TouchableOpacity>
+          ) : null}
+        </View>
+
+        <View style={styles.tabsRow}>
+          {ESTABLISHMENT_TABS.map((tab) => {
+            const active = activeTab === tab;
+            return (
+              <TouchableOpacity
+                key={tab}
+                style={[styles.tabButton, active && styles.tabButtonActive]}
+                onPress={() => setActiveTab(tab)}
+              >
+                <Text style={[styles.tabButtonText, active && styles.tabButtonTextActive]}>{tab}</Text>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+
+        {activeTab === 'Tudo' ? (
+          <View style={styles.sectionStack}>
+            <View style={styles.infoCard}>
+              <Text style={styles.cardTitle}>Informacoes publicas</Text>
+              {renderInfoRow('Endereco', establishment.address)}
+              {establishment.phone ? renderInfoRow('Telefone', establishment.phone) : null}
+              {establishment.whatsapp ? renderInfoRow('WhatsApp', establishment.whatsapp) : null}
+              {establishment.website ? renderInfoRow('Website', establishment.website) : null}
             </View>
-            <Text style={styles.reviewText}>{item.text}</Text>
+
+            <View style={styles.infoCard}>
+              <Text style={styles.cardTitle}>Horario</Text>
+              {openingHoursRows.length > 0 ? (
+                openingHoursRows.map((row) => renderInfoRow(row.label, row.value))
+              ) : (
+                <Text style={styles.cardText}>Horario ainda nao informado.</Text>
+              )}
+            </View>
+
+            <View style={styles.infoCard}>
+              <Text style={styles.cardTitle}>Acesso rapido</Text>
+              <TouchableOpacity style={styles.catalogButton} onPress={handleOpenCatalog}>
+                <Text style={styles.catalogButtonText}>Abrir vitrine publica</Text>
+              </TouchableOpacity>
+            </View>
           </View>
-        )}
-        keyExtractor={(item) => item.id}
-        scrollEnabled={false}
-        contentContainerStyle={{ gap: spacing.md }}
-      />
-    </View>
-  );
+        ) : null}
 
-  const renderServicosTab = () => (
-    <View style={styles.tabContent}>
-      <FlatList
-        data={mockServices}
-        renderItem={({ item }) => (
-          <View style={styles.serviceCard}>
-            <View style={styles.serviceDot} />
-            <Text style={styles.serviceName}>{item.name}</Text>
-            <Text style={styles.servicePrice}>{item.price}</Text>
-          </View>
-        )}
-        keyExtractor={(item) => item.id}
-        scrollEnabled={false}
-      />
-    </View>
-  );
+        {activeTab === 'Midia' ? (
+          mediaUrls.length > 0 ? (
+            <View style={styles.mediaGrid}>
+              {mediaUrls.map((uri) => (
+                <Image key={uri} source={{ uri }} style={styles.mediaGridItem} resizeMode="cover" />
+              ))}
+            </View>
+          ) : (
+            <View style={styles.emptyCard}>
+              <Text style={styles.emptyTitle}>Sem midia publicada</Text>
+              <Text style={styles.emptyText}>
+                Este perfil ainda nao possui logo, capa ou fotos de galeria publicadas.
+              </Text>
+            </View>
+          )
+        ) : null}
 
-  const getTabContent = () => {
-    const tabName = tabs[activeTab];
+        {activeTab === 'Avaliacoes' ? (
+          establishment.reviewsPreview.length > 0 ? (
+            <View style={styles.reviewList}>
+              {establishment.reviewsPreview.map((review: Review) => (
+                <View key={review.id} style={styles.reviewCard}>
+                  <View style={styles.reviewHeader}>
+                    <Text style={styles.reviewAuthor}>{review.author.name}</Text>
+                    <Text style={styles.reviewRating}>Nota {review.rating.toFixed(1)}</Text>
+                  </View>
+                  <Text style={styles.reviewText}>{review.comment || review.content || 'Sem comentario.'}</Text>
+                </View>
+              ))}
+            </View>
+          ) : (
+            <View style={styles.emptyCard}>
+              <Text style={styles.emptyTitle}>Sem avaliacoes ainda</Text>
+              <Text style={styles.emptyText}>
+                Quando o estabelecimento receber avaliacoes publicas, elas aparecerao aqui.
+              </Text>
+            </View>
+          )
+        ) : null}
 
-    if (tabName === 'Tudo') return renderTudoTab();
-    if (tabName === 'Mídia') return renderMidiaTab();
-    if (tabName === 'Depoimentos') return renderDepoimentosTab();
-    if (tabName === 'Avaliações') return renderAvaliacoesTab();
-    if (tabName === 'Serviços') return renderServicosTab();
-
-    return null;
+        {activeTab === 'Servicos' ? renderProductsPreview() : null}
+      </ScrollView>
+    );
   };
 
   return (
-    <SafeAreaView style={styles.container}>
-      <ScrollView
-        style={styles.scrollView}
-        stickyHeaderIndices={[1]}
-        scrollEventThrottle={16}
-      >
-        {renderHeader()}
-        {renderTabs()}
-        {getTabContent()}
-      </ScrollView>
-    </SafeAreaView>
+    <View style={styles.container}>
+      {requestedType === 'establishment' ? renderEstablishmentContent() : renderUserProfile()}
+    </View>
   );
 }
 
@@ -343,294 +558,295 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.background,
   },
-  scrollView: {
-    flex: 1,
-  },
-  profileHeader: {
+  content: {
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.lg,
+    gap: spacing.lg,
+  },
+  centerState: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: spacing.xl,
+    gap: spacing.sm,
+  },
+  profileHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: spacing.md,
   },
   avatar: {
-    width: componentSizes.avatar.xlarge,
-    height: componentSizes.avatar.xlarge,
-    backgroundColor: colors.primary,
-    justifyContent: 'center',
+    width: componentSizes.avatarXL,
+    height: componentSizes.avatarXL,
+    backgroundColor: colors.surface,
     alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: colors.border,
+    overflow: 'hidden',
   },
   avatarCircular: {
-    borderRadius: componentSizes.avatar.xlarge / 2,
+    borderRadius: componentSizes.avatarXL / 2,
   },
   avatarSquare: {
     borderRadius: spacing.md,
   },
-  avatarEmoji: {
-    fontSize: 48,
-  },
-  profileInfo: {
-    gap: spacing.md,
-  },
-  profileName: {
+  avatarFallback: {
+    color: colors.text,
     fontSize: fontSize.lg,
     fontWeight: '800',
-    color: colors.textPrimary,
   },
-  profileBio: {
-    fontSize: fontSize.sm,
+  identityBlock: {
+    flex: 1,
+    gap: spacing.xs,
+  },
+  profileName: {
+    color: colors.text,
+    fontSize: fontSize.xl,
+    fontWeight: '800',
+  },
+  profileSubtitle: {
     color: colors.textSecondary,
-    lineHeight: 20,
+    fontSize: fontSize.sm,
   },
-  statsContainer: {
+  profileCaption: {
+    color: colors.textTertiary,
+    fontSize: fontSize.xs,
+  },
+  badge: {
+    alignSelf: 'flex-start',
+    color: colors.text,
+    backgroundColor: colors.success,
+    borderRadius: 10,
+    overflow: 'hidden',
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 2,
+    fontSize: fontSize.xs,
+    fontWeight: '700',
+  },
+  statsRow: {
     flexDirection: 'row',
-    justifyContent: 'space-around',
-    paddingVertical: spacing.md,
-    backgroundColor: colors.surface,
-    borderRadius: spacing.sm,
+    gap: spacing.sm,
   },
-  stat: {
+  statCard: {
+    flex: 1,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
+    paddingVertical: spacing.md,
     alignItems: 'center',
     gap: spacing.xs,
   },
   statValue: {
-    fontSize: fontSize.sm,
-    fontWeight: '700',
-    color: colors.textPrimary,
+    color: colors.text,
+    fontSize: fontSize.md,
+    fontWeight: '800',
   },
   statLabel: {
+    color: colors.textSecondary,
     fontSize: fontSize.xs,
-    color: colors.textSecondary,
   },
-  actionsContainer: {
-    flexDirection: 'row',
-    gap: spacing.sm,
-  },
-  actionButton: {
-    flex: 1,
-    paddingVertical: spacing.md,
-    borderRadius: spacing.sm,
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  actionButtonActive: {
-    backgroundColor: colors.primary,
-    borderColor: colors.primary,
-  },
-  actionButtonIcon: {
-    fontSize: 20,
-  },
-  followButton: {
-    flex: 1,
-    paddingVertical: spacing.md,
-    backgroundColor: colors.primary,
-    borderRadius: spacing.sm,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  followButtonActive: {
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  followButtonText: {
-    fontSize: fontSize.sm,
-    fontWeight: '700',
-    color: colors.text,
-  },
-  tabsContainer: {
-    flexDirection: 'row',
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-    backgroundColor: colors.background,
-  },
-  tab: {
-    flex: 1,
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.sm,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderBottomWidth: 2,
-    borderBottomColor: 'transparent',
-  },
-  tabActive: {
-    borderBottomColor: colors.primary,
-  },
-  tabLabel: {
-    fontSize: fontSize.sm,
-    fontWeight: '600',
-    color: colors.textSecondary,
-  },
-  tabLabelActive: {
-    color: colors.textPrimary,
-  },
-  tabContent: {
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.lg,
-    gap: spacing.md,
-  },
-  postCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: colors.surface,
-    borderRadius: spacing.sm,
-    borderWidth: 1,
-    borderColor: colors.border,
-    overflow: 'hidden',
-    gap: spacing.md,
-  },
-  postImage: {
-    width: 80,
-    height: 80,
-    backgroundColor: colors.background,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  postEmoji: {
-    fontSize: 32,
-  },
-  postInfo: {
-    flex: 1,
-    paddingRight: spacing.md,
-    gap: spacing.xs,
-  },
-  postTitle: {
-    fontSize: fontSize.sm,
-    fontWeight: '700',
-    color: colors.textPrimary,
-  },
-  postDescription: {
-    fontSize: fontSize.xs,
-    color: colors.textSecondary,
-  },
-  gridContainer: {
+  actionsRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: spacing.sm,
   },
-  gridItem: {
-    width: '31%',
-    aspectRatio: 1,
-    backgroundColor: colors.surface,
-    borderRadius: spacing.sm,
-    borderWidth: 1,
-    borderColor: colors.border,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  gridEmoji: {
-    fontSize: 28,
-  },
-  testimonialCard: {
-    backgroundColor: colors.surface,
-    borderRadius: spacing.sm,
-    borderWidth: 1,
-    borderColor: colors.border,
+  actionChip: {
     paddingHorizontal: spacing.md,
-    paddingVertical: spacing.md,
-    gap: spacing.sm,
+    paddingVertical: spacing.sm,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
   },
-  testimonialHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-  },
-  testimonialAvatar: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: colors.background,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  testimonialAvatarEmoji: {
-    fontSize: 20,
-  },
-  testimonialMeta: {
-    gap: spacing.xs,
-  },
-  testimonialName: {
+  actionChipText: {
+    color: colors.textSecondary,
     fontSize: fontSize.xs,
     fontWeight: '700',
-    color: colors.textPrimary,
   },
-  testimonialTime: {
-    fontSize: fontSize.xs,
-    color: colors.textSecondary,
+  tabsRow: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+    flexWrap: 'wrap',
   },
-  testimonialText: {
-    fontSize: fontSize.sm,
-    color: colors.textPrimary,
-    lineHeight: 18,
-  },
-  ratingSummary: {
-    alignItems: 'center',
-    paddingVertical: spacing.lg,
-    backgroundColor: colors.surface,
-    borderRadius: spacing.sm,
-  },
-  ratingValue: {
-    fontSize: 32,
-    fontWeight: '800',
-    color: colors.primary,
-  },
-  ratingLabel: {
-    fontSize: fontSize.sm,
-    color: colors.textSecondary,
-  },
-  reviewCard: {
-    backgroundColor: colors.surface,
-    borderRadius: spacing.sm,
+  tabButton: {
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderRadius: 18,
     borderWidth: 1,
     borderColor: colors.border,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.md,
+    backgroundColor: colors.surface,
+  },
+  tabButtonActive: {
+    borderColor: colors.primary,
+    backgroundColor: '#1A0F05',
+  },
+  tabButtonText: {
+    color: colors.textSecondary,
+    fontSize: fontSize.xs,
+    fontWeight: '700',
+  },
+  tabButtonTextActive: {
+    color: colors.primary,
+  },
+  sectionStack: {
+    gap: spacing.md,
+  },
+  infoCard: {
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
+    padding: spacing.md,
+    gap: spacing.sm,
+  },
+  cardTitle: {
+    color: colors.text,
+    fontSize: fontSize.md,
+    fontWeight: '700',
+  },
+  cardText: {
+    color: colors.textSecondary,
+    fontSize: fontSize.sm,
+    lineHeight: 18,
+  },
+  infoRow: {
+    gap: spacing.xs,
+  },
+  infoLabel: {
+    color: colors.textTertiary,
+    fontSize: fontSize.xs,
+    fontWeight: '700',
+  },
+  infoValue: {
+    color: colors.textSecondary,
+    fontSize: fontSize.sm,
+    lineHeight: 18,
+  },
+  mediaGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.sm,
+  },
+  mediaGridItem: {
+    width: '31%',
+    aspectRatio: 1,
+    borderRadius: 12,
+    backgroundColor: colors.surface,
+  },
+  emptyCard: {
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
+    padding: spacing.lg,
+    gap: spacing.sm,
+  },
+  emptyTitle: {
+    color: colors.text,
+    fontSize: fontSize.md,
+    fontWeight: '700',
+    textAlign: 'center',
+  },
+  emptyText: {
+    color: colors.textSecondary,
+    fontSize: fontSize.sm,
+    textAlign: 'center',
+    lineHeight: 18,
+  },
+  reviewList: {
+    gap: spacing.sm,
+  },
+  reviewCard: {
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
+    padding: spacing.md,
     gap: spacing.sm,
   },
   reviewHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
+    gap: spacing.sm,
   },
   reviewAuthor: {
+    color: colors.text,
     fontSize: fontSize.sm,
     fontWeight: '700',
-    color: colors.textPrimary,
   },
   reviewRating: {
-    fontSize: fontSize.xs,
-    fontWeight: '600',
     color: colors.primary,
+    fontSize: fontSize.xs,
+    fontWeight: '700',
   },
   reviewText: {
+    color: colors.textSecondary,
     fontSize: fontSize.sm,
-    color: colors.textPrimary,
     lineHeight: 18,
   },
-  serviceCard: {
+  productList: {
+    gap: spacing.sm,
+  },
+  productCard: {
     flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: spacing.sm,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
     gap: spacing.md,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
+    padding: spacing.sm,
   },
-  serviceDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: colors.primary,
+  productMedia: {
+    width: 72,
+    height: 72,
+    borderRadius: 12,
+    overflow: 'hidden',
+    backgroundColor: colors.background,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  serviceName: {
-    flex: 1,
-    fontSize: fontSize.sm,
-    fontWeight: '600',
-    color: colors.textPrimary,
+  productImage: {
+    width: '100%',
+    height: '100%',
   },
-  servicePrice: {
-    fontSize: fontSize.xs,
+  productFallback: {
     color: colors.textSecondary,
-    fontWeight: '600',
+    fontSize: fontSize.sm,
+    fontWeight: '800',
+  },
+  productBody: {
+    flex: 1,
+    justifyContent: 'center',
+    gap: spacing.xs,
+  },
+  productName: {
+    color: colors.text,
+    fontSize: fontSize.sm,
+    fontWeight: '700',
+  },
+  productCategory: {
+    color: colors.textSecondary,
+    fontSize: fontSize.xs,
+  },
+  productPrice: {
+    color: colors.primary,
+    fontSize: fontSize.sm,
+    fontWeight: '700',
+  },
+  catalogButton: {
+    marginTop: spacing.sm,
+    minHeight: 44,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: colors.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  catalogButtonText: {
+    color: colors.primary,
+    fontSize: fontSize.sm,
+    fontWeight: '700',
   },
 });

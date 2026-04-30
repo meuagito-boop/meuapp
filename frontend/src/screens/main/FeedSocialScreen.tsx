@@ -1,392 +1,425 @@
-import React, { useState, useCallback } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import {
-  StyleSheet,
-  View,
-  Text,
+  ActivityIndicator,
   FlatList,
-  TouchableOpacity,
-  SafeAreaView,
-  ScrollView,
   Image,
+  KeyboardAvoidingView,
   Modal,
-  StatusBar,
+  Platform,
+  RefreshControl,
+  SafeAreaView,
+  Share,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import { useFocusEffect, useNavigation, ParamListBase } from '@react-navigation/native';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+
 import { colors } from '@constants/colors';
-import { spacing, fontSize, componentSizes } from '@constants/design';
+import { componentSizes, fontSize, spacing } from '@constants/design';
+import { feedStore, type Post } from '@stores/feedStore';
 
-/**
- * FeedSocialScreen - T_AGITO Design Aprovado
- * Feed social com stories, posts infinitos, comentários aninhados
- * Posição 1 na barra de navegação
- */
+type FeedMode = 'mixed' | 'following' | 'global' | 'nearby';
 
-interface Post {
-  id: string;
-  author: {
-    id: string;
-    name: string;
-    emoji: string;
-  };
-  location?: string;
-  timestamp: string;
-  image: string;
-  caption: string;
-  reactions: {
-    likes: number;
-    dislikes: number;
-    comments: number;
-  };
-  userReaction?: 'like' | 'dislike' | null;
-  isRepost?: boolean;
-  repostedBy?: string;
-  comments: Comment[];
-}
-
-interface Comment {
-  id: string;
-  author: {
-    id: string;
-    name: string;
-    emoji: string;
-  };
-  text: string;
-  timestamp: string;
-  reactions: {
-    likes: number;
-  };
-  userReaction?: 'like' | null;
-  replies: Comment[];
-}
-
-const MOCK_POSTS: Post[] = [
-  {
-    id: '1',
-    author: { id: 'u1', name: 'Maria S.', emoji: '👩' },
-    location: 'Pizzaria Do Nino',
-    timestamp: '2h',
-    image: '🍕',
-    caption: 'Melhor pizza da cidade! Amei demais 🤤',
-    reactions: { likes: 124, dislikes: 2, comments: 8 },
-    comments: [
-      {
-        id: 'c1',
-        author: { id: 'u2', name: 'João P.', emoji: '👨' },
-        text: 'Que bom! Vou provar em breve!',
-        timestamp: '1h',
-        reactions: { likes: 5 },
-        replies: [
-          {
-            id: 'c1r1',
-            author: { id: 'u1', name: 'Maria S.', emoji: '👩' },
-            text: 'Aproveita! Vai te amar 💕',
-            timestamp: '40m',
-            reactions: { likes: 2 },
-            replies: [],
-          },
-        ],
-      },
-    ],
-  },
-  {
-    id: '2',
-    author: { id: 'u3', name: 'Ana C.', emoji: '👱‍♀️' },
-    timestamp: '4h',
-    image: '☕',
-    caption: 'Novo café abriu no bairro! ☕✨',
-    reactions: { likes: 87, dislikes: 1, comments: 5 },
-    isRepost: false,
-    comments: [],
-  },
-  {
-    id: '3',
-    author: { id: 'u4', name: 'Pedro L.', emoji: '👨‍🦱' },
-    location: 'Academia Fit',
-    timestamp: '6h',
-    image: '💪',
-    caption: 'Check-in na academia! Nova série começando 🔥',
-    reactions: { likes: 56, dislikes: 0, comments: 3 },
-    isRepost: true,
-    repostedBy: 'Carlos M.',
-    comments: [],
-  },
+const FEED_TABS: Array<{ id: FeedMode; label: string }> = [
+  { id: 'mixed', label: 'Para voce' },
+  { id: 'following', label: 'Seguindo' },
+  { id: 'global', label: 'Global' },
+  { id: 'nearby', label: 'Perto' },
 ];
 
-const MOCK_STORIES = [
-  { id: '0', name: 'Sua história', emoji: '➕' },
-  { id: '1', name: 'João Silva', emoji: '👤' },
-  { id: '2', name: 'Ana Costa', emoji: '👩' },
-  { id: '3', name: 'Pedro L.', emoji: '👨‍🦱' },
-  { id: '4', name: 'Maria S.', emoji: '👩‍🦱' },
-];
+function formatRelativeTime(value: string): string {
+  const createdAt = new Date(value);
+  const deltaSeconds = Math.max(0, Math.floor((Date.now() - createdAt.getTime()) / 1000));
+
+  if (deltaSeconds < 60) {
+    return 'agora';
+  }
+
+  const deltaMinutes = Math.floor(deltaSeconds / 60);
+  if (deltaMinutes < 60) {
+    return `${deltaMinutes}min`;
+  }
+
+  const deltaHours = Math.floor(deltaMinutes / 60);
+  if (deltaHours < 24) {
+    return `${deltaHours}h`;
+  }
+
+  const deltaDays = Math.floor(deltaHours / 24);
+  if (deltaDays < 7) {
+    return `${deltaDays}d`;
+  }
+
+  return createdAt.toLocaleDateString('pt-BR', {
+    day: '2-digit',
+    month: 'short',
+  });
+}
+
+function getInitials(name: string): string {
+  const parts = name
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2);
+
+  return parts.map((part) => part[0]?.toUpperCase() ?? '').join('') || 'U';
+}
+
+function getPrimaryImage(post: Post): string | null {
+  const images = post.imageUrls ?? post.images ?? [];
+  return images[0] ?? null;
+}
 
 export default function FeedSocialScreen() {
-  const navigation = useNavigation<any>();
-  const [posts, setPosts] = useState<Post[]>(MOCK_POSTS);
-  const [showNewBanner, setShowNewBanner] = useState(true);
-  const [selectedPost, setSelectedPost] = useState<Post | null>(null);
-  const [showCommentModal, setShowCommentModal] = useState(false);
+  const navigation = useNavigation<NativeStackNavigationProp<ParamListBase>>();
+  const {
+    agitoPosts,
+    agitoMode,
+    agitoHasMore,
+    isLoadingAgito,
+    comments,
+    error,
+    getAgitoFeed,
+    setAgitoMode,
+    refreshAgitoFeed,
+    loadMoreAgitoFeed,
+    likePost,
+    unlikePost,
+    getComments,
+    createComment,
+    clearError,
+  } = feedStore();
 
-  // Alternar like/dislike
-  const handleReaction = useCallback(
-    (postId: string, reaction: 'like' | 'dislike') => {
-      setPosts((prevPosts) =>
-        prevPosts.map((post) => {
-          if (post.id === postId) {
-            const currentReaction = post.userReaction;
-            let newReaction = reaction;
+  const [isCommentModalVisible, setIsCommentModalVisible] = useState(false);
+  const [selectedPostId, setSelectedPostId] = useState<string | null>(null);
+  const [commentDraft, setCommentDraft] = useState('');
+  const [isSubmittingComment, setIsSubmittingComment] = useState(false);
 
-            // Se clicou na mesma reação, desfaz
-            if (currentReaction === reaction) {
-              newReaction = null as any;
-            }
+  const selectedPost = useMemo(
+    () => agitoPosts.find((post) => post.id === selectedPostId) ?? null,
+    [agitoPosts, selectedPostId],
+  );
+  const selectedComments = selectedPostId ? comments.get(selectedPostId)?.data ?? [] : [];
 
-            return {
-              ...post,
-              userReaction: newReaction && (newReaction as 'like' | 'dislike'),
-              reactions: {
-                ...post.reactions,
-                likes:
-                  currentReaction === 'like'
-                    ? post.reactions.likes - 1
-                    : reaction === 'like'
-                    ? post.reactions.likes + 1
-                    : post.reactions.likes,
-                dislikes:
-                  currentReaction === 'dislike'
-                    ? post.reactions.dislikes - 1
-                    : reaction === 'dislike'
-                    ? post.reactions.dislikes + 1
-                    : post.reactions.dislikes,
-              },
-            };
-          }
-          return post;
-        })
-      );
-    },
-    []
+  useFocusEffect(
+    useCallback(() => {
+      if (agitoPosts.length === 0) {
+        void getAgitoFeed(agitoMode, { reset: true });
+      }
+    }, [agitoMode, agitoPosts.length, getAgitoFeed]),
   );
 
-  // Header fixo
+  const handleRefresh = useCallback(() => {
+    void refreshAgitoFeed();
+  }, [refreshAgitoFeed]);
+
+  const handleModeChange = useCallback(
+    (mode: FeedMode) => {
+      if (mode === agitoMode && agitoPosts.length > 0) {
+        return;
+      }
+
+      clearError();
+      setAgitoMode(mode);
+      void getAgitoFeed(mode, { reset: true });
+    },
+    [agitoMode, agitoPosts.length, clearError, getAgitoFeed, setAgitoMode],
+  );
+
+  const handleToggleLike = useCallback(
+    async (post: Post) => {
+      if (post.isLiked) {
+        await unlikePost(post.id);
+        return;
+      }
+
+      await likePost(post.id);
+    },
+    [likePost, unlikePost],
+  );
+
+  const handleSharePost = useCallback(async (post: Post) => {
+    const imageUrl = getPrimaryImage(post);
+    const chunks = [post.content];
+
+    if (post.locationName) {
+      chunks.push(`Local: ${post.locationName}`);
+    }
+
+    if (imageUrl) {
+      chunks.push(imageUrl);
+    }
+
+    await Share.share({
+      message: chunks.filter(Boolean).join('\n'),
+    });
+  }, []);
+
+  const openComments = useCallback(
+    async (postId: string) => {
+      setSelectedPostId(postId);
+      setIsCommentModalVisible(true);
+      await getComments(postId, 1, 20);
+    },
+    [getComments],
+  );
+
+  const closeComments = useCallback(() => {
+    setIsCommentModalVisible(false);
+    setSelectedPostId(null);
+    setCommentDraft('');
+  }, []);
+
+  const submitComment = useCallback(async () => {
+    const content = commentDraft.trim();
+    if (!selectedPostId || content.length === 0 || isSubmittingComment) {
+      return;
+    }
+
+    try {
+      setIsSubmittingComment(true);
+      await createComment(selectedPostId, content);
+      setCommentDraft('');
+    } finally {
+      setIsSubmittingComment(false);
+    }
+  }, [commentDraft, createComment, isSubmittingComment, selectedPostId]);
+
   const renderHeader = () => (
     <View style={styles.header}>
       <View style={styles.logoBox}>
         <Text style={styles.logoText}>M</Text>
       </View>
-      <TouchableOpacity>
-        <Text style={styles.headerIcon}>💬</Text>
-      </TouchableOpacity>
-      <TouchableOpacity>
-        <Text style={styles.headerIcon}>🔔</Text>
-      </TouchableOpacity>
-      <TouchableOpacity>
-        <Text style={styles.headerIcon}>⋯</Text>
-      </TouchableOpacity>
+      <View style={styles.headerActions}>
+        <TouchableOpacity style={styles.headerAction} onPress={() => navigation.navigate('Chat')}>
+          <Text style={styles.headerActionText}>CHAT</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={styles.headerAction}
+          onPress={() => navigation.navigate('Notifications')}
+        >
+          <Text style={styles.headerActionText}>ALERTAS</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.headerAction} onPress={() => navigation.navigate('Settings')}>
+          <Text style={styles.headerActionText}>PAINEL</Text>
+        </TouchableOpacity>
+      </View>
     </View>
   );
 
-  // Linha de stories fixa
-  const renderStories = () => (
-    <View style={styles.storiesContainer}>
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.storiesContent}
-      >
-        {MOCK_STORIES.map((story) => (
-          <TouchableOpacity key={story.id} style={styles.storyItem}>
-            <View
-              style={[
-                styles.storyAvatar,
-                story.id === '0' && styles.storyAvatarAdd,
-              ]}
-            >
-              <Text style={styles.storyEmoji}>{story.emoji}</Text>
+  const renderModeTabs = () => (
+    <View style={styles.modeTabs}>
+      {FEED_TABS.map((tab) => {
+        const isActive = tab.id === agitoMode;
+        return (
+          <TouchableOpacity
+            key={tab.id}
+            style={[styles.modeTab, isActive && styles.modeTabActive]}
+            onPress={() => handleModeChange(tab.id)}
+          >
+            <Text style={[styles.modeTabText, isActive && styles.modeTabTextActive]}>{tab.label}</Text>
+          </TouchableOpacity>
+        );
+      })}
+    </View>
+  );
+
+  const renderPostCard = ({ item }: { item: Post }) => {
+    const imageUrl = getPrimaryImage(item);
+    const isEstablishment = item.author.profileType === 'ESTABLISHMENT';
+
+    return (
+      <View style={styles.postCard}>
+        <View style={styles.postHeader}>
+          <TouchableOpacity
+            style={[styles.avatar, isEstablishment && styles.avatarSquare]}
+            onPress={() =>
+              navigation.navigate('Profile', {
+                type: isEstablishment ? 'establishment' : 'user',
+                userId: item.author.id,
+              })
+            }
+          >
+            {item.author.avatar ? (
+              <Image source={{ uri: item.author.avatar }} style={styles.avatarImage} />
+            ) : (
+              <Text style={styles.avatarInitials}>{getInitials(item.author.name)}</Text>
+            )}
+          </TouchableOpacity>
+
+          <View style={styles.postMeta}>
+            <Text style={styles.authorName}>{item.author.name}</Text>
+            <View style={styles.metaRow}>
+              {item.locationName ? <Text style={styles.locationText}>{item.locationName}</Text> : null}
+              <Text style={styles.timeText}>{formatRelativeTime(item.createdAt)}</Text>
             </View>
-            <Text style={styles.storyName} numberOfLines={1}>
-              {story.name}
+          </View>
+        </View>
+
+        {imageUrl ? (
+          <Image source={{ uri: imageUrl }} style={styles.postImage} resizeMode="cover" />
+        ) : (
+          <View style={styles.missingMediaState}>
+            <Text style={styles.missingMediaText}>Midia indisponivel</Text>
+          </View>
+        )}
+
+        <View style={styles.postBody}>
+          <Text style={styles.captionText}>
+            <Text style={styles.captionAuthor}>{item.author.name}</Text> {item.content}
+          </Text>
+        </View>
+
+        <View style={styles.actionsRow}>
+          <TouchableOpacity style={styles.actionButton} onPress={() => void handleToggleLike(item)}>
+            <Text style={[styles.actionText, item.isLiked && styles.actionTextActive]}>
+              {item.isLiked ? 'CURTIDO' : 'CURTIR'} {item.likesCount}
             </Text>
           </TouchableOpacity>
-        ))}
-      </ScrollView>
-    </View>
-  );
-
-  // Banner "Ver X novos"
-  const renderNewBanner = () =>
-    showNewBanner && (
-      <TouchableOpacity
-        style={styles.newBanner}
-        onPress={() => setShowNewBanner(false)}
-      >
-        <Text style={styles.newBannerText}>↑ Ver 3 novos posts</Text>
-      </TouchableOpacity>
+          <TouchableOpacity style={styles.actionButton} onPress={() => void openComments(item.id)}>
+            <Text style={styles.actionText}>COMENTAR {item.commentsCount}</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.actionButton} onPress={() => void handleSharePost(item)}>
+            <Text style={styles.actionText}>COMPARTILHAR</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
     );
+  };
 
-  // Card de post
-  const renderPost = ({ item: post }: { item: Post }) => (
-    <View style={styles.postCard}>
-      {/* Repost attribution */}
-      {post.isRepost && (
-        <View style={styles.repostBanner}>
-          <Text style={styles.repostText}>↗️ Repostado por {post.repostedBy}</Text>
-        </View>
-      )}
+  const renderEmptyState = () => {
+    if (isLoadingAgito) {
+      return null;
+    }
 
-      {/* Header */}
-      <View style={styles.postHeader}>
-        <View style={styles.postAuthorInfo}>
-          <View style={styles.authorAvatar}>
-            <Text style={styles.authorEmoji}>{post.author.emoji}</Text>
-          </View>
-          <View style={styles.authorMeta}>
-            <Text style={styles.authorName}>{post.author.name}</Text>
-            {post.location && (
-              <Text style={styles.postLocation}>📍 {post.location}</Text>
-            )}
-          </View>
-        </View>
-        <TouchableOpacity style={styles.postMenu}>
-          <Text style={styles.menuIcon}>⋯</Text>
+    return (
+      <View style={styles.emptyState}>
+        <Text style={styles.emptyTitle}>Nenhum post encontrado</Text>
+        <Text style={styles.emptyText}>
+          {agitoMode === 'nearby'
+            ? 'Ative localizacao e publique posts com local marcado para alimentar este modo.'
+            : 'Este modo ainda nao retornou conteudo para a sua conta.'}
+        </Text>
+        <TouchableOpacity style={styles.emptyButton} onPress={handleRefresh}>
+          <Text style={styles.emptyButtonText}>Recarregar</Text>
         </TouchableOpacity>
       </View>
-
-      {/* Media */}
-      <View style={styles.postMedia}>
-        <Text style={styles.postImage}>{post.image}</Text>
-      </View>
-
-      {/* Caption */}
-      <View style={styles.postCaption}>
-        <Text style={styles.captionText}>{post.caption}</Text>
-      </View>
-
-      {/* Reactions bar */}
-      <View style={styles.reactionsBar}>
-        <TouchableOpacity
-          style={[
-            styles.reactionButton,
-            post.userReaction === 'like' && styles.reactionButtonActive,
-          ]}
-          onPress={() => handleReaction(post.id, 'like')}
-        >
-          <Text style={styles.reactionIcon}>
-            {post.userReaction === 'like' ? '👍' : '🤍'}
-          </Text>
-          <Text style={styles.reactionCount}>{post.reactions.likes}</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={[
-            styles.reactionButton,
-            post.userReaction === 'dislike' && styles.reactionButtonActive,
-          ]}
-          onPress={() => handleReaction(post.id, 'dislike')}
-        >
-          <Text style={styles.reactionIcon}>👎</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={styles.reactionButton}
-          onPress={() => {
-            setSelectedPost(post);
-            setShowCommentModal(true);
-          }}
-        >
-          <Text style={styles.reactionIcon}>💬</Text>
-          <Text style={styles.reactionCount}>{post.reactions.comments}</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity style={styles.reactionButton}>
-          <Text style={styles.reactionIcon}>↗️</Text>
-        </TouchableOpacity>
-      </View>
-
-      {/* Comments preview */}
-      {post.comments.length > 0 && (
-        <View style={styles.commentsPreview}>
-          {post.comments.slice(0, 2).map((comment) => (
-            <View key={comment.id} style={styles.commentPreview}>
-              <Text style={styles.commentAuthor}>{comment.author.name}</Text>
-              <Text style={styles.commentText}>{comment.text}</Text>
-            </View>
-          ))}
-          {post.comments.length > 2 && (
-            <TouchableOpacity
-              onPress={() => {
-                setSelectedPost(post);
-                setShowCommentModal(true);
-              }}
-            >
-              <Text style={styles.viewMoreComments}>
-                Ver mais {post.comments.length - 2} comentários
-              </Text>
-            </TouchableOpacity>
-          )}
-        </View>
-      )}
-
-      <View style={styles.postDivider} />
-    </View>
-  );
+    );
+  };
 
   return (
     <SafeAreaView style={styles.container}>
+      {renderHeader()}
+      {renderModeTabs()}
+
+      {error ? (
+        <TouchableOpacity style={styles.errorBanner} onPress={clearError}>
+          <Text style={styles.errorBannerText}>{error}</Text>
+        </TouchableOpacity>
+      ) : null}
+
       <FlatList
-        ListHeaderComponent={
-          <>
-            {renderHeader()}
-            {renderStories()}
-            {renderNewBanner()}
-          </>
-        }
-        data={posts}
-        renderItem={renderPost}
+        data={agitoPosts}
+        renderItem={renderPostCard}
         keyExtractor={(item) => item.id}
-        scrollEventThrottle={16}
+        contentContainerStyle={styles.feedContent}
+        refreshControl={<RefreshControl refreshing={isLoadingAgito && agitoPosts.length === 0} onRefresh={handleRefresh} tintColor={colors.primary} />}
+        ListEmptyComponent={renderEmptyState}
+        ListFooterComponent={
+          isLoadingAgito && agitoPosts.length > 0 ? (
+            <View style={styles.footerLoader}>
+              <ActivityIndicator color={colors.primary} />
+            </View>
+          ) : (
+            <View style={styles.footerSpacer} />
+          )
+        }
+        onEndReachedThreshold={0.45}
+        onEndReached={() => {
+          if (agitoHasMore && !isLoadingAgito) {
+            void loadMoreAgitoFeed();
+          }
+        }}
       />
 
-      {/* Comment modal (simplified) */}
       <Modal
-        visible={showCommentModal}
+        visible={isCommentModalVisible}
         transparent
         animationType="slide"
-        onRequestClose={() => setShowCommentModal(false)}
+        onRequestClose={closeComments}
       >
-        <SafeAreaView style={styles.modalContainer}>
-          <View style={styles.modalHeader}>
-            <TouchableOpacity onPress={() => setShowCommentModal(false)}>
-              <Text style={styles.modalCloseIcon}>✕</Text>
-            </TouchableOpacity>
-            <Text style={styles.modalTitle}>Comentários</Text>
-            <View style={{ width: 24 }} />
-          </View>
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          style={styles.modalOverlay}
+        >
+          <View style={styles.modalSheet}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Comentarios</Text>
+              <TouchableOpacity onPress={closeComments}>
+                <Text style={styles.modalClose}>FECHAR</Text>
+              </TouchableOpacity>
+            </View>
 
-          {selectedPost && (
+            {selectedPost ? (
+              <View style={styles.modalPostSummary}>
+                <Text style={styles.modalPostAuthor}>{selectedPost.author.name}</Text>
+                <Text style={styles.modalPostContent}>{selectedPost.content}</Text>
+              </View>
+            ) : null}
+
             <FlatList
-              data={selectedPost.comments}
-              renderItem={({ item: comment }) => (
-                <View style={styles.commentFull}>
-                  <View style={styles.commentAuthorAvatar}>
-                    <Text style={styles.commentAuthorEmoji}>
-                      {comment.author.emoji}
-                    </Text>
+              data={selectedComments}
+              keyExtractor={(item) => item.id}
+              contentContainerStyle={styles.commentList}
+              ListEmptyComponent={
+                <Text style={styles.emptyCommentsText}>Seja o primeiro a comentar este post.</Text>
+              }
+              renderItem={({ item }) => (
+                <View style={styles.commentCard}>
+                  <View style={styles.commentAvatar}>
+                    <Text style={styles.commentAvatarText}>{getInitials(item.author.name)}</Text>
                   </View>
-                  <View style={styles.commentFullBody}>
-                    <Text style={styles.commentFullAuthor}>
-                      {comment.author.name}
+                  <View style={styles.commentBody}>
+                    <Text style={styles.commentAuthor}>{item.author.name}</Text>
+                    <Text style={styles.commentText}>{item.content}</Text>
+                    <Text style={styles.commentMeta}>
+                      {formatRelativeTime(item.createdAt)} · {item.likesCount} curtidas
                     </Text>
-                    <Text style={styles.commentFullText}>{comment.text}</Text>
-                    <Text style={styles.commentFullTime}>{comment.timestamp}</Text>
                   </View>
                 </View>
               )}
-              keyExtractor={(item) => item.id}
-              contentContainerStyle={{ paddingHorizontal: spacing.lg }}
             />
-          )}
-        </SafeAreaView>
+
+            <View style={styles.commentComposer}>
+              <TextInput
+                value={commentDraft}
+                onChangeText={setCommentDraft}
+                placeholder="Escreva um comentario"
+                placeholderTextColor={colors.textTertiary}
+                style={styles.commentInput}
+                multiline
+              />
+              <TouchableOpacity
+                style={[
+                  styles.commentSendButton,
+                  (commentDraft.trim().length === 0 || isSubmittingComment) &&
+                    styles.commentSendButtonDisabled,
+                ]}
+                onPress={() => void submitComment()}
+                disabled={commentDraft.trim().length === 0 || isSubmittingComment}
+              >
+                <Text style={styles.commentSendText}>
+                  {isSubmittingComment ? '...' : 'ENVIAR'}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </KeyboardAvoidingView>
       </Modal>
     </SafeAreaView>
   );
@@ -397,286 +430,371 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.background,
   },
-
-  // HEADER
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
+    paddingTop: spacing.sm,
+    paddingBottom: spacing.md,
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
   },
   logoBox: {
-    width: componentSizes.avatarXL,
-    height: componentSizes.avatarXL,
+    width: componentSizes.avatarLG,
+    height: componentSizes.avatarLG,
     borderRadius: spacing.md,
     backgroundColor: colors.primary,
-    justifyContent: 'center',
     alignItems: 'center',
+    justifyContent: 'center',
   },
   logoText: {
-    fontSize: 20,
+    color: colors.text,
+    fontSize: fontSize.xxl,
     fontWeight: '800',
-    color: colors.text,
   },
-  headerIcon: {
-    fontSize: 20,
-  },
-
-  // STORIES
-  storiesContainer: {
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-  },
-  storiesContent: {
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
-    gap: spacing.md,
-  },
-  storyItem: {
-    alignItems: 'center',
-    gap: spacing.xs,
-  },
-  storyAvatar: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    backgroundColor: colors.surface,
-    borderWidth: 2,
-    borderColor: colors.primary,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  storyAvatarAdd: {
-    borderColor: colors.textTertiary,
-  },
-  storyEmoji: {
-    fontSize: 28,
-  },
-  storyName: {
-    fontSize: fontSize.xs,
-    fontWeight: '600',
-    color: colors.text,
-    textAlign: 'center',
-    width: 64,
-  },
-
-  // NEW BANNER
-  newBanner: {
-    marginHorizontal: spacing.lg,
-    marginVertical: spacing.md,
-    paddingVertical: spacing.sm,
-    backgroundColor: colors.primary,
-    borderRadius: spacing.sm,
-    alignItems: 'center',
-  },
-  newBannerText: {
-    fontSize: fontSize.sm,
-    fontWeight: '600',
-    color: colors.text,
-  },
-
-  // POST CARD
-  postCard: {
-    marginVertical: spacing.sm,
-    borderTopWidth: 1,
-    borderTopColor: colors.border,
-  },
-
-  repostBanner: {
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.sm,
-    backgroundColor: colors.surface,
-  },
-  repostText: {
-    fontSize: fontSize.xs,
-    fontWeight: '600',
-    color: colors.textSecondary,
-  },
-
-  postHeader: {
+  headerActions: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
-  },
-  postAuthorInfo: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.md,
-    flex: 1,
-  },
-  authorAvatar: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: colors.surface,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  authorEmoji: {
-    fontSize: 24,
-  },
-  authorMeta: {
-    gap: spacing.xs,
-  },
-  authorName: {
-    fontSize: fontSize.sm,
-    fontWeight: '700',
-    color: colors.text,
-  },
-  postLocation: {
-    fontSize: fontSize.xs,
-    color: colors.textSecondary,
-  },
-  postMenu: {
-    width: 32,
-    height: 32,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  menuIcon: {
-    fontSize: 18,
-  },
-
-  postMedia: {
-    width: '100%',
-    height: 300,
-    backgroundColor: colors.surface,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  postImage: {
-    fontSize: 80,
-  },
-
-  postCaption: {
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
-  },
-  captionText: {
-    fontSize: fontSize.sm,
-    color: colors.text,
-    lineHeight: 18,
-  },
-
-  reactionsBar: {
-    flexDirection: 'row',
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.sm,
-    borderTopWidth: 1,
-    borderTopColor: colors.border,
-    gap: spacing.md,
-  },
-  reactionButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.md,
-    borderRadius: spacing.sm,
-    gap: spacing.xs,
-  },
-  reactionButtonActive: {
-    backgroundColor: colors.surface,
-  },
-  reactionIcon: {
-    fontSize: 18,
-  },
-  reactionCount: {
-    fontSize: fontSize.xs,
-    fontWeight: '600',
-    color: colors.textSecondary,
-  },
-
-  commentsPreview: {
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
     gap: spacing.sm,
   },
-  commentPreview: {
-    gap: spacing.xs,
+  headerAction: {
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 999,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    backgroundColor: colors.surface,
   },
-  commentAuthor: {
+  headerActionText: {
+    color: colors.textSecondary,
     fontSize: fontSize.xs,
     fontWeight: '700',
+  },
+  modeTabs: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.sm,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.borderLight,
+    backgroundColor: colors.background,
+  },
+  modeTab: {
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
+  },
+  modeTabActive: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
+  },
+  modeTabText: {
+    color: colors.textSecondary,
+    fontSize: fontSize.sm,
+    fontWeight: '700',
+  },
+  modeTabTextActive: {
     color: colors.text,
   },
-  commentText: {
-    fontSize: fontSize.xs,
-    color: colors.textSecondary,
+  errorBanner: {
+    marginHorizontal: spacing.lg,
+    marginTop: spacing.sm,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderRadius: spacing.md,
+    backgroundColor: 'rgba(192, 57, 43, 0.18)',
+    borderWidth: 1,
+    borderColor: colors.error,
   },
-  viewMoreComments: {
-    fontSize: fontSize.xs,
+  errorBannerText: {
+    color: colors.text,
+    fontSize: fontSize.sm,
+  },
+  feedContent: {
+    paddingBottom: spacing.xxxl,
+  },
+  postCard: {
+    backgroundColor: colors.background,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.borderLight,
+    paddingBottom: spacing.lg,
+  },
+  postHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
+    gap: spacing.md,
+  },
+  avatar: {
+    width: componentSizes.avatarMD,
+    height: componentSizes.avatarMD,
+    borderRadius: componentSizes.avatarMD / 2,
+    overflow: 'hidden',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  avatarSquare: {
+    borderRadius: spacing.sm,
+  },
+  avatarImage: {
+    width: '100%',
+    height: '100%',
+  },
+  avatarInitials: {
+    color: colors.text,
+    fontSize: fontSize.sm,
+    fontWeight: '800',
+  },
+  postMeta: {
+    flex: 1,
+    gap: 2,
+  },
+  authorName: {
+    color: colors.text,
+    fontSize: fontSize.md,
+    fontWeight: '700',
+  },
+  metaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    flexWrap: 'wrap',
+  },
+  locationText: {
     color: colors.primary,
+    fontSize: fontSize.sm,
     fontWeight: '600',
   },
-
-  postDivider: {
-    height: spacing.md,
+  timeText: {
+    color: colors.textTertiary,
+    fontSize: fontSize.sm,
   },
-
-  // MODAL
-  modalContainer: {
+  postImage: {
+    width: '100%',
+    height: 340,
+    backgroundColor: colors.surface,
+  },
+  missingMediaState: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    height: 220,
+    backgroundColor: colors.surface,
+    borderTopWidth: 1,
+    borderBottomWidth: 1,
+    borderColor: colors.border,
+  },
+  missingMediaText: {
+    color: colors.textSecondary,
+    fontSize: fontSize.md,
+  },
+  postBody: {
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.md,
+  },
+  captionText: {
+    color: colors.textSecondary,
+    fontSize: fontSize.md,
+    lineHeight: 20,
+  },
+  captionAuthor: {
+    color: colors.text,
+    fontWeight: '700',
+  },
+  actionsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: spacing.sm,
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.md,
+  },
+  actionButton: {
+    paddingVertical: spacing.sm,
+  },
+  actionText: {
+    color: colors.textSecondary,
+    fontSize: fontSize.sm,
+    fontWeight: '700',
+  },
+  actionTextActive: {
+    color: colors.primary,
+  },
+  footerLoader: {
+    paddingVertical: spacing.xl,
+  },
+  footerSpacer: {
+    height: spacing.xl,
+  },
+  emptyState: {
+    paddingHorizontal: spacing.xxxl,
+    paddingVertical: spacing.huge,
+    alignItems: 'center',
+    gap: spacing.md,
+  },
+  emptyTitle: {
+    color: colors.text,
+    fontSize: fontSize.xxl,
+    fontWeight: '800',
+    textAlign: 'center',
+  },
+  emptyText: {
+    color: colors.textSecondary,
+    fontSize: fontSize.md,
+    textAlign: 'center',
+    lineHeight: 20,
+  },
+  emptyButton: {
+    marginTop: spacing.sm,
+    backgroundColor: colors.primary,
+    borderRadius: spacing.md,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
+  },
+  emptyButtonText: {
+    color: colors.text,
+    fontSize: fontSize.sm,
+    fontWeight: '800',
+  },
+  modalOverlay: {
     flex: 1,
+    justifyContent: 'flex-end',
+    backgroundColor: colors.overlay,
+  },
+  modalSheet: {
+    maxHeight: '82%',
     backgroundColor: colors.background,
+    borderTopLeftRadius: spacing.xxl,
+    borderTopRightRadius: spacing.xxl,
+    borderWidth: 1,
+    borderColor: colors.border,
   },
   modalHeader: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.lg,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+  },
+  modalTitle: {
+    color: colors.text,
+    fontSize: fontSize.lg,
+    fontWeight: '800',
+  },
+  modalClose: {
+    color: colors.primary,
+    fontSize: fontSize.sm,
+    fontWeight: '800',
+  },
+  modalPostSummary: {
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.md,
     borderBottomWidth: 1,
-    borderBottomColor: colors.border,
+    borderBottomColor: colors.borderLight,
+    gap: spacing.xs,
   },
-  modalCloseIcon: {
-    fontSize: 20,
+  modalPostAuthor: {
     color: colors.text,
-    width: 24,
-  },
-  modalTitle: {
-    fontSize: fontSize.sm,
+    fontSize: fontSize.md,
     fontWeight: '700',
-    color: colors.text,
   },
-
-  commentFull: {
-    flexDirection: 'row',
+  modalPostContent: {
+    color: colors.textSecondary,
+    fontSize: fontSize.md,
+    lineHeight: 20,
+  },
+  commentList: {
+    paddingHorizontal: spacing.lg,
     paddingVertical: spacing.md,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
     gap: spacing.md,
   },
-  commentAuthorAvatar: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: colors.surface,
-    justifyContent: 'center',
+  commentCard: {
+    flexDirection: 'row',
+    gap: spacing.md,
+  },
+  commentAvatar: {
+    width: componentSizes.avatarSM,
+    height: componentSizes.avatarSM,
+    borderRadius: componentSizes.avatarSM / 2,
     alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
   },
-  commentAuthorEmoji: {
-    fontSize: 20,
+  commentAvatarText: {
+    color: colors.text,
+    fontSize: fontSize.xs,
+    fontWeight: '800',
   },
-  commentFullBody: {
+  commentBody: {
     flex: 1,
     gap: spacing.xs,
   },
-  commentFullAuthor: {
+  commentAuthor: {
+    color: colors.text,
     fontSize: fontSize.sm,
     fontWeight: '700',
-    color: colors.text,
   },
-  commentFullText: {
-    fontSize: fontSize.sm,
-    color: colors.text,
-    lineHeight: 18,
-  },
-  commentFullTime: {
-    fontSize: fontSize.xs,
+  commentText: {
     color: colors.textSecondary,
+    fontSize: fontSize.md,
+    lineHeight: 20,
+  },
+  commentMeta: {
+    color: colors.textTertiary,
+    fontSize: fontSize.sm,
+  },
+  emptyCommentsText: {
+    color: colors.textSecondary,
+    fontSize: fontSize.md,
+    textAlign: 'center',
+    paddingVertical: spacing.xl,
+  },
+  commentComposer: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    gap: spacing.sm,
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.md,
+    paddingBottom: spacing.lg,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+  },
+  commentInput: {
+    flex: 1,
+    minHeight: 48,
+    maxHeight: 110,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: spacing.md,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    color: colors.text,
+    backgroundColor: colors.surface,
+    textAlignVertical: 'top',
+  },
+  commentSendButton: {
+    backgroundColor: colors.primary,
+    borderRadius: spacing.md,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
+  },
+  commentSendButtonDisabled: {
+    opacity: 0.45,
+  },
+  commentSendText: {
+    color: colors.text,
+    fontSize: fontSize.sm,
+    fontWeight: '800',
   },
 });

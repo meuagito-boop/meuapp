@@ -9,7 +9,7 @@ import {
   View,
 } from 'react-native';
 import { colors } from '@constants/colors';
-import { componentSizes, spacing, borderRadius, animations } from '@constants/design';
+import { componentSizes, spacing, borderRadius } from '@constants/design';
 
 export interface ButtonProps {
   label: string;
