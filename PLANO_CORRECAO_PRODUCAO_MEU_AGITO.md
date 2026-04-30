@@ -432,7 +432,7 @@ Criterio de aceite:
 | `frontend/src/screens/main/NotificationsScreen.tsx:49-69` | Placeholders `??` | Trocar por icones/textos reais |
 | `backend/src/modules/products/products.controller.ts:56-112` | Gestao de produtos existe no backend sem UI owner pronta | Criar tela owner ou remover do release |
 | `frontend/src/utils/runtimeApiUrl.ts:4-43` | Producao cai para `https://api.meuagito.com` se `EXPO_PUBLIC_API_URL` nao existir | Validar DNS/ALB ou exigir `EXPO_PUBLIC_API_URL` no build |
-| `frontend/app.json:17-29` | iOS nao aponta arquivo Firebase/APNs equivalente ao Android | Definir estrategia iOS push ou declarar Android-only no release |
+| `frontend/app.json:17-44` | Push mobile nao deve depender de Firebase/google-services; Android e iOS precisam de estrategia final sem Firebase | Definir push via SNS/APNs e alternativa Android compativel com a decisao de nao usar Firebase, ou retirar push real do primeiro release |
 | `frontend/src/screens/main/MapScreen.tsx:111-131` | Item da lista do mapa e `TouchableOpacity` sem `onPress` | Conectar item a Perfil/Item ou trocar por `View` nao clicavel |
 | `frontend/src/App.tsx:70-76` | `NavigationContainer` nao recebe config `linking` | Implementar deep links se push/e-mail/link externo precisarem abrir telas internas |
 | `frontend/src/screens/auth/SignUpScreen.tsx:61-67` | `SignUp` sem `profileType` fica em loading infinito | Redirecionar para `ProfileSelection` ou exibir erro acionavel |
@@ -566,7 +566,7 @@ Validacoes executadas nesta rodada:
 - Navegacao React Navigation: 44 rotas registradas, 30 chamadas estaticas `navigation.navigate/push`, 0 destinos ausentes encontrados na extracao estatica.
 - Integracao API frontend/backend: 112 endpoints extraidos de controllers, 64 chamadas `apiClient` detectadas no frontend, 0 chamadas sem endpoint correspondente na extracao estatica.
 - Prisma: migrations locais encontradas em `backend/prisma/migrations`.
-- Firebase mobile: `frontend/google-services.json` existe; `frontend/GoogleService-Info.plist` nao existe.
+- Firebase/Render: decisao de produto/infra e nao usar Firebase nem Render. `frontend/app.json` nao deve apontar `google-services.json`; backend deve usar AWS-first conforme `.codex`.
 - Providers reais: codigo de S3, SES, SNS e Redis existe, mas S3/SES/SNS ainda podem ficar desligados por configuracao.
 
 Classificacao por area:
@@ -601,7 +601,7 @@ Tabela de problemas exigida pelo prompt:
 | `backend/src/common/email/email.service.ts` | E-mail fica desabilitado quando provider nao e `ses` | Pendente para producao/deploy | Reset/verificacao por e-mail nao ficam reais | `backend/src/common/email/email.service.ts:51-55` | Exigir SES e validar envio real | P0 |
 | `backend/src/common/notification/notification.service.ts` | Push fica desabilitado quando provider nao e `sns` | Pendente para producao/deploy | Push real nao funciona sem erro de build/start | `backend/src/common/notification/notification.service.ts:48-52` | Exigir SNS e validar ARNs por plataforma | P0 |
 | `frontend/src/utils/runtimeApiUrl.ts` | Build de producao cai para `https://api.meuagito.com` se `EXPO_PUBLIC_API_URL` nao existir | Pendente para producao/deploy | App pode apontar para dominio nao validado no release | `frontend/src/utils/runtimeApiUrl.ts:4-43` | Validar DNS/ALB ou exigir `EXPO_PUBLIC_API_URL` no build | P0 |
-| `frontend/app.json` | Android aponta `google-services.json`, iOS nao aponta arquivo Firebase/APNs equivalente | Referenciado mas inexistente | Push iOS nao fica provado no app atual | `frontend/app.json:17-44`; `frontend/GoogleService-Info.plist` ausente | Definir iOS push ou release Android-only documentado | P1 |
+| `frontend/app.json` | Estrategia de push mobile sem Firebase ainda precisa ser fechada para Android/iOS | Pendente para producao/deploy | Push real pode ficar fora do release ou sem token nativo em Android | `frontend/app.json:17-44`; decisao do projeto: sem Firebase/Render | Definir SNS/APNs e alternativa Android sem Firebase, ou declarar push fora do MVP | P1 |
 | `frontend/src/screens/auth/PersonalSetupScreen.tsx` | Disponibilidade de username e finalizacao de perfil sao simuladas | Mockado/estatico/fake | Perfil pessoal pode concluir onboarding sem persistencia real | `frontend/src/screens/auth/PersonalSetupScreen.tsx:66-87` | Criar/usar endpoint real de username e salvar setup pessoal | P0 |
 | `frontend/src/screens/main/SettingsMyAccountScreen.tsx` | Dados de conta fixos, upload sem acao e save simulado | Mockado/estatico/fake | Usuario edita perfil sem persistir no backend | `frontend/src/screens/main/SettingsMyAccountScreen.tsx:40-77` | Conectar perfil e upload real | P0 |
 | `frontend/src/screens/main/SettingsCityScreen.tsx` | Cidades e recentes sao locais/fixos | Mockado/estatico/fake | Preferencia de cidade nao persiste | `frontend/src/screens/main/SettingsCityScreen.tsx:22-52` | Conectar preferencia real ou remover tela | P1 |
@@ -981,7 +981,7 @@ Evidencias base:
 - `frontend/package.json:5-18` contem scripts Expo/Android, teste e lint; nao ha script `typecheck` nem script de build release/EAS.
 - `backend/src/config/env.validation.ts:75-160` exige core env, Redis em producao, CORS/PORT e valida providers S3/SES/SNS quando habilitados.
 - `backend/Dockerfile` cria imagem multi-stage runtime com `NODE_ENV=production`, healthcheck em `/health` e comando `npm run start:prod`.
-- `frontend/app.json` configura package/bundle id e permissoes, mas referencia `./google-services.json`; arquivo nao foi encontrado na raiz `frontend`.
+- `frontend/app.json` configura package/bundle id e permissoes sem `googleServicesFile`; Firebase/Render nao fazem parte da arquitetura-alvo.
 - `frontend/.env` aponta `EXPO_PUBLIC_API_URL=http://localhost:3001`, inadequado para build de producao.
 
 Checklist por area:
@@ -1005,7 +1005,7 @@ Checklist por area:
 | Lint mobile | Script existe | Rodar lint | `cd frontend && npm run lint` | Zero erro; warnings aceitaveis documentados | Sim |
 | API URL producao | Pendente | Conferir env do build | `cd frontend && Get-Content .env` e build com `EXPO_PUBLIC_API_URL=https://api...` | Build nao aponta `localhost`; API resolve via HTTPS real | Sim |
 | Remocao de mocks bloqueantes | Pendente | Validar itens PROMPT-006 | Varredura + smoke das telas | Catalogo, minha conta, onboarding pessoal e cidade nao simulam producao | Sim |
-| Config de push mobile | Parcial | Conferir `google-services.json`, APNs/FCM e env SNS | `Test-Path frontend/google-services.json`; build/device | Android/iOS geram token nativo e registram no backend | Sim para push no release |
+| Config de push mobile | Parcial | Conferir estrategia sem Firebase, APNs e env SNS | Build/device com provider definido | Android/iOS geram token nativo sem Firebase ou push fica declarado fora do MVP | Sim para push no release |
 | Deep links/notificacao para telas | Pendente/parcial | Abrir app por notificacao/link | Smoke manual com push real | Notificacao abre entidade correta ou comportamento fora do escopo declarado | Nao para MVP sem deep link; Sim se push exigir roteamento |
 
 #### 3. Banco de dados
@@ -1053,7 +1053,7 @@ Checklist por area:
 | Item | Status atual | Como validar | Comando ou teste necessario | Criterio para considerar pronto | Bloqueia deploy? |
 |---|---|---|---|---|---|
 | Backend SNS | Preparado; default `PUSH_PROVIDER=none` | Subir com `PUSH_PROVIDER=sns` | Start backend com `AWS_SNS_REGION` e ARNs | Registro de token cria endpoint SNS | Sim para push real |
-| FCM Android | Pendente: `app.json` referencia `google-services.json`, arquivo nao encontrado | Conferir arquivo e build | `Test-Path frontend/google-services.json`; build Android | Device token nativo gerado por Expo Notifications | Sim para Android push |
+| Push Android sem Firebase | Pendente: projeto decidiu nao usar Firebase/google-services | Validar alternativa tecnica e build Android | Build Android/device com provider definido | Device Android registra token real sem Firebase, ou push Android fica fora do MVP | Sim para Android push |
 | APNs iOS | Pendente | Validar credencial APNs/SNS iOS | Build iOS/device | Device iOS registra token e recebe push | Sim para iOS push |
 | Env mobile de platform ARN | Pendente | Conferir env build | `EXPO_PUBLIC_AWS_SNS_PLATFORM_APPLICATION_ARN_ANDROID/IOS` no build | App envia ARN correto ou backend resolve por env | Sim para push real |
 | Test push | Endpoint existe | Chamar endpoint autenticado | `POST /notifications/push-test` via app/curl | Push chega no device e entrega fica registrada | Sim para release com push |
