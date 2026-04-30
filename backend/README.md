@@ -1,137 +1,105 @@
 # Meu Agito - Backend
 
-Backend da aplicação Meu Agito, desenvolvido com NestJS, PostgreSQL e Redis.
+Backend do Meu Agito (NestJS + Prisma + PostgreSQL + Redis + Socket.IO).
 
-## 📋 Pré-requisitos
+## Pre-requisitos
 
 - Node.js 20+
 - PostgreSQL 16+
-- Redis 7+
-- Docker & Docker Compose (opcional)
+- Redis 7+ (obrigatorio em producao; opcional so em dev/test quando `ENABLE_REDIS=false`)
+- Docker e Docker Compose (opcional)
 
-## 🚀 Começar Rápido com Docker
-
-```bash
-# Na raiz do projeto
-docker-compose up -d
-
-# Aplicar migrations
-docker exec meuagito-backend npm run prisma:migrate
-
-# Seed inicial (opcional)
-docker exec meuagito-backend npm run prisma:seed
-
-# Verificar saúde
-curl http://localhost:3001/health
-```
-
-## 📦 Instalação Local
+## Execucao local (Docker)
 
 ```bash
-# Instalar dependências
+# na raiz do projeto
+docker compose up -d postgres postgres-test redis
+
+# no backend
+cd backend
 npm install
-
-# Configurar variáveis de ambiente
-cp .env.example .env
-
-# Gerar Prisma client
 npm run prisma:generate
-
-# Aplicar migrations
-npm run prisma:migrate
-
-# Seed inicial
-npm run prisma:seed
-
-# Iniciar em desenvolvimento
+npm run prisma:migrate:prod
 npm run start:dev
 ```
 
-## 📚 API Documentation
-
-Documentação interativa disponível em: `http://localhost:3001/api/docs`
-
-## 🧪 Testes
+## Execucao local (sem Docker)
 
 ```bash
-# Testes unitários
-npm test
+cd backend
+npm install
+cp .env.example .env
+npm run prisma:generate
+npm run prisma:migrate
+npm run start:dev
+```
 
-# Testes com cobertura
-npm run test:cov
+## Pipeline de migration (producao)
 
-# Testes E2E
+```bash
+cd backend
+npm run prisma:generate
+npm run prisma:migrate:prod
+npm run build
+npm run start:prod
+```
+
+Atalhos:
+- `npm run deploy:prepare`
+- `npm run start:prod:migrate`
+
+## API docs
+
+- Swagger (dev): `http://localhost:3001/api/docs`
+
+## Testes
+
+```bash
+# unitarios
+npm test -- --runInBand
+
+# e2e (aplica migrate deploy no banco de teste)
 npm run test:e2e
 ```
 
-## 📁 Estrutura do Projeto
+## Variaveis obrigatorias (core)
 
-```
-src/
-├── modules/           # Módulos da aplicação
-│   ├── auth/         # Autenticação
-│   ├── users/        # Gerenciamento de usuários
-│   ├── posts/        # Posts sociais
-│   ├── feed/         # Feed
-│   ├── search/       # Sistema de busca
-│   ├── chat/         # Mensagens
-│   ├── events/       # Eventos
-│   ├── establishments/ # Estabelecimentos
-│   └── health/       # Health checks
-├── common/           # Código compartilhado
-│   ├── prisma/      # Serviço Prisma
-│   ├── filters/     # Exception filters
-│   ├── guards/      # Auth guards
-│   ├── pipes/       # Validation pipes
-│   └── interceptors/# Response interceptors
-├── config/           # Configurações
-├── app.module.ts    # Módulo principal
-└── main.ts          # Arquivo de inicialização
-```
+| Variavel | Quando | Observacao |
+|----------|--------|------------|
+| `DATABASE_URL` | sempre | conexao PostgreSQL |
+| `JWT_SECRET` | sempre | segredo do access token |
+| `REFRESH_TOKEN_SECRET` | sempre | segredo do refresh token |
+| `NODE_ENV` | sempre | `development`, `test`, `production` |
+| `CORS_ORIGIN` | producao | nao pode ser `*` |
+| `PORT` | producao | porta exposta do container |
 
-## 🔑 Variáveis de Ambiente
+## Variaveis por integracao
 
-| Variável | Descrição | Padrão |
-|----------|-----------|--------|
-| `DATABASE_URL` | String de conexão PostgreSQL | - |
-| `REDIS_URL` | URL do Redis | redis://localhost:6379 |
-| `JWT_SECRET` | Chave secreta JWT | - |
-| `PORT` | Porta do servidor | 3001 |
-| `NODE_ENV` | Ambiente | development |
+| Integracao | Variaveis |
+|-----------|-----------|
+| Redis | `ENABLE_REDIS=true` + `REDIS_URL` |
+| Rate limit distribuido | `RATE_LIMIT_TTL_MS`, `RATE_LIMIT_LIMIT`, `RATE_LIMIT_BLOCK_MS` |
+| S3 | `STORAGE_PROVIDER=s3` + `S3_BUCKET`/`AWS_S3_BUCKET`, `S3_REGION`/`AWS_REGION`, `S3_ACCESS_KEY_ID`/`AWS_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY`/`AWS_SECRET_ACCESS_KEY` |
+| CloudFront | `USE_CLOUDFRONT=true` + `CLOUDFRONT_BASE_URL` |
+| Email SES | `EMAIL_PROVIDER=ses` + `AWS_SES_REGION` + `AWS_SES_FROM_EMAIL` |
+| Push SNS | `PUSH_PROVIDER=sns` + `AWS_SNS_REGION` e ARNs de platform application quando aplicável |
+| Observabilidade | `APP_NAME`, `LOG_LEVEL`, `AWS_CLOUDWATCH_LOG_GROUP`, `AWS_CLOUDWATCH_LOG_RETENTION_DAYS`, `AWS_CLOUDWATCH_NAMESPACE`, `AWS_XRAY_ENABLED`, `AWS_XRAY_DAEMON_ADDRESS`, `AWS_XRAY_CONTEXT_MISSING`, `AWS_XRAY_SERVICE_NAME`, `SENTRY_ENABLED`, `SENTRY_DSN` |
 
-## 📊 Banco de Dados
+## Diretrizes AWS usadas nesta etapa (Bloco 1)
 
-Schema incluí 15 tabelas principais:
-- User, UserLocation, Follow
-- Post, Comment, Like, Story
-- Message, Notification
-- Establishment, Event
-- RefreshToken, AuditLog
+- ECS/Fargate: task definition deve usar env vars/secret refs, sem segredo hardcoded.
+- ALB: backend deve responder health check e aceitar configuracao de HTTPS listener no balanceador.
+- RDS/ElastiCache: conexoes por env vars, sem credenciais no codigo.
+- S3/CloudFront: configuracao por env vars, com validacao condicional.
+- SSM Parameter Store / Secrets Manager: recomendado para segredos em producao.
+- CloudWatch: logs estruturados em stdout/stderr compativeis com ECS/CloudWatch.
+- X-Ray: tracing opcional habilitavel via env e sidecar/daemon.
+- Sentry: complemento opcional, nunca dependência principal da stack AWS.
 
-```bash
-# Acessar Prisma Studio (GUI)
-npm run prisma:studio
-```
+## Seguranca aplicada
 
-## 🛡️ Segurança
-
-- JWT authentication com refresh tokens
-- Password hashing com bcrypt
-- CORS configurado
-- Rate limiting por endpoint
-- Input validation automática
-- SQL injection prevention (via Prisma)
-
-## 🐛 Debugging
-
-```bash
-# Modo debug com Node inspector
-npm run start:debug
-
-# Logs detalhados
-export LOG_LEVEL=debug && npm run start:dev
-```
-
-## 📝 Licença
-
-MIT
+- Exception filter global com resposta padronizada
+- Validation pipe global
+- Rate limit global com storage Redis distribuida quando `ENABLE_REDIS=true` + limites especificos em auth
+- Request ID por requisicao
+- Logs estruturados (sem dump de segredo/token)

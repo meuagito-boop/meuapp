@@ -1,4 +1,4 @@
-import { IsString, IsOptional, IsUUID, IsEnum, Min } from 'class-validator';
+import { IsString, IsOptional, IsEnum, Min } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 
@@ -13,12 +13,12 @@ export class AdvancedSearchDto {
   q?: string;
 
   @ApiProperty({
-    description: 'UUID do autor (filtro)',
-    example: 'uuid',
+    description: 'ID do autor (filtro)',
+    example: 'cmoxxxxxxxxxxxxx',
     required: false,
   })
   @IsOptional()
-  @IsUUID()
+  @IsString()
   authorId?: string;
 
   @ApiProperty({

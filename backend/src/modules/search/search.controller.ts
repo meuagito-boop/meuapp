@@ -1,16 +1,5 @@
-import {
-  Controller,
-  Get,
-  Query,
-  UseGuards,
-} from '@nestjs/common';
-import {
-  ApiTags,
-  ApiBearerAuth,
-  ApiOperation,
-  ApiResponse,
-  ApiQuery,
-} from '@nestjs/swagger';
+import { Controller, Get, Query, UseGuards } from '@nestjs/common';
+import { ApiTags, ApiBearerAuth, ApiOperation, ApiResponse, ApiQuery } from '@nestjs/swagger';
 import { SearchService } from './search.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { GlobalSearchDto } from './dtos/global-search.dto';
@@ -21,6 +10,36 @@ import { PaginationDto } from '../../common/dtos/pagination.dto';
 @Controller('search')
 export class SearchController {
   constructor(private readonly searchService: SearchService) {}
+
+  private toOptionalNumber(value: number | string | undefined): number | undefined {
+    if (value === undefined || value === null || value === '') {
+      return undefined;
+    }
+
+    const parsed = typeof value === 'number' ? value : Number(value);
+    return Number.isFinite(parsed) ? parsed : undefined;
+  }
+
+  private toOptionalBoolean(value: boolean | string | undefined): boolean | undefined {
+    if (value === undefined || value === null || value === '') {
+      return undefined;
+    }
+
+    if (typeof value === 'boolean') {
+      return value;
+    }
+
+    const normalized = value.trim().toLowerCase();
+    if (['true', '1', 'yes', 'sim'].includes(normalized)) {
+      return true;
+    }
+
+    if (['false', '0', 'no', 'nao', 'não'].includes(normalized)) {
+      return false;
+    }
+
+    return undefined;
+  }
 
   /**
    * Busca global em todas as entidades
@@ -72,9 +91,7 @@ export class SearchController {
       },
     },
   })
-  async globalSearch(
-    @Query() query: GlobalSearchDto,
-  ) {
+  async globalSearch(@Query() query: GlobalSearchDto) {
     return this.searchService.globalSearch(query.q, query.limit ?? 5);
   }
 
@@ -118,9 +135,7 @@ export class SearchController {
     status: 200,
     description: 'Posts encontrados',
   })
-  async searchPosts(
-    @Query() query: AdvancedSearchDto,
-  ) {
+  async searchPosts(@Query() query: AdvancedSearchDto) {
     return this.searchService.searchPosts(query);
   }
 
@@ -140,7 +155,7 @@ export class SearchController {
   })
   @ApiQuery({
     name: 'profileType',
-    enum: ['PESSOA_FISICA', 'PESSOA_JURIDICA'],
+    enum: ['USER', 'ESTABLISHMENT'],
     required: false,
     description: 'Tipo de perfil',
   })
@@ -161,8 +176,14 @@ export class SearchController {
   async searchUsers(
     @Query('q') q: string,
     @Query('profileType') profileType: string,
-    @Query() paginationDto: PaginationDto,
+    @Query('page') page: number | string,
+    @Query('limit') limit: number | string
   ) {
+    const paginationDto: PaginationDto = {
+      page: this.toOptionalNumber(page),
+      limit: this.toOptionalNumber(limit),
+    };
+
     return this.searchService.searchUsers(q, profileType, paginationDto);
   }
 
@@ -232,25 +253,31 @@ export class SearchController {
   })
   async searchEvents(
     @Query('q') q: string,
-    @Query('latitude') latitude: number,
-    @Query('longitude') longitude: number,
-    @Query('distance') distance: number,
+    @Query('latitude') latitude: number | string,
+    @Query('longitude') longitude: number | string,
+    @Query('distance') distance: number | string,
     @Query('category') category: string,
     @Query('dateFrom') dateFrom: string,
     @Query('dateTo') dateTo: string,
-    @Query() paginationDto: PaginationDto,
+    @Query('page') page: number | string,
+    @Query('limit') limit: number | string
   ) {
+    const paginationDto: PaginationDto = {
+      page: this.toOptionalNumber(page),
+      limit: this.toOptionalNumber(limit),
+    };
+
     return this.searchService.searchEvents(
       {
         q,
-        latitude,
-        longitude,
-        distance,
+        latitude: this.toOptionalNumber(latitude),
+        longitude: this.toOptionalNumber(longitude),
+        distance: this.toOptionalNumber(distance),
         category,
         dateFrom,
         dateTo,
       },
-      paginationDto,
+      paginationDto
     );
   }
 
@@ -293,6 +320,18 @@ export class SearchController {
     description: 'Categoria',
   })
   @ApiQuery({
+    name: 'subcategory',
+    type: String,
+    required: false,
+    description: 'Subcategoria',
+  })
+  @ApiQuery({
+    name: 'openNow',
+    type: Boolean,
+    required: false,
+    description: 'Filtrar por estabelecimentos abertos agora',
+  })
+  @ApiQuery({
     name: 'minRating',
     type: Number,
     required: false,
@@ -314,23 +353,33 @@ export class SearchController {
   })
   async searchEstablishments(
     @Query('q') q: string,
-    @Query('latitude') latitude: number,
-    @Query('longitude') longitude: number,
-    @Query('distance') distance: number,
+    @Query('latitude') latitude: number | string,
+    @Query('longitude') longitude: number | string,
+    @Query('distance') distance: number | string,
     @Query('category') category: string,
-    @Query('minRating') minRating: number,
-    @Query() paginationDto: PaginationDto,
+    @Query('subcategory') subcategory: string,
+    @Query('openNow') openNow: boolean | string,
+    @Query('minRating') minRating: number | string,
+    @Query('page') page: number | string,
+    @Query('limit') limit: number | string
   ) {
+    const paginationDto: PaginationDto = {
+      page: this.toOptionalNumber(page),
+      limit: this.toOptionalNumber(limit),
+    };
+
     return this.searchService.searchEstablishments(
       {
         q,
-        latitude,
-        longitude,
-        distance,
+        latitude: this.toOptionalNumber(latitude),
+        longitude: this.toOptionalNumber(longitude),
+        distance: this.toOptionalNumber(distance),
         category,
-        minRating,
+        subcategory,
+        openNow: this.toOptionalBoolean(openNow),
+        minRating: this.toOptionalNumber(minRating),
       },
-      paginationDto,
+      paginationDto
     );
   }
 
@@ -385,12 +434,12 @@ export class SearchController {
   async autocomplete(
     @Query('q') q: string,
     @Query('types') types: string,
-    @Query('limit') limit: number = 10,
+    @Query('limit') limit: number = 10
   ) {
     return this.searchService.autocomplete(
       q,
       types?.split(',') || ['posts', 'users', 'events', 'establishments'],
-      limit,
+      limit
     );
   }
 
@@ -412,9 +461,7 @@ export class SearchController {
     status: 200,
     description: 'Tendências atuais',
   })
-  async trending(
-    @Query('limit') limit: number = 5,
-  ) {
+  async trending(@Query('limit') limit: number = 5) {
     return this.searchService.getTrending(limit);
   }
 }

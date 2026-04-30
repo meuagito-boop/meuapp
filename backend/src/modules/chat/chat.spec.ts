@@ -3,12 +3,14 @@ import { ChatService } from './chat.service';
 import { ChatController } from './chat.controller';
 import { ChatGateway } from './chat.gateway';
 import { PrismaService } from '../../common/prisma/prisma.service';
+import { JwtService } from '@nestjs/jwt';
+import { ConfigService } from '@nestjs/config';
+import { MediaService } from '@modules/media/media.service';
 
 describe('ChatModule', () => {
   let service: ChatService;
   let controller: ChatController;
   let gateway: ChatGateway;
-  let prisma: PrismaService;
 
   const mockPrismaService = {
     conversation: {
@@ -29,6 +31,18 @@ describe('ChatModule', () => {
     },
   };
 
+  const mockJwtService = {
+    verify: jest.fn(),
+  };
+
+  const mockConfigService = {
+    get: jest.fn().mockReturnValue('test-jwt-secret'),
+  };
+
+  const mockMediaService = {
+    uploadChatAttachment: jest.fn(),
+  };
+
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       controllers: [ChatController],
@@ -39,13 +53,29 @@ describe('ChatModule', () => {
           provide: PrismaService,
           useValue: mockPrismaService,
         },
+        {
+          provide: JwtService,
+          useValue: mockJwtService,
+        },
+        {
+          provide: ConfigService,
+          useValue: mockConfigService,
+        },
+        {
+          provide: MediaService,
+          useValue: mockMediaService,
+        },
       ],
     }).compile();
 
     service = module.get<ChatService>(ChatService);
     controller = module.get<ChatController>(ChatController);
     gateway = module.get<ChatGateway>(ChatGateway);
-    prisma = module.get<PrismaService>(PrismaService);
+
+    (gateway as any).server = {
+      emit: jest.fn(),
+      to: jest.fn().mockReturnValue({ emit: jest.fn() }),
+    };
   });
 
   afterEach(() => {
@@ -69,9 +99,7 @@ describe('ChatModule', () => {
           _count: { messages: 0 },
         };
 
-        jest
-          .spyOn(mockPrismaService.conversation, 'create')
-          .mockResolvedValue(mockConversation);
+        jest.spyOn(mockPrismaService.conversation, 'create').mockResolvedValue(mockConversation);
 
         const result = await service.createOrGetConversation(userId, recipientId);
 
@@ -93,9 +121,7 @@ describe('ChatModule', () => {
           _count: { messages: 5 },
         };
 
-        jest
-          .spyOn(mockPrismaService.conversation, 'findFirst')
-          .mockResolvedValue(mockConversation);
+        jest.spyOn(mockPrismaService.conversation, 'findFirst').mockResolvedValue(mockConversation);
 
         const result = await service.createOrGetConversation(userId, recipientId);
 
@@ -106,7 +132,7 @@ describe('ChatModule', () => {
         const userId = 'user-1';
 
         await expect(service.createOrGetConversation(userId, userId)).rejects.toThrow(
-          'Cannot create conversation with yourself',
+          'Cannot create conversation with yourself'
         );
       });
     });
@@ -125,9 +151,7 @@ describe('ChatModule', () => {
           },
         ];
 
-        jest
-          .spyOn(mockPrismaService.conversation, 'findMany')
-          .mockResolvedValue(mockConversations);
+        jest.spyOn(mockPrismaService.conversation, 'findMany').mockResolvedValue(mockConversations);
         jest.spyOn(mockPrismaService.conversation, 'count').mockResolvedValue(1);
 
         const result = await service.listConversations(userId, paginationDto);
@@ -182,9 +206,9 @@ describe('ChatModule', () => {
       it('should throw error if conversation not found', async () => {
         jest.spyOn(mockPrismaService.conversation, 'findUnique').mockResolvedValue(null);
 
-        await expect(
-          service.createMessage('invalid', 'user-1', 'Hello'),
-        ).rejects.toThrow('Conversation not found');
+        await expect(service.createMessage('invalid', 'user-1', 'Hello')).rejects.toThrow(
+          'Conversation not found'
+        );
       });
     });
 
@@ -202,13 +226,15 @@ describe('ChatModule', () => {
           .spyOn(mockPrismaService.conversation, 'findUnique')
           .mockResolvedValue(mockConversation as any);
         jest
-          .spyOn(mockPrismaService.message, 'updateMany')
-          .mockResolvedValue({ count: 3 } as any);
+          .spyOn(mockPrismaService.message, 'findMany')
+          .mockResolvedValue([{ id: 'msg-1' }, { id: 'msg-2' }] as any);
+        jest.spyOn(mockPrismaService.message, 'update').mockResolvedValue({} as any);
 
         const result = await service.markAsRead(conversationId, userId);
 
         expect(result).toHaveProperty('message');
-        expect(mockPrismaService.message.updateMany).toHaveBeenCalledTimes(1);
+        expect(mockPrismaService.message.findMany).toHaveBeenCalledTimes(1);
+        expect(mockPrismaService.message.update).toHaveBeenCalledTimes(2);
       });
     });
 
@@ -247,13 +273,10 @@ describe('ChatModule', () => {
     describe('POST /chat/conversations', () => {
       it('should create conversation', async () => {
         const createConversationDto = { recipientId: 'user-2' };
-        const request = { user: { id: 'user-1' } };
 
-        jest
-          .spyOn(service, 'createOrGetConversation')
-          .mockResolvedValue({ id: 'conv-1' } as any);
+        jest.spyOn(service, 'createOrGetConversation').mockResolvedValue({ id: 'conv-1' } as any);
 
-        const result = await controller.createConversation(createConversationDto, request);
+        const result = await controller.createConversation(createConversationDto, 'user-1');
 
         expect(result).toHaveProperty('id');
       });
@@ -262,7 +285,6 @@ describe('ChatModule', () => {
     describe('GET /chat/conversations', () => {
       it('should list conversations', async () => {
         const paginationDto = { page: 1, limit: 20 };
-        const request = { user: { id: 'user-1' } };
 
         jest.spyOn(service, 'listConversations').mockResolvedValue({
           data: [],
@@ -272,7 +294,7 @@ describe('ChatModule', () => {
           totalPages: 0,
         } as any);
 
-        const result = await controller.listConversations(paginationDto, request);
+        const result = await controller.listConversations(paginationDto, 'user-1');
 
         expect(result).toHaveProperty('data');
         expect(result).toHaveProperty('total');
@@ -282,7 +304,6 @@ describe('ChatModule', () => {
     describe('POST /chat/conversations/:id/messages', () => {
       it('should send message', async () => {
         const conversationId = 'conv-123';
-        const request = { user: { id: 'user-1' } };
         const sendMessageDto = { content: 'Hello!' };
 
         jest.spyOn(service, 'createMessage').mockResolvedValue({
@@ -294,7 +315,7 @@ describe('ChatModule', () => {
           conversationId,
           sendMessageDto,
           undefined,
-          request,
+          'user-1'
         );
 
         expect(result).toHaveProperty('id');
@@ -304,8 +325,6 @@ describe('ChatModule', () => {
 
     describe('GET /chat/conversations/unread/count', () => {
       it('should get unread count', async () => {
-        const request = { user: { id: 'user-1' } };
-
         jest.spyOn(service, 'getUnreadCount').mockResolvedValue({
           total: 5,
           byConversation: [
@@ -314,7 +333,7 @@ describe('ChatModule', () => {
           ],
         } as any);
 
-        const result = await controller.getUnreadCount(request);
+        const result = await controller.getUnreadCount('user-1');
 
         expect(result).toHaveProperty('total', 5);
         expect(result.byConversation).toHaveLength(2);
@@ -324,7 +343,7 @@ describe('ChatModule', () => {
     describe('PUT /chat/messages/:id', () => {
       it('should edit message', async () => {
         const messageId = 'msg-123';
-        const request = { user: { id: 'user-1' } };
+        const userId = 'user-1';
         const body = { content: 'Updated message' };
 
         jest.spyOn(service, 'editMessage').mockResolvedValue({
@@ -332,7 +351,7 @@ describe('ChatModule', () => {
           content: 'Updated message',
         } as any);
 
-        const result = await controller.editMessage(messageId, body, request);
+        const result = await controller.editMessage(messageId, body, userId);
 
         expect(result.content).toBe('Updated message');
       });
@@ -341,13 +360,13 @@ describe('ChatModule', () => {
     describe('DELETE /chat/messages/:id', () => {
       it('should delete message', async () => {
         const messageId = 'msg-123';
-        const request = { user: { id: 'user-1' } };
+        const userId = 'user-1';
 
         jest
           .spyOn(service, 'deleteMessage')
           .mockResolvedValue({ message: 'Message deleted successfully' } as any);
 
-        const result = await controller.deleteMessage(messageId, request);
+        const result = await controller.deleteMessage(messageId, userId);
 
         expect(result).toHaveProperty('message');
       });
@@ -356,13 +375,12 @@ describe('ChatModule', () => {
     describe('PUT /chat/conversations/:id/read', () => {
       it('should mark conversation as read', async () => {
         const conversationId = 'conv-123';
-        const request = { user: { id: 'user-1' } };
 
         jest
           .spyOn(service, 'markAsRead')
           .mockResolvedValue({ message: 'Messages marked as read' } as any);
 
-        const result = await controller.markConversationAsRead(conversationId, request);
+        const result = await controller.markConversationAsRead(conversationId, 'user-1');
 
         expect(result).toHaveProperty('message');
       });
@@ -371,54 +389,66 @@ describe('ChatModule', () => {
 
   describe('ChatGateway', () => {
     describe('Socket connection', () => {
-      it('should handle user connection', () => {
+      it('should handle user connection', async () => {
         const userId = 'user-1';
+        mockJwtService.verify.mockReturnValue({ id: userId });
+
         const mockClient = {
           handshake: {
-            auth: { userId },
+            auth: { token: 'Bearer valid-token' },
           },
           id: 'socket-123',
           join: jest.fn(),
+          emit: jest.fn(),
           disconnect: jest.fn(),
         } as any;
 
-        gateway.handleConnection(mockClient);
+        await gateway.handleConnection(mockClient);
 
         expect(mockClient.join).toHaveBeenCalledWith(`user_${userId}`);
       });
 
-      it('should handle user disconnection', () => {
+      it('should handle user disconnection', async () => {
         const userId = 'user-1';
+        mockJwtService.verify.mockReturnValue({ id: userId });
+
         const mockClient = {
           handshake: {
-            auth: { userId },
+            auth: { token: 'Bearer valid-token' },
           },
           id: 'socket-123',
+          join: jest.fn(),
+          emit: jest.fn(),
+          disconnect: jest.fn(),
         } as any;
 
-        gateway.handleConnection(mockClient);
-        gateway.handleDisconnect(mockClient);
+        await gateway.handleConnection(mockClient);
+        await gateway.handleDisconnect(mockClient);
 
-        expect(gateway.isUserOnline(userId)).toBe(false);
+        await expect(gateway.isUserOnline(userId)).resolves.toBe(false);
       });
     });
 
     describe('User online status', () => {
-      it('should check if user is online', () => {
+      it('should check if user is online', async () => {
         const userId = 'user-1';
+        mockJwtService.verify.mockReturnValue({ id: userId });
+
         const mockClient = {
-          handshake: { auth: { userId } },
+          handshake: { auth: { token: 'Bearer valid-token' } },
           id: 'socket-123',
           join: jest.fn(),
+          emit: jest.fn(),
+          disconnect: jest.fn(),
         } as any;
 
-        gateway.handleConnection(mockClient);
+        await gateway.handleConnection(mockClient);
 
-        expect(gateway.isUserOnline(userId)).toBe(true);
+        await expect(gateway.isUserOnline(userId)).resolves.toBe(true);
       });
 
-      it('should return false for offline user', () => {
-        expect(gateway.isUserOnline('non-existent-user')).toBe(false);
+      it('should return false for offline user', async () => {
+        await expect(gateway.isUserOnline('non-existent-user')).resolves.toBe(false);
       });
     });
   });

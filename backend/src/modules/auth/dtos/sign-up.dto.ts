@@ -1,10 +1,8 @@
-import { IsEmail, IsString, MinLength, IsEnum, IsOptional } from 'class-validator';
-import { ApiProperty } from '@nestjs/swagger';
+import { IsDateString, IsEmail, IsEnum, IsOptional, IsString, MinLength } from 'class-validator';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { AccountType } from '@common/enums/account-type.enum';
 
-export enum ProfileType {
-  PESSOA_FISICA = 'PESSOA_FISICA',
-  PESSOA_JURIDICA = 'PESSOA_JURIDICA',
-}
+export { AccountType as ProfileType };
 
 export class SignUpDto {
   @ApiProperty({
@@ -15,12 +13,35 @@ export class SignUpDto {
   email: string;
 
   @ApiProperty({
-    example: 'John Doe',
-    description: 'User full name',
+    example: 'John',
+    description: 'User first name',
   })
   @IsString()
-  @MinLength(3)
-  name: string;
+  @MinLength(2)
+  firstName: string;
+
+  @ApiProperty({
+    example: 'Doe',
+    description: 'User last name',
+  })
+  @IsString()
+  @MinLength(2)
+  lastName: string;
+
+  @ApiProperty({
+    example: '1998-05-20',
+    description: 'Birth date in YYYY-MM-DD format (must be 18+)',
+  })
+  @IsDateString()
+  birthDate: string;
+
+  @ApiPropertyOptional({
+    example: 'John Doe',
+    description: 'Optional full name (backend will compose from first + last)',
+  })
+  @IsString()
+  @IsOptional()
+  name?: string;
 
   @ApiProperty({
     example: 'SecurePassword123!',
@@ -39,11 +60,11 @@ export class SignUpDto {
   passwordConfirm: string;
 
   @ApiProperty({
-    example: 'PESSOA_FISICA',
+    example: 'USER',
     description: 'Profile type',
-    enum: ProfileType,
+    enum: AccountType,
   })
-  @IsEnum(ProfileType)
+  @IsEnum(AccountType)
   @IsOptional()
-  profileType?: ProfileType;
+  profileType?: AccountType;
 }

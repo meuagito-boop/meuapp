@@ -3,14 +3,18 @@ import {
   NotFoundException,
   BadRequestException,
   ForbiddenException,
+  Optional,
 } from '@nestjs/common';
+import { AuditLogService } from '@common/audit/audit-log.service';
 import { PrismaService } from '../../common/prisma/prisma.service';
-import { SendMessageDto } from './dtos/send-message.dto';
 import { PaginationDto } from '../../common/dtos/pagination.dto';
 
 @Injectable()
 export class ChatService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    @Optional() private readonly auditLogService?: AuditLogService
+  ) {}
 
   /**
    * Criar ou obter conversa existente
@@ -73,6 +77,16 @@ export class ChatService {
               messages: true,
             },
           },
+        },
+      });
+
+      await this.auditLogService?.record({
+        userId,
+        action: 'conversation.create',
+        entity: 'Conversation',
+        entityId: conversation.id,
+        changes: {
+          participantIds: [userId, recipientId],
         },
       });
 
@@ -253,7 +267,7 @@ export class ChatService {
     senderId: string,
     content: string,
     fileUrl?: string,
-    fileType?: string,
+    fileType?: string
   ) {
     const conversation = await this.prisma.conversation.findUnique({
       where: { id: conversationId },
@@ -277,6 +291,7 @@ export class ChatService {
           fileType,
           conversationId,
           senderId,
+          userId: senderId,
           readBy: {
             connect: { id: senderId },
           },
@@ -301,6 +316,19 @@ export class ChatService {
       await this.prisma.conversation.update({
         where: { id: conversationId },
         data: { updatedAt: new Date() },
+      });
+
+      await this.auditLogService?.record({
+        userId: senderId,
+        action: 'message.create',
+        entity: 'Message',
+        entityId: message.id,
+        changes: {
+          conversationId,
+          fileType: message.fileType,
+          hasFile: Boolean(message.fileUrl),
+          contentLength: message.content?.length ?? 0,
+        },
       });
 
       return this.sanitizeMessage(message);
@@ -352,6 +380,18 @@ export class ChatService {
         },
       });
 
+      await this.auditLogService?.record({
+        userId,
+        action: 'message.update',
+        entity: 'Message',
+        entityId: messageId,
+        changes: {
+          conversationId: updatedMessage.conversationId,
+          contentLength: updatedMessage.content?.length ?? 0,
+          editedAt: updatedMessage.editedAt,
+        },
+      });
+
       return this.sanitizeMessage(updatedMessage);
     } catch (error) {
       throw new BadRequestException('Failed to edit message');
@@ -380,6 +420,16 @@ export class ChatService {
         data: { deletedAt: new Date() },
       });
 
+      await this.auditLogService?.record({
+        userId,
+        action: 'message.soft_delete',
+        entity: 'Message',
+        entityId: messageId,
+        changes: {
+          conversationId: message.conversationId,
+        },
+      });
+
       return { message: 'Message deleted successfully' };
     } catch (error) {
       throw new BadRequestException('Failed to delete message');
@@ -406,7 +456,7 @@ export class ChatService {
 
     try {
       // Marcar todas as mensagens como lidas para este usuário
-      await this.prisma.message.updateMany({
+      const unreadMessages = await this.prisma.message.findMany({
         where: {
           conversationId,
           senderId: { not: userId },
@@ -414,10 +464,31 @@ export class ChatService {
             none: { id: userId },
           },
         },
-        data: {
-          readBy: {
-            connect: { id: userId },
-          },
+        select: {
+          id: true,
+        },
+      });
+
+      await Promise.all(
+        unreadMessages.map((message) =>
+          this.prisma.message.update({
+            where: { id: message.id },
+            data: {
+              readBy: {
+                connect: { id: userId },
+              },
+            },
+          })
+        )
+      );
+
+      await this.auditLogService?.record({
+        userId,
+        action: 'message.mark_read',
+        entity: 'Conversation',
+        entityId: conversationId,
+        changes: {
+          readCount: unreadMessages.length,
         },
       });
 
@@ -533,6 +604,13 @@ export class ChatService {
         },
       });
 
+      await this.auditLogService?.record({
+        userId,
+        action: 'conversation.archive',
+        entity: 'Conversation',
+        entityId: conversationId,
+      });
+
       return { message: 'Conversation archived' };
     } catch (error) {
       throw new BadRequestException('Failed to archive conversation');
@@ -553,7 +631,8 @@ export class ChatService {
    * Sanitizar mensagem
    */
   private sanitizeMessage(message: any) {
-    const { deletedAt, ...sanitized } = message;
+    const sanitized = { ...message };
+    delete sanitized.deletedAt;
     return sanitized;
   }
 }

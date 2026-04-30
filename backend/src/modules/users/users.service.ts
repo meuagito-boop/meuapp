@@ -3,7 +3,10 @@ import {
   NotFoundException,
   BadRequestException,
   InternalServerErrorException,
+  Optional,
 } from '@nestjs/common';
+import { AuditLogService } from '@common/audit/audit-log.service';
+import { AccountType } from '@common/enums/account-type.enum';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { CacheService } from '../../common/cache/cache.service';
 import { CreateUserDto } from './dtos/create-user.dto';
@@ -16,6 +19,7 @@ export class UsersService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly cacheService: CacheService,
+    @Optional() private readonly auditLogService?: AuditLogService
   ) {}
 
   async create(createUserDto: CreateUserDto) {
@@ -25,7 +29,17 @@ export class UsersService {
           email: createUserDto.email.toLowerCase(),
           name: createUserDto.name,
           password: createUserDto.password, // Should be hashed by auth service
-          profileType: createUserDto.profileType,
+          profileType: createUserDto.profileType ?? AccountType.USER,
+        },
+      });
+
+      await this.auditLogService?.record({
+        userId: user.id,
+        action: 'user.create',
+        entity: 'User',
+        entityId: user.id,
+        changes: {
+          profileType: user.profileType,
         },
       });
 
@@ -152,6 +166,14 @@ export class UsersService {
         },
       });
 
+      await this.auditLogService?.record({
+        userId: id,
+        action: 'user.update',
+        entity: 'User',
+        entityId: id,
+        changes: updateUserDto,
+      });
+
       return this.sanitizeUser(user);
     } catch (error) {
       if ((error as any).code === 'P2025') {
@@ -181,6 +203,14 @@ export class UsersService {
       // Invalidate profile cache when updated
       await this.cacheService.del(`user:${id}:profile`);
 
+      await this.auditLogService?.record({
+        userId: id,
+        action: 'user.profile_update',
+        entity: 'User',
+        entityId: id,
+        changes: updateProfileDto,
+      });
+
       return this.sanitizeUser(user);
     } catch (error) {
       if ((error as any).code === 'P2025') {
@@ -195,6 +225,13 @@ export class UsersService {
       const user = await this.prisma.user.update({
         where: { id },
         data: { deletedAt: new Date() },
+      });
+
+      await this.auditLogService?.record({
+        userId: id,
+        action: 'user.soft_delete',
+        entity: 'User',
+        entityId: id,
       });
 
       return {
@@ -258,10 +295,7 @@ export class UsersService {
         followingCount,
       };
     } catch (error) {
-      if (
-        error instanceof NotFoundException ||
-        error instanceof BadRequestException
-      ) {
+      if (error instanceof NotFoundException || error instanceof BadRequestException) {
         throw error;
       }
       throw new InternalServerErrorException('Failed to follow user');
@@ -346,7 +380,7 @@ export class UsersService {
           throw new InternalServerErrorException('Failed to fetch followers');
         }
       },
-      ttlSeconds,
+      ttlSeconds
     );
   }
 
@@ -394,7 +428,7 @@ export class UsersService {
           throw new InternalServerErrorException('Failed to fetch following');
         }
       },
-      ttlSeconds,
+      ttlSeconds
     );
   }
 
@@ -425,30 +459,42 @@ export class UsersService {
       cacheKey,
       async () => {
         try {
-          const [followersCount, followingCount, postsCount] = await Promise.all([
+          const [followersCount, followingCount, postsCount, likesCount] = await Promise.all([
             this.prisma.follow.count({
               where: { followingId: userId },
             }),
             this.prisma.follow.count({
               where: { followerId: userId },
             }),
-            // TODO: Count posts when Post model is available
-            // this.prisma.post.count({
-            //   where: { authorId: userId, deletedAt: null },
-            // }),
+            this.prisma.post.count({
+              where: {
+                authorId: userId,
+                deletedAt: null,
+                isDeleted: false,
+              },
+            }),
+            this.prisma.like.count({
+              where: {
+                post: {
+                  authorId: userId,
+                  deletedAt: null,
+                  isDeleted: false,
+                },
+              },
+            }),
           ]);
 
           return {
             followersCount,
             followingCount,
-            postsCount: 0, // Will be updated with Post model
-            likesCount: 0, // Will be updated with Like model
+            postsCount,
+            likesCount,
           };
         } catch (error) {
           throw new InternalServerErrorException('Failed to fetch user stats');
         }
       },
-      ttlSeconds,
+      ttlSeconds
     );
   }
 
@@ -496,13 +542,15 @@ export class UsersService {
           throw new InternalServerErrorException('Failed to fetch profile');
         }
       },
-      ttlSeconds,
+      ttlSeconds
     );
   }
 
   private sanitizeUser(user: any) {
     // Remove sensitive fields
-    const { password, twoFactorSecret, ...sanitized } = user;
+    const sanitized = { ...user };
+    delete sanitized.password;
+    delete sanitized.twoFactorSecret;
     return sanitized;
   }
 }

@@ -9,12 +9,19 @@
     "outDir": "./dist",
     "rootDir": "./src",
     "strict": true,
-    "esModuleInterop": true,
+    "strictPropertyInitialization": false,
+    "noImplicitAny": false,
     "skipLibCheck": true,
+    "esModuleInterop": true,
     "experimentalDecorators": true,
     "emitDecoratorMetadata": true,
     "forceConsistentCasingInFileNames": true,
     "resolveJsonModule": true,
+    "types": [
+      "node",
+      "express",
+      "multer"
+    ],
     "baseUrl": ".",
     "paths": {
       "@/*": [

@@ -10,7 +10,8 @@ import {
   UseGuards,
   HttpCode,
   HttpStatus,
-  Request,
+  UploadedFile,
+  UseInterceptors,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -19,18 +20,28 @@ import {
   ApiResponse,
   ApiParam,
   ApiQuery,
+  ApiConsumes,
 } from '@nestjs/swagger';
+import { FileInterceptor } from '@nestjs/platform-express';
 import { EventsService } from './events.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { CreateEventDto } from './dtos/create-event.dto';
 import { UpdateEventDto } from './dtos/update-event.dto';
 import { CreateReviewDto } from './dtos/create-review.dto';
 import { PaginationDto } from '../../common/dtos/pagination.dto';
+import { ListEventsQueryDto } from './dtos/list-events-query.dto';
+import { MediaService } from '@modules/media/media.service';
+import { CurrentUserId } from '@modules/auth/decorators/current-user.decorator';
+import { ResourceOwnerGuard } from '@modules/auth/guards/resource-owner.guard';
+import { AuthorizeResourceOwner } from '@modules/auth/decorators/authorize-resource.decorator';
 
 @ApiTags('Events')
 @Controller('events')
 export class EventsController {
-  constructor(private readonly eventsService: EventsService) {}
+  constructor(
+    private readonly eventsService: EventsService,
+    private readonly mediaService: MediaService
+  ) {}
 
   /**
    * Criar um novo evento
@@ -41,17 +52,44 @@ export class EventsController {
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({
     summary: 'Criar evento',
-    description: 'Cria um novo evento (apenas usuários autenticados)',
+    description: 'Cria um novo evento (apenas usuÃƒÂ¡rios autenticados)',
   })
   @ApiResponse({
     status: 201,
     description: 'Evento criado com sucesso',
   })
-  async createEvent(
-    @Body() createEventDto: CreateEventDto,
-    @Request() req,
+  async createEvent(@Body() createEventDto: CreateEventDto, @CurrentUserId() userId: string) {
+    return this.eventsService.createEvent(userId, createEventDto);
+  }
+
+  @Post(':id/media')
+  @UseGuards(JwtAuthGuard, ResourceOwnerGuard)
+  @AuthorizeResourceOwner({
+    resource: 'event',
+    param: 'id',
+    message: 'Only event organizer can upload media',
+  })
+  @UseInterceptors(
+    FileInterceptor('file', {
+      limits: {
+        fileSize: 10 * 1024 * 1024,
+      },
+    })
+  )
+  @ApiBearerAuth()
+  @ApiConsumes('multipart/form-data')
+  @HttpCode(HttpStatus.CREATED)
+  @ApiOperation({
+    summary: 'Upload de mÃƒÂ­dia do evento',
+    description: 'Envia imagem do evento para storage externo/local e registra metadados',
+  })
+  @ApiParam({ name: 'id', description: 'ID do evento' })
+  async uploadEventMedia(
+    @Param('id') id: string,
+    @UploadedFile() file: Express.Multer.File | undefined,
+    @CurrentUserId() userId: string
   ) {
-    return this.eventsService.createEvent(req.user.id, createEventDto);
+    return this.mediaService.uploadEventMedia(userId, id, file);
   }
 
   /**
@@ -60,7 +98,7 @@ export class EventsController {
   @Get()
   @ApiOperation({
     summary: 'Listar eventos',
-    description: 'Lista eventos públicos com paginação',
+    description: 'Lista eventos pÃƒÂºblicos com paginaÃƒÂ§ÃƒÂ£o',
   })
   @ApiQuery({
     name: 'page',
@@ -88,32 +126,37 @@ export class EventsController {
     name: 'distance',
     required: false,
     type: Number,
-    description: 'Raio em km (padrão: 10)',
+    description: 'Raio em km (padrÃƒÂ£o: 10)',
+  })
+  @ApiQuery({
+    name: 'category',
+    required: false,
+    type: String,
+    description: 'Categoria do evento',
   })
   @ApiResponse({
     status: 200,
     description: 'Lista de eventos',
   })
-  async listEvents(
-    @Query() paginationDto: PaginationDto,
-    @Query('latitude') latitude?: number,
-    @Query('longitude') longitude?: number,
-    @Query('distance') distance?: number,
-  ) {
+  async listEvents(@Query() queryDto: ListEventsQueryDto) {
+    const { latitude, longitude, distance, category, page, limit } = queryDto;
+    const paginationDto: PaginationDto = { page, limit };
+
     return this.eventsService.listEvents(paginationDto, {
       latitude,
       longitude,
       distance,
+      category,
     });
   }
 
   /**
-   * Obter evento específico
+   * Obter evento especÃƒÂ­fico
    */
   @Get(':id')
   @ApiOperation({
     summary: 'Obter evento',
-    description: 'Retorna um evento específico com detalhes',
+    description: 'Retorna um evento especÃƒÂ­fico com detalhes',
   })
   @ApiParam({
     name: 'id',
@@ -132,7 +175,12 @@ export class EventsController {
    * Atualizar evento
    */
   @Put(':id')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, ResourceOwnerGuard)
+  @AuthorizeResourceOwner({
+    resource: 'event',
+    param: 'id',
+    message: 'Only event organizer can update',
+  })
   @ApiBearerAuth()
   @ApiOperation({
     summary: 'Atualizar evento',
@@ -149,16 +197,21 @@ export class EventsController {
   async updateEvent(
     @Param('id') id: string,
     @Body() updateEventDto: UpdateEventDto,
-    @Request() req,
+    @CurrentUserId() userId: string
   ) {
-    return this.eventsService.updateEvent(id, req.user.id, updateEventDto);
+    return this.eventsService.updateEvent(id, userId, updateEventDto);
   }
 
   /**
    * Deletar evento
    */
   @Delete(':id')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, ResourceOwnerGuard)
+  @AuthorizeResourceOwner({
+    resource: 'event',
+    param: 'id',
+    message: 'Only event organizer can delete',
+  })
   @ApiBearerAuth()
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({
@@ -173,23 +226,20 @@ export class EventsController {
     status: 204,
     description: 'Evento deletado',
   })
-  async deleteEvent(
-    @Param('id') id: string,
-    @Request() req,
-  ) {
-    return this.eventsService.deleteEvent(id, req.user.id);
+  async deleteEvent(@Param('id') id: string, @CurrentUserId() userId: string) {
+    return this.eventsService.deleteEvent(id, userId);
   }
 
   /**
-   * Confirmar presença no evento
+   * Confirmar presenÃƒÂ§a no evento
    */
   @Post(':id/attend')
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
-    summary: 'Confirmar presença',
-    description: 'Adiciona usuário como attendee do evento',
+    summary: 'Confirmar presenÃƒÂ§a',
+    description: 'Adiciona usuÃƒÂ¡rio como attendee do evento',
   })
   @ApiParam({
     name: 'id',
@@ -197,25 +247,22 @@ export class EventsController {
   })
   @ApiResponse({
     status: 200,
-    description: 'Presença confirmada',
+    description: 'PresenÃƒÂ§a confirmada',
   })
-  async attendEvent(
-    @Param('id') id: string,
-    @Request() req,
-  ) {
-    return this.eventsService.attendEvent(id, req.user.id);
+  async attendEvent(@Param('id') id: string, @CurrentUserId() userId: string) {
+    return this.eventsService.attendEvent(id, userId);
   }
 
   /**
-   * Cancelar presença
+   * Cancelar presenÃƒÂ§a
    */
   @Delete(':id/attend')
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
-    summary: 'Cancelar presença',
-    description: 'Remove usuário como attendee do evento',
+    summary: 'Cancelar presenÃƒÂ§a',
+    description: 'Remove usuÃƒÂ¡rio como attendee do evento',
   })
   @ApiParam({
     name: 'id',
@@ -223,13 +270,10 @@ export class EventsController {
   })
   @ApiResponse({
     status: 200,
-    description: 'Presença cancelada',
+    description: 'PresenÃƒÂ§a cancelada',
   })
-  async cancelAttendance(
-    @Param('id') id: string,
-    @Request() req,
-  ) {
-    return this.eventsService.cancelAttendance(id, req.user.id);
+  async cancelAttendance(@Param('id') id: string, @CurrentUserId() userId: string) {
+    return this.eventsService.cancelAttendance(id, userId);
   }
 
   /**
@@ -238,7 +282,7 @@ export class EventsController {
   @Get(':id/attendees')
   @ApiOperation({
     summary: 'Listar attendees',
-    description: 'Lista quem confirmou presença no evento',
+    description: 'Lista quem confirmou presenÃƒÂ§a no evento',
   })
   @ApiParam({
     name: 'id',
@@ -258,15 +302,12 @@ export class EventsController {
     status: 200,
     description: 'Lista de attendees',
   })
-  async getAttendees(
-    @Param('id') id: string,
-    @Query() paginationDto: PaginationDto,
-  ) {
+  async getAttendees(@Param('id') id: string, @Query() paginationDto: PaginationDto) {
     return this.eventsService.getAttendees(id, paginationDto);
   }
 
   /**
-   * Criar avaliação do evento
+   * Criar avaliaÃƒÂ§ÃƒÂ£o do evento
    */
   @Post(':id/reviews')
   @UseGuards(JwtAuthGuard)
@@ -274,7 +315,7 @@ export class EventsController {
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({
     summary: 'Avaliar evento',
-    description: 'Cria uma avaliação/review do evento',
+    description: 'Cria uma avaliaÃƒÂ§ÃƒÂ£o/review do evento',
   })
   @ApiParam({
     name: 'id',
@@ -287,9 +328,9 @@ export class EventsController {
   async createReview(
     @Param('id') id: string,
     @Body() createReviewDto: CreateReviewDto,
-    @Request() req,
+    @CurrentUserId() userId: string
   ) {
-    return this.eventsService.createReview(id, req.user.id, createReviewDto);
+    return this.eventsService.createReview(id, userId, createReviewDto);
   }
 
   /**
@@ -298,7 +339,7 @@ export class EventsController {
   @Get(':id/reviews')
   @ApiOperation({
     summary: 'Obter reviews',
-    description: 'Lista reviews/avaliações do evento',
+    description: 'Lista reviews/avaliaÃƒÂ§ÃƒÂµes do evento',
   })
   @ApiParam({
     name: 'id',
@@ -318,10 +359,7 @@ export class EventsController {
     status: 200,
     description: 'Lista de reviews',
   })
-  async getReviews(
-    @Param('id') id: string,
-    @Query() paginationDto: PaginationDto,
-  ) {
+  async getReviews(@Param('id') id: string, @Query() paginationDto: PaginationDto) {
     return this.eventsService.getReviews(id, paginationDto);
   }
 }

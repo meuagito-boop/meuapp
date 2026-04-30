@@ -2,11 +2,21 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { FeedService } from './feed.service';
 import { FeedController } from './feed.controller';
 import { PrismaService } from '../../common/prisma/prisma.service';
+import { CacheService } from '../../common/cache/cache.service';
 import { NotFoundException, ForbiddenException, BadRequestException } from '@nestjs/common';
+import { MediaService } from '@modules/media/media.service';
+import { ResourceOwnerGuard } from '@modules/auth/guards/resource-owner.guard';
 
 describe('FeedService', () => {
   let service: FeedService;
   let prismaService: PrismaService;
+
+  const mockCacheService = {
+    getOrSet: jest.fn(async (_key: string, compute: () => Promise<unknown>) => compute()),
+    del: jest.fn(),
+    delMany: jest.fn(),
+    invalidatePostsCache: jest.fn(),
+  };
 
   const mockPost = {
     id: 'post-id',
@@ -87,11 +97,19 @@ describe('FeedService', () => {
             },
           },
         },
+        {
+          provide: CacheService,
+          useValue: mockCacheService,
+        },
       ],
     }).compile();
 
     service = module.get<FeedService>(FeedService);
     prismaService = module.get<PrismaService>(PrismaService);
+  });
+
+  afterEach(() => {
+    jest.clearAllMocks();
   });
 
   describe('createPost', () => {
@@ -104,7 +122,8 @@ describe('FeedService', () => {
       jest.spyOn(prismaService.post, 'create').mockResolvedValue(mockPost);
 
       const result = await service.createPost('user-id', {
-        content: 'Este é meu post',
+        content: 'Este e meu post',
+        imageUrls: ['https://cdn.meuagito.com/post-1.jpg'],
       });
 
       expect(result).toBeDefined();
@@ -116,16 +135,17 @@ describe('FeedService', () => {
       jest.spyOn(prismaService.user, 'findUnique').mockResolvedValue(null);
 
       await expect(
-        service.createPost('invalid-id', { content: 'Post' }),
+        service.createPost('invalid-id', {
+          content: 'Post',
+          imageUrls: ['https://cdn.meuagito.com/post-1.jpg'],
+        })
       ).rejects.toThrow(NotFoundException);
     });
   });
 
   describe('getFeed', () => {
     it('should return personalized feed', async () => {
-      jest.spyOn(prismaService.follow, 'findMany').mockResolvedValue([
-        { followingId: 'user-2' },
-      ]);
+      jest.spyOn(prismaService.follow, 'findMany').mockResolvedValue([{ followingId: 'user-2' }]);
       jest.spyOn(prismaService.post, 'findMany').mockResolvedValue([mockPost]);
       jest.spyOn(prismaService.post, 'count').mockResolvedValue(1);
 
@@ -150,9 +170,7 @@ describe('FeedService', () => {
     it('should throw NotFoundException if post not found', async () => {
       jest.spyOn(prismaService.post, 'findUnique').mockResolvedValue(null);
 
-      await expect(service.getPost('invalid-id')).rejects.toThrow(
-        NotFoundException,
-      );
+      await expect(service.getPost('invalid-id')).rejects.toThrow(NotFoundException);
     });
   });
 
@@ -177,7 +195,7 @@ describe('FeedService', () => {
       await expect(
         service.updatePost('post-id', 'different-user', {
           content: 'Updated',
-        }),
+        })
       ).rejects.toThrow(ForbiddenException);
     });
   });
@@ -223,9 +241,7 @@ describe('FeedService', () => {
         createdAt: new Date(),
       });
 
-      await expect(service.likePost('post-id', 'user-id')).rejects.toThrow(
-        BadRequestException,
-      );
+      await expect(service.likePost('post-id', 'user-id')).rejects.toThrow(BadRequestException);
     });
   });
 
@@ -287,7 +303,7 @@ describe('FeedService', () => {
       jest.spyOn(prismaService.post, 'findUnique').mockResolvedValue(null);
 
       await expect(
-        service.createComment('invalid-id', 'user-id', { content: 'Comment' }),
+        service.createComment('invalid-id', 'user-id', { content: 'Comment' })
       ).rejects.toThrow(NotFoundException);
     });
   });
@@ -400,6 +416,29 @@ describe('FeedController', () => {
             unlikeComment: jest.fn(),
           },
         },
+        {
+          provide: MediaService,
+          useValue: {
+            uploadPostMedia: jest.fn(),
+          },
+        },
+        {
+          provide: PrismaService,
+          useValue: {
+            user: { findUnique: jest.fn() },
+            event: { findUnique: jest.fn() },
+            establishment: { findUnique: jest.fn() },
+            post: { findUnique: jest.fn() },
+            comment: { findUnique: jest.fn() },
+            message: { findUnique: jest.fn() },
+          },
+        },
+        {
+          provide: ResourceOwnerGuard,
+          useValue: {
+            canActivate: jest.fn().mockReturnValue(true),
+          },
+        },
       ],
     }).compile();
 
@@ -409,7 +448,6 @@ describe('FeedController', () => {
 
   describe('createPost', () => {
     it('should create post', async () => {
-      const mockRequest = { user: { id: 'user-id' } };
       jest.spyOn(feedService, 'createPost').mockResolvedValue({
         id: 'post-id',
         content: 'Test post',
@@ -420,8 +458,11 @@ describe('FeedController', () => {
       });
 
       const result = await controller.createPost(
-        { content: 'Test post' },
-        mockRequest,
+        {
+          content: 'Test post',
+          imageUrls: ['https://cdn.meuagito.com/post-1.jpg'],
+        },
+        'user-id'
       );
 
       expect(result).toBeDefined();
@@ -431,7 +472,6 @@ describe('FeedController', () => {
 
   describe('getFeed', () => {
     it('should return feed', async () => {
-      const mockRequest = { user: { id: 'user-id' } };
       jest.spyOn(feedService, 'getFeed').mockResolvedValue({
         data: [],
         total: 0,
@@ -440,11 +480,7 @@ describe('FeedController', () => {
         totalPages: 0,
       });
 
-      const result = await controller.getFeed(
-        { page: 1, limit: 10 },
-        'recent',
-        mockRequest,
-      );
+      const result = await controller.getFeed({ page: 1, limit: 10 }, 'recent', 'user-id');
 
       expect(result).toBeDefined();
     });
@@ -468,13 +504,12 @@ describe('FeedController', () => {
 
   describe('likePost', () => {
     it('should like post', async () => {
-      const mockRequest = { user: { id: 'user-id' } };
       jest.spyOn(feedService, 'likePost').mockResolvedValue({
         message: 'Post liked successfully',
         likesCount: 1,
       });
 
-      const result = await controller.likePost('post-id', mockRequest);
+      const result = await controller.likePost('post-id', 'user-id');
 
       expect(result.message).toBe('Post liked successfully');
     });

@@ -1,5 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsString, IsNumber, IsOptional, IsBoolean, IsPhoneNumber } from 'class-validator';
+import { IsString, IsNumber, IsOptional, IsBoolean, IsObject, IsUrl } from 'class-validator';
 
 export class CreateEstablishmentDto {
   @ApiProperty({
@@ -25,6 +25,15 @@ export class CreateEstablishmentDto {
   category: string;
 
   @ApiProperty({
+    description: 'Subcategoria do estabelecimento',
+    example: 'hamburgueria',
+    required: false,
+  })
+  @IsOptional()
+  @IsString()
+  subcategory?: string;
+
+  @ApiProperty({
     description: 'Endereço',
     example: 'Rua Augusta, 2500 - São Paulo, SP',
   })
@@ -37,6 +46,24 @@ export class CreateEstablishmentDto {
   })
   @IsString()
   phone: string;
+
+  @ApiProperty({
+    description: 'WhatsApp para contato direto',
+    example: '+5511999999999',
+    required: false,
+  })
+  @IsOptional()
+  @IsString()
+  whatsapp?: string;
+
+  @ApiProperty({
+    description: 'Website público do estabelecimento',
+    example: 'https://bar-do-joao.com.br',
+    required: false,
+  })
+  @IsOptional()
+  @IsUrl()
+  website?: string;
 
   @ApiProperty({
     description: 'Latitude do local',
@@ -60,4 +87,16 @@ export class CreateEstablishmentDto {
   @IsOptional()
   @IsBoolean()
   isPublic?: boolean;
+
+  @ApiProperty({
+    description: 'Horários de funcionamento por dia/turno',
+    example: {
+      monday: [{ opensAt: '09:00', closesAt: '18:00' }],
+      saturday: [{ opensAt: '10:00', closesAt: '14:00' }],
+    },
+    required: false,
+  })
+  @IsOptional()
+  @IsObject()
+  openingHours?: Record<string, unknown>;
 }

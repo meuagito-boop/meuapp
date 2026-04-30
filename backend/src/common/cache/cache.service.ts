@@ -1,12 +1,13 @@
 import { Injectable, OnModuleInit, OnModuleDestroy } from '@nestjs/common';
 import Redis from 'ioredis';
+import { logStructured } from '@common/logging/structured-log';
 
 /**
  * Cache Service - Production-grade caching abstraction
- * 
+ *
  * Provides high-level caching methods using Redis backend
  * Supports TTL, pattern-based invalidation, and memory fallback
- * 
+ *
  * Cache Keys Convention:
  * - `post:{id}` - Individual post
  * - `posts:feed:{userId}:{page}:{limit}:{sortBy}` - User's feed
@@ -22,15 +23,38 @@ export class CacheService implements OnModuleInit, OnModuleDestroy {
   private redis!: Redis;
   private fallbackCache = new Map<string, { value: any; expiresAt: number }>();
   private isRedisConnected = false;
+  private redisEnabled = true;
+  private readonly isProduction = (process.env.NODE_ENV || 'development') === 'production';
+
+  private getErrorMessage(error: unknown): string {
+    return error instanceof Error ? error.message : String(error);
+  }
 
   async onModuleInit() {
+    const redisFlag = (process.env.ENABLE_REDIS || 'false').toLowerCase();
+    this.redisEnabled = redisFlag === 'true' || redisFlag === '1';
+
+    if (!this.redisEnabled) {
+      if (this.isProduction) {
+        throw new Error(
+          'ENABLE_REDIS=true is required in production for cache/realtime consistency.'
+        );
+      }
+      logStructured('info', 'cache.redis.disabled', {
+        reason: 'ENABLE_REDIS=false',
+      });
+      return;
+    }
+
     try {
       // Initialize Redis connection
       const redisUrl = process.env.REDIS_URL || 'redis://localhost:6379';
       this.redis = new Redis(redisUrl, {
         retryStrategy: (times) => {
           if (times > 10) {
-            console.warn('Redis connection failed, using memory fallback');
+            logStructured('warn', 'cache.redis.retry.exceeded', {
+              retryCount: times,
+            });
             return null;
           }
           return Math.min(times * 50, 2000);
@@ -42,19 +66,32 @@ export class CacheService implements OnModuleInit, OnModuleDestroy {
 
       this.redis.on('connect', () => {
         this.isRedisConnected = true;
-        console.log('✓ Redis cache connected');
+        logStructured('info', 'cache.redis.connected', {
+          mode: 'redis',
+        });
       });
 
       this.redis.on('error', (err) => {
         this.isRedisConnected = false;
-        console.warn('⚠ Redis connection error, using memory fallback:', err.message);
+        logStructured('warn', 'cache.redis.connection_error', {
+          errorMessage: err.message,
+          mode: 'memory_fallback',
+        });
       });
 
       // Test connection
       await this.redis.ping();
       this.isRedisConnected = true;
     } catch (error) {
-      console.warn('⚠ Redis initialization failed, using memory fallback:', error);
+      if (this.isProduction) {
+        throw new Error(
+          `Redis is required in production when ENABLE_REDIS=true: ${this.getErrorMessage(error)}`
+        );
+      }
+      logStructured('warn', 'cache.redis.init_failed', {
+        errorMessage: this.getErrorMessage(error),
+        mode: 'memory_fallback',
+      });
       this.isRedisConnected = false;
     }
   }
@@ -64,7 +101,9 @@ export class CacheService implements OnModuleInit, OnModuleDestroy {
       try {
         await this.redis.quit();
       } catch (error) {
-        console.warn('Error closing Redis connection:', error);
+        logStructured('warn', 'cache.redis.quit_failed', {
+          errorMessage: this.getErrorMessage(error),
+        });
       }
     }
     this.fallbackCache.clear();
@@ -81,7 +120,14 @@ export class CacheService implements OnModuleInit, OnModuleDestroy {
         return JSON.parse(value);
       }
     } catch (error) {
-      console.warn('Redis get error, falling back to memory:', error);
+      logStructured('warn', 'cache.redis.get_failed', {
+        key,
+        errorMessage: this.getErrorMessage(error),
+      });
+    }
+
+    if (!this.shouldUseMemoryFallback()) {
+      return undefined;
     }
 
     // Fallback to memory cache
@@ -108,7 +154,14 @@ export class CacheService implements OnModuleInit, OnModuleDestroy {
         return;
       }
     } catch (error) {
-      console.warn('Redis set error, falling back to memory:', error);
+      logStructured('warn', 'cache.redis.set_failed', {
+        key,
+        errorMessage: this.getErrorMessage(error),
+      });
+    }
+
+    if (!this.shouldUseMemoryFallback()) {
+      return;
     }
 
     // Fallback to memory cache
@@ -125,7 +178,14 @@ export class CacheService implements OnModuleInit, OnModuleDestroy {
         return await this.redis.del(key);
       }
     } catch (error) {
-      console.warn('Redis del error, falling back to memory:', error);
+      logStructured('warn', 'cache.redis.del_failed', {
+        key,
+        errorMessage: this.getErrorMessage(error),
+      });
+    }
+
+    if (!this.shouldUseMemoryFallback()) {
+      return 0;
     }
 
     // Fallback to memory cache
@@ -157,7 +217,7 @@ export class CacheService implements OnModuleInit, OnModuleDestroy {
             'MATCH',
             scanPattern,
             'COUNT',
-            '100',
+            '100'
           );
           cursor = newCursor;
           keys.push(...scannedKeys);
@@ -169,7 +229,14 @@ export class CacheService implements OnModuleInit, OnModuleDestroy {
         return 0;
       }
     } catch (error) {
-      console.warn('Redis delMany error, falling back to memory:', error);
+      logStructured('warn', 'cache.redis.del_many_failed', {
+        pattern,
+        errorMessage: this.getErrorMessage(error),
+      });
+    }
+
+    if (!this.shouldUseMemoryFallback()) {
+      return 0;
     }
 
     // Fallback to memory cache
@@ -196,21 +263,21 @@ export class CacheService implements OnModuleInit, OnModuleDestroy {
         return;
       }
     } catch (error) {
-      console.warn('Redis reset error, falling back to memory:', error);
+      logStructured('warn', 'cache.redis.reset_failed', {
+        errorMessage: this.getErrorMessage(error),
+      });
     }
 
-    this.fallbackCache.clear();
+    if (this.shouldUseMemoryFallback()) {
+      this.fallbackCache.clear();
+    }
   }
 
   /**
    * Cache-aside pattern: Get or set pattern
    * Executes factory function if cache miss
    */
-  async getOrSet<T>(
-    key: string,
-    factory: () => Promise<T>,
-    ttlSeconds?: number,
-  ): Promise<T> {
+  async getOrSet<T>(key: string, factory: () => Promise<T>, ttlSeconds?: number): Promise<T> {
     // Try to get from cache
     const cached = await this.get<T>(key);
     if (cached !== undefined) {
@@ -233,6 +300,7 @@ export class CacheService implements OnModuleInit, OnModuleDestroy {
   async invalidatePostsCache(): Promise<void> {
     // Clear posts feed cache for all users
     await this.delMany('posts:feed:*');
+    await this.delMany('posts:agito:*');
     // Clear explore cache
     await this.delMany('posts:explore:*');
     // Clear individual post cache
@@ -270,5 +338,9 @@ export class CacheService implements OnModuleInit, OnModuleDestroy {
       connected: this.isRedisConnected,
       type: this.isRedisConnected ? 'redis' : 'memory',
     };
+  }
+
+  private shouldUseMemoryFallback(): boolean {
+    return !this.isProduction;
   }
 }

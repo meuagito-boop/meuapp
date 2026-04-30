@@ -5,22 +5,20 @@ import {
   HttpCode,
   HttpStatus,
   UseGuards,
-  Request,
   BadRequestException,
-  UnauthorizedException,
-  Res,
 } from '@nestjs/common';
-import { Response } from 'express';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
+import { Throttle } from '@nestjs/throttler';
 import { AuthService } from './auth.service';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { RefreshTokenGuard } from './guards/refresh-token.guard';
 import { SignUpDto } from './dtos/sign-up.dto';
 import { LoginDto } from './dtos/login.dto';
-import { RefreshTokenDto } from './dtos/refresh-token.dto';
 import { ChangePasswordDto } from './dtos/change-password.dto';
 import { RequestPasswordResetDto } from './dtos/request-password-reset.dto';
 import { ResetPasswordDto } from './dtos/reset-password.dto';
+import { CurrentUser, CurrentUserId } from './decorators/current-user.decorator';
+import { AuthenticatedUser } from './interfaces/authenticated-user.interface';
 
 @ApiTags('Auth')
 @Controller('auth')
@@ -28,6 +26,12 @@ export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
   @Post('signup')
+  @Throttle({
+    default: {
+      ttl: 60_000,
+      limit: 5,
+    },
+  })
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({ summary: 'User registration' })
   @ApiResponse({
@@ -38,7 +42,7 @@ export class AuthController {
         id: 'uuid',
         email: 'user@example.com',
         name: 'John Doe',
-        profileType: 'PESSOA_FISICA',
+        profileType: 'USER',
         createdAt: '2024-01-01T00:00:00Z',
         accessToken: 'jwt_token',
         refreshToken: 'refresh_token',
@@ -56,6 +60,12 @@ export class AuthController {
   }
 
   @Post('login')
+  @Throttle({
+    default: {
+      ttl: 60_000,
+      limit: 6,
+    },
+  })
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'User login' })
   @ApiResponse({
@@ -67,7 +77,7 @@ export class AuthController {
           id: 'uuid',
           email: 'user@example.com',
           name: 'John Doe',
-          profileType: 'PESSOA_FISICA',
+          profileType: 'USER',
         },
         accessToken: 'jwt_token',
         refreshToken: 'refresh_token',
@@ -97,11 +107,12 @@ export class AuthController {
     },
   })
   @ApiResponse({ status: 401, description: 'Invalid refresh token' })
-  async refresh(@Request() req) {
-    return this.authService.refreshTokens(
-      req.user.id,
-      req.user.refreshToken,
-    );
+  async refresh(@CurrentUser() user: AuthenticatedUser) {
+    if (!user.refreshToken) {
+      throw new BadRequestException('Missing refresh token');
+    }
+
+    return this.authService.refreshTokens(user.id, user.refreshToken);
   }
 
   @Post('logout')
@@ -110,12 +121,18 @@ export class AuthController {
   @ApiBearerAuth()
   @ApiOperation({ summary: 'User logout' })
   @ApiResponse({ status: 200, description: 'Logout successful' })
-  async logout(@Request() req) {
-    await this.authService.logout(req.user.id);
+  async logout(@CurrentUserId() userId: string) {
+    await this.authService.logout(userId);
     return { message: 'Logout successful' };
   }
 
   @Post('request-password-reset')
+  @Throttle({
+    default: {
+      ttl: 60_000,
+      limit: 4,
+    },
+  })
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Request password reset' })
   @ApiResponse({
@@ -123,21 +140,23 @@ export class AuthController {
     description: 'Reset email sent',
     schema: {
       example: {
-        message: 'Password reset email sent',
+        message: 'If user exists, password reset email has been sent',
         email: 'user@example.com',
       },
     },
   })
   @ApiResponse({ status: 404, description: 'User not found' })
-  async requestPasswordReset(
-    @Body() requestPasswordResetDto: RequestPasswordResetDto,
-  ) {
-    return this.authService.requestPasswordReset(
-      requestPasswordResetDto.email,
-    );
+  async requestPasswordReset(@Body() requestPasswordResetDto: RequestPasswordResetDto) {
+    return this.authService.requestPasswordReset(requestPasswordResetDto.email);
   }
 
   @Post('reset-password')
+  @Throttle({
+    default: {
+      ttl: 60_000,
+      limit: 6,
+    },
+  })
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Reset password with token' })
   @ApiResponse({
@@ -151,10 +170,7 @@ export class AuthController {
       throw new BadRequestException('Passwords do not match');
     }
 
-    return this.authService.resetPassword(
-      resetPasswordDto.token,
-      resetPasswordDto.password,
-    );
+    return this.authService.resetPassword(resetPasswordDto.token, resetPasswordDto.password);
   }
 
   @Post('change-password')
@@ -170,17 +186,17 @@ export class AuthController {
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   @ApiResponse({ status: 400, description: 'Invalid current password' })
   async changePassword(
-    @Request() req,
-    @Body() changePasswordDto: ChangePasswordDto,
+    @CurrentUserId() userId: string,
+    @Body() changePasswordDto: ChangePasswordDto
   ) {
     if (changePasswordDto.newPassword !== changePasswordDto.passwordConfirm) {
       throw new BadRequestException('Passwords do not match');
     }
 
     return this.authService.changePassword(
-      req.user.id,
+      userId,
       changePasswordDto.currentPassword,
-      changePasswordDto.newPassword,
+      changePasswordDto.newPassword
     );
   }
 
@@ -198,6 +214,12 @@ export class AuthController {
   }
 
   @Post('resend-verification-email')
+  @Throttle({
+    default: {
+      ttl: 60_000,
+      limit: 4,
+    },
+  })
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Resend verification email' })
   @ApiResponse({
@@ -207,13 +229,12 @@ export class AuthController {
       example: {
         message: 'Verification email resent',
         email: 'user@example.com',
+        verificationEmailSent: true,
       },
     },
   })
   @ApiResponse({ status: 404, description: 'User not found' })
-  async resendVerificationEmail(
-    @Body() body: { email: string },
-  ) {
+  async resendVerificationEmail(@Body() body: { email: string }) {
     return this.authService.resendVerificationEmail(body.email);
   }
 
@@ -233,8 +254,8 @@ export class AuthController {
       },
     },
   })
-  async enable2FA(@Request() req) {
-    return this.authService.setupTwoFactorAuth(req.user.id);
+  async enable2FA(@CurrentUserId() userId: string) {
+    return this.authService.setupTwoFactorAuth(userId);
   }
 
   @Post('verify-2fa')
@@ -253,11 +274,8 @@ export class AuthController {
     },
   })
   @ApiResponse({ status: 400, description: 'Invalid 2FA code' })
-  async verify2FA(
-    @Request() req,
-    @Body() body: { code: string },
-  ) {
-    return this.authService.verifyTwoFactorAuth(req.user.id, body.code);
+  async verify2FA(@CurrentUserId() userId: string, @Body() body: { code: string }) {
+    return this.authService.verifyTwoFactorAuth(userId, body.code);
   }
 
   @Post('disable-2fa')
@@ -274,11 +292,17 @@ export class AuthController {
       },
     },
   })
-  async disable2FA(@Request() req) {
-    return this.authService.disableTwoFactorAuth(req.user.id);
+  async disable2FA(@CurrentUserId() userId: string) {
+    return this.authService.disableTwoFactorAuth(userId);
   }
 
   @Post('verify-2fa-login')
+  @Throttle({
+    default: {
+      ttl: 60_000,
+      limit: 8,
+    },
+  })
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Verify 2FA code during login' })
   @ApiResponse({
@@ -293,9 +317,7 @@ export class AuthController {
     },
   })
   @ApiResponse({ status: 400, description: 'Invalid 2FA code' })
-  async verify2FALogin(
-    @Body() body: { userId: string; code: string; tempToken: string },
-  ) {
+  async verify2FALogin(@Body() body: { userId: string; code: string; tempToken: string }) {
     return this.authService.verify2FALogin(body.userId, body.code, body.tempToken);
   }
 }

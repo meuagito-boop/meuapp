@@ -1,4 +1,5 @@
-import { IsString, IsNotEmpty, IsOptional, Min } from 'class-validator';
+import { Type } from 'class-transformer';
+import { IsString, IsNotEmpty, IsOptional, Min, IsNumber } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 
 export class GlobalSearchDto {
@@ -16,6 +17,8 @@ export class GlobalSearchDto {
     required: false,
   })
   @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
   @Min(1)
   limit?: number = 5;
 }

@@ -8,7 +8,6 @@ import {
   Param,
   Query,
   UseGuards,
-  Request,
   HttpCode,
   HttpStatus,
   UploadedFile,
@@ -29,11 +28,18 @@ import { ChatService } from './chat.service';
 import { CreateConversationDto } from './dtos/create-conversation.dto';
 import { SendMessageDto } from './dtos/send-message.dto';
 import { PaginationDto } from '../../common/dtos/pagination.dto';
+import { MediaService } from '@modules/media/media.service';
+import { CurrentUserId } from '@modules/auth/decorators/current-user.decorator';
+import { ResourceOwnerGuard } from '@modules/auth/guards/resource-owner.guard';
+import { AuthorizeResourceOwner } from '@modules/auth/decorators/authorize-resource.decorator';
 
 @ApiTags('Chat')
 @Controller('chat')
 export class ChatController {
-  constructor(private readonly chatService: ChatService) {}
+  constructor(
+    private readonly chatService: ChatService,
+    private readonly mediaService: MediaService
+  ) {}
 
   @Post('conversations')
   @UseGuards(JwtAuthGuard)
@@ -43,12 +49,9 @@ export class ChatController {
   @ApiResponse({ status: 201, description: 'Conversa criada/obtida' })
   async createConversation(
     @Body() createConversationDto: CreateConversationDto,
-    @Request() req,
+    @CurrentUserId() userId: string
   ) {
-    return this.chatService.createOrGetConversation(
-      req.user.id,
-      createConversationDto.recipientId,
-    );
+    return this.chatService.createOrGetConversation(userId, createConversationDto.recipientId);
   }
 
   @Get('conversations')
@@ -58,11 +61,8 @@ export class ChatController {
   @ApiQuery({ name: 'page', required: false, type: Number })
   @ApiQuery({ name: 'limit', required: false, type: Number })
   @ApiResponse({ status: 200, description: 'Lista de conversas' })
-  async listConversations(
-    @Query() paginationDto: PaginationDto,
-    @Request() req,
-  ) {
-    return this.chatService.listConversations(req.user.id, paginationDto);
+  async listConversations(@Query() paginationDto: PaginationDto, @CurrentUserId() userId: string) {
+    return this.chatService.listConversations(userId, paginationDto);
   }
 
   @Get('conversations/:id')
@@ -71,11 +71,8 @@ export class ChatController {
   @ApiOperation({ summary: 'Obter detalhes da conversa' })
   @ApiParam({ name: 'id', description: 'ID da conversa' })
   @ApiResponse({ status: 200, description: 'Detalhes da conversa' })
-  async getConversation(
-    @Param('id') id: string,
-    @Request() req,
-  ) {
-    return this.chatService.getConversation(id, req.user.id);
+  async getConversation(@Param('id') id: string, @CurrentUserId() userId: string) {
+    return this.chatService.getConversation(id, userId);
   }
 
   @Get('conversations/:id/messages')
@@ -89,15 +86,21 @@ export class ChatController {
   async getMessages(
     @Param('id') id: string,
     @Query() paginationDto: PaginationDto,
-    @Request() req,
+    @CurrentUserId() userId: string
   ) {
-    return this.chatService.getMessages(id, paginationDto, req.user.id);
+    return this.chatService.getMessages(id, paginationDto, userId);
   }
 
   @Post('conversations/:id/messages')
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
-  @UseInterceptors(FileInterceptor('file'))
+  @UseInterceptors(
+    FileInterceptor('file', {
+      limits: {
+        fileSize: 5 * 1024 * 1024,
+      },
+    })
+  )
   @ApiConsumes('multipart/form-data')
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({ summary: 'Enviar mensagem (com arquivo opcional)' })
@@ -107,27 +110,31 @@ export class ChatController {
     @Param('id') id: string,
     @Body() sendMessageDto: SendMessageDto,
     @UploadedFile() file: Express.Multer.File | undefined,
-    @Request() req,
+    @CurrentUserId() userId: string
   ) {
     let fileUrl: string | undefined;
 
     if (file) {
-      // Salvar arquivo em cloud storage (S3, etc)
-      // Por enquanto, usar path local
-      fileUrl = `/uploads/${file.filename}`;
+      const uploadedMedia = await this.mediaService.uploadChatAttachment(userId, id, file);
+      fileUrl = uploadedMedia.publicUrl;
     }
 
     return this.chatService.createMessage(
       id,
-      req.user.id,
+      userId,
       sendMessageDto.content,
       fileUrl,
-      file?.mimetype,
+      file?.mimetype
     );
   }
 
   @Put('messages/:id')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, ResourceOwnerGuard)
+  @AuthorizeResourceOwner({
+    resource: 'message',
+    param: 'id',
+    message: 'Only message sender can edit this message',
+  })
   @ApiBearerAuth()
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Editar mensagem' })
@@ -136,23 +143,25 @@ export class ChatController {
   async editMessage(
     @Param('id') id: string,
     @Body() body: { content: string },
-    @Request() req,
+    @CurrentUserId() userId: string
   ) {
-    return this.chatService.editMessage(id, req.user.id, body.content);
+    return this.chatService.editMessage(id, userId, body.content);
   }
 
   @Delete('messages/:id')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, ResourceOwnerGuard)
+  @AuthorizeResourceOwner({
+    resource: 'message',
+    param: 'id',
+    message: 'Only message sender can delete this message',
+  })
   @ApiBearerAuth()
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Deletar mensagem' })
   @ApiParam({ name: 'id', description: 'ID da mensagem' })
   @ApiResponse({ status: 200, description: 'Mensagem deletada' })
-  async deleteMessage(
-    @Param('id') id: string,
-    @Request() req,
-  ) {
-    return this.chatService.deleteMessage(id, req.user.id);
+  async deleteMessage(@Param('id') id: string, @CurrentUserId() userId: string) {
+    return this.chatService.deleteMessage(id, userId);
   }
 
   @Put('conversations/:id/read')
@@ -162,11 +171,8 @@ export class ChatController {
   @ApiOperation({ summary: 'Marcar conversa como lida' })
   @ApiParam({ name: 'id', description: 'ID da conversa' })
   @ApiResponse({ status: 200, description: 'Conversa marcada como lida' })
-  async markConversationAsRead(
-    @Param('id') id: string,
-    @Request() req,
-  ) {
-    return this.chatService.markAsRead(id, req.user.id);
+  async markConversationAsRead(@Param('id') id: string, @CurrentUserId() userId: string) {
+    return this.chatService.markAsRead(id, userId);
   }
 
   @Get('conversations/search/query')
@@ -175,11 +181,8 @@ export class ChatController {
   @ApiOperation({ summary: 'Buscar conversas' })
   @ApiQuery({ name: 'q', description: 'Termo de busca' })
   @ApiResponse({ status: 200, description: 'Conversas encontradas' })
-  async searchConversations(
-    @Query('q') query: string,
-    @Request() req,
-  ) {
-    return this.chatService.searchConversations(req.user.id, query);
+  async searchConversations(@Query('q') query: string, @CurrentUserId() userId: string) {
+    return this.chatService.searchConversations(userId, query);
   }
 
   @Get('conversations/unread/count')
@@ -187,10 +190,8 @@ export class ChatController {
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Contar mensagens não lidas' })
   @ApiResponse({ status: 200, description: 'Total de mensagens não lidas' })
-  async getUnreadCount(
-    @Request() req,
-  ) {
-    return this.chatService.getUnreadCount(req.user.id);
+  async getUnreadCount(@CurrentUserId() userId: string) {
+    return this.chatService.getUnreadCount(userId);
   }
 
   @Delete('conversations/:id')
@@ -200,10 +201,7 @@ export class ChatController {
   @ApiOperation({ summary: 'Deletar/Arquivar conversa' })
   @ApiParam({ name: 'id', description: 'ID da conversa' })
   @ApiResponse({ status: 200, description: 'Conversa arquivada' })
-  async deleteConversation(
-    @Param('id') id: string,
-    @Request() req,
-  ) {
-    return this.chatService.archiveConversation(id, req.user.id);
+  async deleteConversation(@Param('id') id: string, @CurrentUserId() userId: string) {
+    return this.chatService.archiveConversation(id, userId);
   }
 }

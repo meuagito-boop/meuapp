@@ -1,5 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsString, IsDateString, IsNumber, IsOptional, IsBoolean, Min, Max } from 'class-validator';
+import { IsString, IsDateString, IsNumber, IsOptional, IsBoolean, Min } from 'class-validator';
 
 export class CreateEventDto {
   @ApiProperty({

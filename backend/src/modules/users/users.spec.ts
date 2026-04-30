@@ -2,20 +2,28 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { UsersService } from './users.service';
 import { UsersController } from './users.controller';
 import { PrismaService } from '../../common/prisma/prisma.service';
+import { CacheService } from '../../common/cache/cache.service';
 import { NotFoundException, BadRequestException } from '@nestjs/common';
 import { UpdateUserDto } from './dtos/update-user.dto';
 import { UpdateProfileDto } from './dtos/update-profile.dto';
+import { MediaService } from '@modules/media/media.service';
+import { ResourceOwnerGuard } from '@modules/auth/guards/resource-owner.guard';
 
 describe('UsersService', () => {
   let service: UsersService;
   let prismaService: PrismaService;
+  const mockCacheService = {
+    getOrSet: jest.fn(async (_key: string, compute: () => Promise<unknown>) => compute()),
+    del: jest.fn(),
+    invalidateFollowCache: jest.fn(),
+  };
 
   const mockUser = {
     id: 'test-id',
     email: 'test@example.com',
     name: 'Test User',
     password: 'hashed-password',
-    profileType: 'PESSOA_FISICA',
+    profileType: 'USER',
     bio: 'Test bio',
     avatar: 'https://example.com/avatar.jpg',
     location: 'São Paulo',
@@ -54,7 +62,17 @@ describe('UsersService', () => {
               delete: jest.fn(),
               count: jest.fn(),
             },
+            post: {
+              count: jest.fn(),
+            },
+            like: {
+              count: jest.fn(),
+            },
           },
+        },
+        {
+          provide: CacheService,
+          useValue: mockCacheService,
         },
       ],
     }).compile();
@@ -87,9 +105,7 @@ describe('UsersService', () => {
     it('should throw NotFoundException if user not found', async () => {
       jest.spyOn(prismaService.user, 'findUnique').mockResolvedValue(null);
 
-      await expect(service.findById('invalid-id')).rejects.toThrow(
-        NotFoundException,
-      );
+      await expect(service.findById('invalid-id')).rejects.toThrow(NotFoundException);
     });
   });
 
@@ -144,9 +160,7 @@ describe('UsersService', () => {
         throw error;
       });
 
-      await expect(service.update('invalid-id', updateDto)).rejects.toThrow(
-        NotFoundException,
-      );
+      await expect(service.update('invalid-id', updateDto)).rejects.toThrow(NotFoundException);
     });
 
     it('should throw BadRequestException if email exists', async () => {
@@ -157,9 +171,7 @@ describe('UsersService', () => {
         throw error;
       });
 
-      await expect(service.update('test-id', updateDto)).rejects.toThrow(
-        BadRequestException,
-      );
+      await expect(service.update('test-id', updateDto)).rejects.toThrow(BadRequestException);
     });
   });
 
@@ -224,9 +236,7 @@ describe('UsersService', () => {
         createdAt: new Date(),
       });
 
-      await expect(service.followUser('test-id', 'other-id')).rejects.toThrow(
-        BadRequestException,
-      );
+      await expect(service.followUser('test-id', 'other-id')).rejects.toThrow(BadRequestException);
     });
   });
 
@@ -295,13 +305,18 @@ describe('UsersService', () => {
 
   describe('getUserStats', () => {
     it('should return user statistics', async () => {
-      jest.spyOn(prismaService.follow, 'count').mockResolvedValue(10);
+      jest.spyOn(prismaService.follow, 'count').mockResolvedValueOnce(10).mockResolvedValueOnce(5);
+      jest.spyOn(prismaService.post, 'count').mockResolvedValue(3);
+      jest.spyOn(prismaService.like, 'count').mockResolvedValue(12);
 
       const result = await service.getUserStats('test-id');
 
-      expect(result.followersCount).toBeDefined();
-      expect(result.followingCount).toBeDefined();
-      expect(result.postsCount).toBeDefined();
+      expect(result).toEqual({
+        followersCount: 10,
+        followingCount: 5,
+        postsCount: 3,
+        likesCount: 12,
+      });
     });
   });
 });
@@ -309,6 +324,20 @@ describe('UsersService', () => {
 describe('UsersController', () => {
   let controller: UsersController;
   let usersService: UsersService;
+  const mockControllerUser = {
+    id: 'test-id',
+    email: 'test@example.com',
+    name: 'Test User',
+    profileType: 'USER',
+    bio: 'Test bio',
+    avatar: 'https://example.com/avatar.jpg',
+    location: 'Sao Paulo',
+    website: 'https://example.com',
+    emailVerified: true,
+    twoFactorEnabled: false,
+    followersCount: 10,
+    followingCount: 5,
+  };
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
@@ -331,6 +360,29 @@ describe('UsersController', () => {
             getPublicProfile: jest.fn(),
           },
         },
+        {
+          provide: MediaService,
+          useValue: {
+            uploadAvatar: jest.fn(),
+          },
+        },
+        {
+          provide: PrismaService,
+          useValue: {
+            user: { findUnique: jest.fn() },
+            event: { findUnique: jest.fn() },
+            establishment: { findUnique: jest.fn() },
+            post: { findUnique: jest.fn() },
+            comment: { findUnique: jest.fn() },
+            message: { findUnique: jest.fn() },
+          },
+        },
+        {
+          provide: ResourceOwnerGuard,
+          useValue: {
+            canActivate: jest.fn().mockReturnValue(true),
+          },
+        },
       ],
     }).compile();
 
@@ -340,10 +392,9 @@ describe('UsersController', () => {
 
   describe('getCurrentUser', () => {
     it('should return current user', async () => {
-      const mockRequest = { user: { id: 'test-id' } };
-      jest.spyOn(usersService, 'findById').mockResolvedValue(mockUser);
+      jest.spyOn(usersService, 'findById').mockResolvedValue(mockControllerUser as any);
 
-      const result = await controller.getCurrentUser(mockRequest);
+      const result = await controller.getCurrentUser('test-id');
 
       expect(result).toBeDefined();
       expect(usersService.findById).toHaveBeenCalledWith('test-id');
@@ -352,7 +403,7 @@ describe('UsersController', () => {
 
   describe('getUser', () => {
     it('should return user by id', async () => {
-      jest.spyOn(usersService, 'findById').mockResolvedValue(mockUser);
+      jest.spyOn(usersService, 'findById').mockResolvedValue(mockControllerUser as any);
 
       const result = await controller.getUser('test-id');
 
@@ -363,7 +414,7 @@ describe('UsersController', () => {
   describe('listUsers', () => {
     it('should list users', async () => {
       const mockResult = {
-        data: [mockUser],
+        data: [mockControllerUser],
         total: 1,
         page: 1,
         limit: 10,
@@ -380,13 +431,12 @@ describe('UsersController', () => {
 
   describe('followUser', () => {
     it('should follow user', async () => {
-      const mockRequest = { user: { id: 'test-id' } };
       jest.spyOn(usersService, 'followUser').mockResolvedValue({
         message: 'User followed successfully',
         followingCount: 1,
       });
 
-      const result = await controller.followUser('other-id', mockRequest);
+      const result = await controller.followUser('other-id', 'test-id');
 
       expect(result.message).toBe('User followed successfully');
     });

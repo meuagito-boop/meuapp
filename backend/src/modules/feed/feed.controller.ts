@@ -10,7 +10,8 @@ import {
   UseGuards,
   HttpCode,
   HttpStatus,
-  Request,
+  UploadedFile,
+  UseInterceptors,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -19,18 +20,28 @@ import {
   ApiResponse,
   ApiParam,
   ApiQuery,
+  ApiConsumes,
 } from '@nestjs/swagger';
+import { FileInterceptor } from '@nestjs/platform-express';
 import { FeedService } from './feed.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { CreatePostDto } from './dtos/create-post.dto';
 import { UpdatePostDto } from './dtos/update-post.dto';
 import { CreateCommentDto } from './dtos/create-comment.dto';
+import { FeedQueryDto } from './dtos/feed-query.dto';
 import { PaginationDto } from '../../common/dtos/pagination.dto';
+import { MediaService } from '@modules/media/media.service';
+import { CurrentUserId } from '@modules/auth/decorators/current-user.decorator';
+import { ResourceOwnerGuard } from '@modules/auth/guards/resource-owner.guard';
+import { AuthorizeResourceOwner } from '@modules/auth/decorators/authorize-resource.decorator';
 
 @ApiTags('Feed')
 @Controller('posts')
 export class FeedController {
-  constructor(private readonly feedService: FeedService) {}
+  constructor(
+    private readonly feedService: FeedService,
+    private readonly mediaService: MediaService
+  ) {}
 
   /**
    * Criar um novo post
@@ -58,11 +69,42 @@ export class FeedController {
     },
   })
   @HttpCode(HttpStatus.CREATED)
-  async createPost(
-    @Body() createPostDto: CreatePostDto,
-    @Request() req,
+  async createPost(@Body() createPostDto: CreatePostDto, @CurrentUserId() userId: string) {
+    return this.feedService.createPost(userId, createPostDto);
+  }
+
+  @Post('media')
+  @UseGuards(JwtAuthGuard)
+  @UseInterceptors(
+    FileInterceptor('file', {
+      limits: {
+        fileSize: 10 * 1024 * 1024,
+      },
+    })
+  )
+  @ApiBearerAuth()
+  @ApiConsumes('multipart/form-data')
+  @ApiOperation({
+    summary: 'Upload de imagem de post',
+    description:
+      'Faz upload da mídia do post para storage externo/local e retorna URL para usar em create/update post',
+  })
+  @ApiQuery({
+    name: 'postId',
+    required: false,
+    type: String,
+    description: 'Opcional: vincular mídia a um post existente',
+  })
+  @ApiResponse({
+    status: 201,
+    description: 'Mídia enviada com sucesso',
+  })
+  async uploadPostMedia(
+    @CurrentUserId() userId: string,
+    @UploadedFile() file: Express.Multer.File | undefined,
+    @Query('postId') postId?: string
   ) {
-    return this.feedService.createPost(req.user.id, createPostDto);
+    return this.mediaService.uploadPostMedia(userId, file, postId);
   }
 
   /**
@@ -116,11 +158,15 @@ export class FeedController {
     },
   })
   async getFeed(
-    @Query() paginationDto: PaginationDto,
+    @Query() feedQueryDto: FeedQueryDto,
     @Query('sortBy') sortBy: 'recent' | 'trending' | 'mostLiked' = 'recent',
-    @Request() req,
+    @CurrentUserId() userId: string
   ) {
-    return this.feedService.getFeed(req.user.id, paginationDto, sortBy);
+    const { page = 1, limit = 10 } = feedQueryDto;
+    const resolvedSortBy = sortBy || feedQueryDto.sortBy || 'recent';
+    const paginationDto: PaginationDto = { page, limit };
+
+    return this.feedService.getFeed(userId, paginationDto, resolvedSortBy);
   }
 
   /**
@@ -201,10 +247,7 @@ export class FeedController {
     status: 200,
     description: 'Posts do usuário',
   })
-  async getUserPosts(
-    @Param('userId') userId: string,
-    @Query() paginationDto: PaginationDto,
-  ) {
+  async getUserPosts(@Param('userId') userId: string, @Query() paginationDto: PaginationDto) {
     return this.feedService.getUserPosts(userId, paginationDto);
   }
 
@@ -212,7 +255,12 @@ export class FeedController {
    * Atualizar post
    */
   @Put(':id')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, ResourceOwnerGuard)
+  @AuthorizeResourceOwner({
+    resource: 'post',
+    param: 'id',
+    message: 'Only post author can update this post',
+  })
   @ApiBearerAuth()
   @ApiOperation({
     summary: 'Atualizar post',
@@ -234,16 +282,21 @@ export class FeedController {
   async updatePost(
     @Param('id') id: string,
     @Body() updatePostDto: UpdatePostDto,
-    @Request() req,
+    @CurrentUserId() userId: string
   ) {
-    return this.feedService.updatePost(id, req.user.id, updatePostDto);
+    return this.feedService.updatePost(id, userId, updatePostDto);
   }
 
   /**
    * Deletar post
    */
   @Delete(':id')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, ResourceOwnerGuard)
+  @AuthorizeResourceOwner({
+    resource: 'post',
+    param: 'id',
+    message: 'Only post author can delete this post',
+  })
   @ApiBearerAuth()
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({
@@ -263,11 +316,8 @@ export class FeedController {
     status: 403,
     description: 'Sem permissão para deletar',
   })
-  async deletePost(
-    @Param('id') id: string,
-    @Request() req,
-  ) {
-    return this.feedService.deletePost(id, req.user.id);
+  async deletePost(@Param('id') id: string, @CurrentUserId() userId: string) {
+    return this.feedService.deletePost(id, userId);
   }
 
   /**
@@ -296,11 +346,8 @@ export class FeedController {
       },
     },
   })
-  async likePost(
-    @Param('id') id: string,
-    @Request() req,
-  ) {
-    return this.feedService.likePost(id, req.user.id);
+  async likePost(@Param('id') id: string, @CurrentUserId() userId: string) {
+    return this.feedService.likePost(id, userId);
   }
 
   /**
@@ -323,11 +370,8 @@ export class FeedController {
     status: 200,
     description: 'Curtida removida',
   })
-  async unlikePost(
-    @Param('id') id: string,
-    @Request() req,
-  ) {
-    return this.feedService.unlikePost(id, req.user.id);
+  async unlikePost(@Param('id') id: string, @CurrentUserId() userId: string) {
+    return this.feedService.unlikePost(id, userId);
   }
 
   /**
@@ -349,11 +393,8 @@ export class FeedController {
     status: 200,
     description: 'Status de curtida',
   })
-  async isPostLiked(
-    @Param('id') id: string,
-    @Request() req,
-  ) {
-    return this.feedService.isPostLiked(id, req.user.id);
+  async isPostLiked(@Param('id') id: string, @CurrentUserId() userId: string) {
+    return this.feedService.isPostLiked(id, userId);
   }
 
   /**
@@ -378,10 +419,7 @@ export class FeedController {
     status: 200,
     description: 'Lista de usuários que curtiram',
   })
-  async getPostLikes(
-    @Param('id') id: string,
-    @Query() paginationDto: PaginationDto,
-  ) {
+  async getPostLikes(@Param('id') id: string, @Query() paginationDto: PaginationDto) {
     return this.feedService.getPostLikes(id, paginationDto);
   }
 
@@ -408,9 +446,9 @@ export class FeedController {
   async createComment(
     @Param('id') id: string,
     @Body() createCommentDto: CreateCommentDto,
-    @Request() req,
+    @CurrentUserId() userId: string
   ) {
-    return this.feedService.createComment(id, req.user.id, createCommentDto);
+    return this.feedService.createComment(id, userId, createCommentDto);
   }
 
   /**
@@ -440,10 +478,7 @@ export class FeedController {
     status: 200,
     description: 'Comentários carregados',
   })
-  async getComments(
-    @Param('id') id: string,
-    @Query() paginationDto: PaginationDto,
-  ) {
+  async getComments(@Param('id') id: string, @Query() paginationDto: PaginationDto) {
     return this.feedService.getComments(id, paginationDto);
   }
 
@@ -451,7 +486,12 @@ export class FeedController {
    * Atualizar comentário
    */
   @Put('comments/:commentId')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, ResourceOwnerGuard)
+  @AuthorizeResourceOwner({
+    resource: 'comment',
+    param: 'commentId',
+    message: 'Only comment author can update this comment',
+  })
   @ApiBearerAuth()
   @ApiOperation({
     summary: 'Atualizar comentário',
@@ -469,16 +509,21 @@ export class FeedController {
   async updateComment(
     @Param('commentId') commentId: string,
     @Body() body: { content: string },
-    @Request() req,
+    @CurrentUserId() userId: string
   ) {
-    return this.feedService.updateComment(commentId, req.user.id, body.content);
+    return this.feedService.updateComment(commentId, userId, body.content);
   }
 
   /**
    * Deletar comentário
    */
   @Delete('comments/:commentId')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, ResourceOwnerGuard)
+  @AuthorizeResourceOwner({
+    resource: 'comment',
+    param: 'commentId',
+    message: 'Only comment author can delete this comment',
+  })
   @ApiBearerAuth()
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({
@@ -494,11 +539,8 @@ export class FeedController {
     status: 204,
     description: 'Comentário deletado',
   })
-  async deleteComment(
-    @Param('commentId') commentId: string,
-    @Request() req,
-  ) {
-    return this.feedService.deleteComment(commentId, req.user.id);
+  async deleteComment(@Param('commentId') commentId: string, @CurrentUserId() userId: string) {
+    return this.feedService.deleteComment(commentId, userId);
   }
 
   /**
@@ -521,11 +563,8 @@ export class FeedController {
     status: 200,
     description: 'Comentário curtido',
   })
-  async likeComment(
-    @Param('commentId') commentId: string,
-    @Request() req,
-  ) {
-    return this.feedService.likeComment(commentId, req.user.id);
+  async likeComment(@Param('commentId') commentId: string, @CurrentUserId() userId: string) {
+    return this.feedService.likeComment(commentId, userId);
   }
 
   /**
@@ -548,10 +587,7 @@ export class FeedController {
     status: 200,
     description: 'Curtida removida',
   })
-  async unlikeComment(
-    @Param('commentId') commentId: string,
-    @Request() req,
-  ) {
-    return this.feedService.unlikeComment(commentId, req.user.id);
+  async unlikeComment(@Param('commentId') commentId: string, @CurrentUserId() userId: string) {
+    return this.feedService.unlikeComment(commentId, userId);
   }
 }

@@ -7,15 +7,15 @@ import {
   Body,
   Param,
   UseGuards,
-  Request,
   Query,
   HttpCode,
   HttpStatus,
   BadRequestException,
   NotFoundException,
-  ForbiddenException,
+  UploadedFile,
+  UseInterceptors,
 } from '@nestjs/common';
-import { Request as ExpressRequest } from 'express';
+import { FileInterceptor } from '@nestjs/platform-express';
 import {
   ApiTags,
   ApiOperation,
@@ -23,18 +23,25 @@ import {
   ApiBearerAuth,
   ApiQuery,
   ApiParam,
+  ApiConsumes,
 } from '@nestjs/swagger';
 import { UsersService } from './users.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-import { CreateUserDto } from './dtos/create-user.dto';
 import { UpdateUserDto } from './dtos/update-user.dto';
 import { UpdateProfileDto } from './dtos/update-profile.dto';
 import { PaginationDto } from '../../common/dtos/pagination.dto';
+import { MediaService } from '@modules/media/media.service';
+import { CurrentUserId } from '@modules/auth/decorators/current-user.decorator';
+import { ResourceOwnerGuard } from '@modules/auth/guards/resource-owner.guard';
+import { AuthorizeUserSelf } from '@modules/auth/decorators/authorize-resource.decorator';
 
 @ApiTags('Users')
 @Controller('users')
 export class UsersController {
-  constructor(private readonly usersService: UsersService) {}
+  constructor(
+    private readonly usersService: UsersService,
+    private readonly mediaService: MediaService
+  ) {}
 
   // ===== STATIC ROUTES (must come first) =====
 
@@ -50,15 +57,15 @@ export class UsersController {
         id: 'uuid',
         email: 'user@example.com',
         name: 'John Doe',
-        profileType: 'PESSOA_FISICA',
+        profileType: 'USER',
         bio: 'My bio',
         avatar: 'https://...',
         createdAt: '2024-01-01T00:00:00Z',
       },
     },
   })
-  async getCurrentUser(@Request() req) {
-    return this.usersService.findById(req.user.id);
+  async getCurrentUser(@CurrentUserId() userId: string) {
+    return this.usersService.findById(userId);
   }
 
   // ===== PARAMETERIZED SUB-ROUTES (:id/xxx - must come before :id) =====
@@ -107,8 +114,8 @@ export class UsersController {
       },
     },
   })
-  async isFollowing(@Param('id') id: string, @Request() req: ExpressRequest) {
-    return this.usersService.isFollowing((req as any).user.id, id);
+  async isFollowing(@Param('id') id: string, @CurrentUserId() userId: string) {
+    return this.usersService.isFollowing(userId, id);
   }
 
   @Get(':id/followers')
@@ -120,10 +127,7 @@ export class UsersController {
     status: 200,
     description: 'List of followers',
   })
-  async getFollowers(
-    @Param('id') id: string,
-    @Query() paginationDto: PaginationDto,
-  ) {
+  async getFollowers(@Param('id') id: string, @Query() paginationDto: PaginationDto) {
     return this.usersService.getFollowers(id, paginationDto);
   }
 
@@ -136,10 +140,7 @@ export class UsersController {
     status: 200,
     description: 'List of users being followed',
   })
-  async getFollowing(
-    @Param('id') id: string,
-    @Query() paginationDto: PaginationDto,
-  ) {
+  async getFollowing(@Param('id') id: string, @Query() paginationDto: PaginationDto) {
     return this.usersService.getFollowing(id, paginationDto);
   }
 
@@ -192,37 +193,21 @@ export class UsersController {
     status: 200,
     description: 'User updated',
   })
-  async updateCurrentUser(
-    @Request() req: ExpressRequest,
-    @Body() updateUserDto: UpdateUserDto,
-  ) {
-    return this.usersService.update((req as any).user.id, updateUserDto);
+  async updateCurrentUser(@CurrentUserId() userId: string, @Body() updateUserDto: UpdateUserDto) {
+    return this.usersService.update(userId, updateUserDto);
   }
 
   @Put(':id')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, ResourceOwnerGuard)
+  @AuthorizeUserSelf('id', 'You can only update your own profile.')
   @ApiBearerAuth()
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Update user (admin only for other users)' })
+  @ApiOperation({ summary: 'Update user (self only)' })
   @ApiParam({ name: 'id', description: 'User ID' })
   @ApiResponse({ status: 200, description: 'User updated' })
-  @ApiResponse({ status: 403, description: 'Forbidden - Admin access required' })
+  @ApiResponse({ status: 403, description: 'Forbidden - only self access' })
   @ApiResponse({ status: 404, description: 'User not found' })
-  async updateUser(
-    @Param('id') id: string,
-    @Body() updateUserDto: UpdateUserDto,
-    @Request() req: ExpressRequest,
-  ) {
-    const currentUserId = (req as any).user.id;
-    const isAdmin = (req as any).user.isAdmin || false;
-
-    // Check authorization: can update self or admin can update anyone
-    if (id !== currentUserId && !isAdmin) {
-      throw new ForbiddenException(
-        'You can only update your own profile. Admin access required to update other users.',
-      );
-    }
-
+  async updateUser(@Param('id') id: string, @Body() updateUserDto: UpdateUserDto) {
     return this.usersService.update(id, updateUserDto);
   }
 
@@ -244,15 +229,46 @@ export class UsersController {
       },
     },
   })
-  async updateProfile(
-    @Request() req: ExpressRequest,
-    @Body() updateProfileDto: UpdateProfileDto,
-  ) {
-    return this.usersService.updateProfile((req as any).user.id, updateProfileDto);
+  async updateProfile(@CurrentUserId() userId: string, @Body() updateProfileDto: UpdateProfileDto) {
+    return this.usersService.updateProfile(userId, updateProfileDto);
+  }
+
+  @Post('me/avatar')
+  @UseGuards(JwtAuthGuard)
+  @UseInterceptors(
+    FileInterceptor('file', {
+      limits: {
+        fileSize: 2 * 1024 * 1024,
+      },
+    })
+  )
+  @ApiBearerAuth()
+  @ApiConsumes('multipart/form-data')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Upload avatar do usuario autenticado' })
+  @ApiResponse({
+    status: 200,
+    description: 'Avatar atualizado',
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Arquivo invalido ou ausente',
+  })
+  async uploadAvatar(@CurrentUserId() userId: string, @UploadedFile() file?: Express.Multer.File) {
+    if (!file || !file.buffer) {
+      throw new BadRequestException('Avatar file is required');
+    }
+
+    const uploadedMedia = await this.mediaService.uploadAvatar(userId, file);
+
+    return this.usersService.updateProfile(userId, {
+      avatar: uploadedMedia.publicUrl,
+    });
   }
 
   @Delete(':id')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, ResourceOwnerGuard)
+  @AuthorizeUserSelf('id', 'You can only delete your own profile.')
   @ApiBearerAuth()
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Delete user (soft delete)' })
@@ -260,10 +276,7 @@ export class UsersController {
   @ApiResponse({ status: 200, description: 'User deleted' })
   @ApiResponse({ status: 403, description: 'Forbidden' })
   @ApiResponse({ status: 404, description: 'User not found' })
-  async deleteUser(@Param('id') id: string, @Request() req: ExpressRequest) {
-    if (id !== (req as any).user.id) {
-      throw new BadRequestException('Can only delete own account');
-    }
+  async deleteUser(@Param('id') id: string) {
     return this.usersService.softDelete(id);
   }
 
@@ -283,11 +296,11 @@ export class UsersController {
       },
     },
   })
-  async followUser(@Param('id') id: string, @Request() req: ExpressRequest) {
-    if (id === (req as any).user.id) {
+  async followUser(@Param('id') id: string, @CurrentUserId() userId: string) {
+    if (id === userId) {
       throw new BadRequestException('Cannot follow yourself');
     }
-    return this.usersService.followUser((req as any).user.id, id);
+    return this.usersService.followUser(userId, id);
   }
 
   @Delete(':id/follow')
@@ -306,8 +319,7 @@ export class UsersController {
       },
     },
   })
-  async unfollowUser(@Param('id') id: string, @Request() req: ExpressRequest) {
-    return this.usersService.unfollowUser((req as any).user.id, id);
+  async unfollowUser(@Param('id') id: string, @CurrentUserId() userId: string) {
+    return this.usersService.unfollowUser(userId, id);
   }
-
 }

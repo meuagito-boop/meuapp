@@ -10,8 +10,10 @@ async function main() {
   // Criar usuário de teste
   const hashedPassword = await bcrypt.hash('password123', 10);
 
-  const user = await prisma.user.create({
-    data: {
+  const user = await prisma.user.upsert({
+    where: { email: 'teste@example.com' },
+    update: {},
+    create: {
       email: 'teste@example.com',
       username: 'testeuser',
       firstName: 'Teste',
@@ -49,7 +51,10 @@ async function main() {
 
   for (const est of establishments) {
     await prisma.establishment.create({
-      data: est,
+      data: {
+        ...est,
+        owner: { connect: { id: user.id } },
+      },
     });
   }
 

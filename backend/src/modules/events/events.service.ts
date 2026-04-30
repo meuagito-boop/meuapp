@@ -3,7 +3,16 @@ import {
   NotFoundException,
   BadRequestException,
   ForbiddenException,
+  Optional,
 } from '@nestjs/common';
+import { AuditLogService } from '@common/audit/audit-log.service';
+import {
+  buildBoundingBox,
+  calculateDistanceKm,
+  hasCoordinates,
+  roundDistanceKm,
+} from '@common/geo/geo.utils';
+import { MediaEntityType } from '@prisma/client';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { CreateEventDto } from './dtos/create-event.dto';
 import { UpdateEventDto } from './dtos/update-event.dto';
@@ -12,7 +21,10 @@ import { PaginationDto } from '../../common/dtos/pagination.dto';
 
 @Injectable()
 export class EventsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    @Optional() private readonly auditLogService?: AuditLogService
+  ) {}
 
   /**
    * Criar novo evento
@@ -50,14 +62,28 @@ export class EventsService {
         },
       });
 
-      return this.sanitizeEvent(event);
+      await this.auditLogService?.record({
+        userId,
+        action: 'event.create',
+        entity: 'Event',
+        entityId: event.id,
+        changes: {
+          category: event.category,
+          date: event.date,
+          isPublic: event.isPublic,
+          maxAttendees: event.maxAttendees,
+        },
+      });
+
+      const imageMap = await this.getEventImageMap([event.id]);
+      return this.sanitizeEvent(event, imageMap.get(event.id));
     } catch (error) {
       throw new BadRequestException('Failed to create event');
     }
   }
 
   /**
-   * Listar eventos com filtros opcionais de localização
+   * Listar eventos com filtros opcionais de localiza????o
    */
   async listEvents(
     paginationDto: PaginationDto,
@@ -65,29 +91,86 @@ export class EventsService {
       latitude?: number;
       longitude?: number;
       distance?: number;
-    },
+      category?: string;
+    }
   ) {
     const { page = 1, limit = 10 } = paginationDto;
     const skip = (page - 1) * limit;
 
-    let where: any = {
+    const where: any = {
       AND: [{ deletedAt: null }, { isPublic: true }],
     };
 
-    // Filtro de localização
-    if (filters?.latitude && filters?.longitude) {
-      const distance = filters.distance ?? 10; // km
-      const latDelta = distance / 111; // ~111 km per degree latitude
+    if (filters?.category) {
       where.AND.push({
-        latitude: {
-          gte: filters.latitude - latDelta,
-          lte: filters.latitude + latDelta,
-        },
-        longitude: {
-          gte: filters.longitude - latDelta / Math.cos(filters.latitude * Math.PI / 180),
-          lte: filters.longitude + latDelta / Math.cos(filters.latitude * Math.PI / 180),
+        category: {
+          equals: filters.category,
+          mode: 'insensitive',
         },
       });
+    }
+
+    const origin =
+      filters?.latitude != null && filters?.longitude != null
+        ? {
+            latitude: filters.latitude,
+            longitude: filters.longitude,
+          }
+        : null;
+
+    if (origin) {
+      where.AND.push(buildBoundingBox(origin, filters?.distance ?? 10));
+
+      const events = await this.prisma.event.findMany({
+        where,
+        include: {
+          organizer: {
+            select: {
+              id: true,
+              name: true,
+              avatar: true,
+            },
+          },
+          _count: {
+            select: {
+              attendees: true,
+              reviews: true,
+            },
+          },
+        },
+        orderBy: { date: 'asc' },
+      });
+
+      const imageMap = await this.getEventImageMap(events.map((event) => event.id));
+      const enriched = events
+        .map((event) => ({
+          event,
+          distanceKm: hasCoordinates(event)
+            ? roundDistanceKm(calculateDistanceKm(origin, event))
+            : null,
+        }))
+        .sort((left, right) => {
+          const leftDistance = left.distanceKm ?? Number.MAX_SAFE_INTEGER;
+          const rightDistance = right.distanceKm ?? Number.MAX_SAFE_INTEGER;
+
+          if (leftDistance !== rightDistance) {
+            return leftDistance - rightDistance;
+          }
+
+          return new Date(left.event.date).getTime() - new Date(right.event.date).getTime();
+        });
+
+      const paginated = enriched.slice(skip, skip + limit);
+
+      return {
+        data: paginated.map(({ event, distanceKm }) =>
+          this.sanitizeEvent(event, imageMap.get(event.id), distanceKm ?? undefined)
+        ),
+        total: enriched.length,
+        page,
+        limit,
+        totalPages: Math.ceil(enriched.length / limit),
+      };
     }
 
     const [events, total] = await Promise.all([
@@ -115,8 +198,10 @@ export class EventsService {
       this.prisma.event.count({ where }),
     ]);
 
+    const imageMap = await this.getEventImageMap(events.map((event) => event.id));
+
     return {
-      data: events.map((e) => this.sanitizeEvent(e)),
+      data: events.map((event) => this.sanitizeEvent(event, imageMap.get(event.id))),
       total,
       page,
       limit,
@@ -124,9 +209,6 @@ export class EventsService {
     };
   }
 
-  /**
-   * Obter evento específico
-   */
   async getEvent(id: string) {
     const event = await this.prisma.event.findUnique({
       where: { id },
@@ -172,7 +254,8 @@ export class EventsService {
       throw new NotFoundException('Event not found');
     }
 
-    return this.sanitizeEvent(event);
+    const imageMap = await this.getEventImageMap([event.id]);
+    return this.sanitizeEvent(event, imageMap.get(event.id));
   }
 
   /**
@@ -221,7 +304,21 @@ export class EventsService {
         },
       });
 
-      return this.sanitizeEvent(updatedEvent);
+      await this.auditLogService?.record({
+        userId,
+        action: 'event.update',
+        entity: 'Event',
+        entityId: id,
+        changes: {
+          category: updatedEvent.category,
+          date: updatedEvent.date,
+          isPublic: updatedEvent.isPublic,
+          maxAttendees: updatedEvent.maxAttendees,
+        },
+      });
+
+      const imageMap = await this.getEventImageMap([updatedEvent.id]);
+      return this.sanitizeEvent(updatedEvent, imageMap.get(updatedEvent.id));
     } catch (error) {
       throw new BadRequestException('Failed to update event');
     }
@@ -249,6 +346,13 @@ export class EventsService {
         data: { deletedAt: new Date() },
       });
 
+      await this.auditLogService?.record({
+        userId,
+        action: 'event.soft_delete',
+        entity: 'Event',
+        entityId: id,
+      });
+
       return { message: 'Event deleted successfully' };
     } catch (error) {
       throw new BadRequestException('Failed to delete event');
@@ -256,7 +360,7 @@ export class EventsService {
   }
 
   /**
-   * Confirmar presença no evento
+   * Confirmar presenÃƒÂ§a no evento
    */
   async attendEvent(eventId: string, userId: string) {
     const event = await this.prisma.event.findUnique({
@@ -269,16 +373,20 @@ export class EventsService {
 
     // Verificar se atingiu limite de attendees
     if (event.maxAttendees) {
-      const currentCount = await this.prisma.event
-        .findUnique({ where: { id: eventId } })
-        .attendees();
+      const currentCount = await this.prisma.user.count({
+        where: {
+          attendedEvents: {
+            some: { id: eventId },
+          },
+        },
+      });
 
-      if (currentCount.length >= event.maxAttendees) {
+      if (currentCount >= event.maxAttendees) {
         throw new BadRequestException('Event is full');
       }
     }
 
-    // Verificar se já é attendee
+    // Verificar se jÃƒÂ¡ ÃƒÂ© attendee
     const existingAttendee = await this.prisma.event.findFirst({
       where: {
         id: eventId,
@@ -302,13 +410,25 @@ export class EventsService {
         },
       });
 
-      const attendeeCount = await this.prisma.event
-        .findUnique({ where: { id: eventId } })
-        .attendees();
+      const attendeeCount = await this.prisma.user.count({
+        where: {
+          attendedEvents: {
+            some: { id: eventId },
+          },
+        },
+      });
+
+      await this.auditLogService?.record({
+        userId,
+        action: 'event.attend',
+        entity: 'Event',
+        entityId: eventId,
+        changes: { attendeeCount },
+      });
 
       return {
         message: 'Successfully attending event',
-        attendeeCount: attendeeCount.length,
+        attendeeCount,
       };
     } catch (error) {
       throw new BadRequestException('Failed to attend event');
@@ -316,7 +436,7 @@ export class EventsService {
   }
 
   /**
-   * Cancelar presença no evento
+   * Cancelar presenÃƒÂ§a no evento
    */
   async cancelAttendance(eventId: string, userId: string) {
     const event = await this.prisma.event.findUnique({
@@ -337,13 +457,25 @@ export class EventsService {
         },
       });
 
-      const attendeeCount = await this.prisma.event
-        .findUnique({ where: { id: eventId } })
-        .attendees();
+      const attendeeCount = await this.prisma.user.count({
+        where: {
+          attendedEvents: {
+            some: { id: eventId },
+          },
+        },
+      });
+
+      await this.auditLogService?.record({
+        userId,
+        action: 'event.cancel_attendance',
+        entity: 'Event',
+        entityId: eventId,
+        changes: { attendeeCount },
+      });
 
       return {
         message: 'Attendance cancelled',
-        attendeeCount: attendeeCount.length,
+        attendeeCount,
       };
     } catch (error) {
       throw new BadRequestException('Failed to cancel attendance');
@@ -366,21 +498,17 @@ export class EventsService {
     }
 
     const [attendees, total] = await Promise.all([
-      this.prisma.event
-        .findUnique({ where: { id: eventId } })
-        .attendees({
-          skip,
-          take: limit,
-          select: {
-            id: true,
-            name: true,
-            avatar: true,
-            bio: true,
-          },
-        }),
-      this.prisma.event
-        .findUnique({ where: { id: eventId } })
-        .attendees(),
+      this.prisma.event.findUnique({ where: { id: eventId } }).attendees({
+        skip,
+        take: limit,
+        select: {
+          id: true,
+          name: true,
+          avatar: true,
+          bio: true,
+        },
+      }),
+      this.prisma.event.findUnique({ where: { id: eventId } }).attendees(),
     ]);
 
     return {
@@ -393,13 +521,9 @@ export class EventsService {
   }
 
   /**
-   * Criar review/avaliação
+   * Criar review/avaliaÃƒÂ§ÃƒÂ£o
    */
-  async createReview(
-    eventId: string,
-    userId: string,
-    createReviewDto: CreateReviewDto,
-  ) {
+  async createReview(eventId: string, userId: string, createReviewDto: CreateReviewDto) {
     const event = await this.prisma.event.findUnique({
       where: { id: eventId },
     });
@@ -428,8 +552,20 @@ export class EventsService {
         },
       });
 
-      // Atualizar rating médio do evento
+      // Atualizar rating mÃƒÂ©dio do evento
       await this.updateEventRating(eventId);
+
+      await this.auditLogService?.record({
+        userId,
+        action: 'event.review.create',
+        entity: 'Review',
+        entityId: review.id,
+        changes: {
+          eventId,
+          rating: review.rating,
+          title: review.title,
+        },
+      });
 
       return this.sanitizeReview(review);
     } catch (error) {
@@ -481,7 +617,7 @@ export class EventsService {
   }
 
   /**
-   * Atualizar rating médio do evento
+   * Atualizar rating mÃƒÂ©dio do evento
    */
   private async updateEventRating(eventId: string) {
     const reviews = await this.prisma.review.findMany({
@@ -502,16 +638,45 @@ export class EventsService {
   /**
    * Sanitizar evento
    */
-  private sanitizeEvent(event: any) {
-    const { deletedAt, ...sanitized } = event;
+  private sanitizeEvent(event: any, imageUrl?: string, distanceKm?: number) {
+    const sanitized = { ...event };
+    delete sanitized.deletedAt;
+    sanitized.imageUrl = imageUrl ?? null;
+    sanitized.distanceKm = distanceKm ?? null;
     return sanitized;
   }
 
-  /**
-   * Sanitizar review
-   */
   private sanitizeReview(review: any) {
-    const { deletedAt, ...sanitized } = review;
+    const sanitized = { ...review };
+    delete sanitized.deletedAt;
     return sanitized;
+  }
+
+  private async getEventImageMap(eventIds: string[]) {
+    const uniqueIds = Array.from(new Set(eventIds.filter((id) => Boolean(id))));
+    if (uniqueIds.length === 0) {
+      return new Map<string, string>();
+    }
+
+    const mediaList = await this.prisma.media.findMany({
+      where: {
+        entityType: MediaEntityType.EVENT,
+        entityId: { in: uniqueIds },
+      },
+      orderBy: { createdAt: 'desc' },
+      select: {
+        entityId: true,
+        publicUrl: true,
+      },
+    });
+
+    const map = new Map<string, string>();
+    for (const media of mediaList) {
+      if (media.entityId && !map.has(media.entityId)) {
+        map.set(media.entityId, media.publicUrl);
+      }
+    }
+
+    return map;
   }
 }

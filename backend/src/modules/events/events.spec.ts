@@ -2,18 +2,22 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { EventsService } from './events.service';
 import { EventsController } from './events.controller';
 import { PrismaService } from '../../common/prisma/prisma.service';
+import { MediaService } from '@modules/media/media.service';
 
 describe('EventsModule', () => {
   let service: EventsService;
   let controller: EventsController;
-  let prisma: PrismaService;
 
   const mockPrismaService = {
     event: {
       create: jest.fn(),
       findMany: jest.fn(),
       findUnique: jest.fn(),
+      findFirst: jest.fn(),
       update: jest.fn(),
+      count: jest.fn(),
+    },
+    user: {
       count: jest.fn(),
     },
     review: {
@@ -21,6 +25,13 @@ describe('EventsModule', () => {
       findMany: jest.fn(),
       count: jest.fn(),
     },
+    media: {
+      findMany: jest.fn().mockResolvedValue([]),
+    },
+  };
+
+  const mockMediaService = {
+    uploadEventMedia: jest.fn(),
   };
 
   beforeEach(async () => {
@@ -32,12 +43,15 @@ describe('EventsModule', () => {
           provide: PrismaService,
           useValue: mockPrismaService,
         },
+        {
+          provide: MediaService,
+          useValue: mockMediaService,
+        },
       ],
     }).compile();
 
     service = module.get<EventsService>(EventsService);
     controller = module.get<EventsController>(EventsController);
-    prisma = module.get<PrismaService>(PrismaService);
   });
 
   afterEach(() => {
@@ -105,7 +119,7 @@ describe('EventsModule', () => {
           .mockRejectedValue(new Error('Database error'));
 
         await expect(service.createEvent(userId, createEventDto)).rejects.toThrow(
-          'Failed to create event',
+          'Failed to create event'
         );
       });
     });
@@ -150,7 +164,7 @@ describe('EventsModule', () => {
         await service.listEvents(paginationDto, filters);
 
         expect(mockPrismaService.event.findMany).toHaveBeenCalled();
-        expect(mockPrismaService.event.count).toHaveBeenCalled();
+        expect(mockPrismaService.event.count).not.toHaveBeenCalled();
       });
     });
 
@@ -179,9 +193,7 @@ describe('EventsModule', () => {
       it('should throw NotFoundException if event not found', async () => {
         jest.spyOn(mockPrismaService.event, 'findUnique').mockResolvedValue(null);
 
-        await expect(service.getEvent('non-existent')).rejects.toThrow(
-          'Event not found',
-        );
+        await expect(service.getEvent('non-existent')).rejects.toThrow('Event not found');
       });
 
       it('should throw NotFoundException if event is soft deleted', async () => {
@@ -190,9 +202,7 @@ describe('EventsModule', () => {
           deletedAt: new Date(),
         });
 
-        await expect(service.getEvent('event-1')).rejects.toThrow(
-          'Event not found',
-        );
+        await expect(service.getEvent('event-1')).rejects.toThrow('Event not found');
       });
     });
 
@@ -207,6 +217,9 @@ describe('EventsModule', () => {
         };
 
         jest.spyOn(mockPrismaService.event, 'findUnique').mockResolvedValue(mockEvent);
+        jest.spyOn(mockPrismaService.event, 'findFirst').mockResolvedValue(null);
+        jest.spyOn(mockPrismaService.event, 'update').mockResolvedValue({} as any);
+        jest.spyOn(mockPrismaService.user, 'count').mockResolvedValue(1);
 
         const result = await service.attendEvent(eventId, userId);
 
@@ -223,13 +236,11 @@ describe('EventsModule', () => {
           deletedAt: null,
         };
 
-        jest
-          .spyOn(mockPrismaService.event, 'findFirst')
-          .mockResolvedValue(mockEvent);
+        jest.spyOn(mockPrismaService.event, 'findFirst').mockResolvedValue(mockEvent);
         jest.spyOn(mockPrismaService.event, 'findUnique').mockResolvedValue(mockEvent);
 
         await expect(service.attendEvent(eventId, userId)).rejects.toThrow(
-          'Already attending this event',
+          'Already attending this event'
         );
       });
 
@@ -243,16 +254,9 @@ describe('EventsModule', () => {
         };
 
         jest.spyOn(mockPrismaService.event, 'findUnique').mockResolvedValue(mockEvent);
+        jest.spyOn(mockPrismaService.user, 'count').mockResolvedValue(1);
 
-        // Mock attendees count
-        jest.spyOn(mockPrismaService.event, 'findUnique').mockResolvedValue({
-          ...mockEvent,
-          attendees: jest.fn().mockResolvedValue([{ id: 'other-user' }]),
-        } as any);
-
-        await expect(service.attendEvent(eventId, userId)).rejects.toThrow(
-          'Event is full',
-        );
+        await expect(service.attendEvent(eventId, userId)).rejects.toThrow('Event is full');
       });
     });
 
@@ -313,13 +317,9 @@ describe('EventsModule', () => {
           category: 'nightlife',
         };
 
-        const request = {
-          user: { id: 'user-123' },
-        };
-
         jest.spyOn(service, 'createEvent').mockResolvedValue({ id: 'event-1' } as any);
 
-        const result = await controller.createEvent(createEventDto, request);
+        const result = await controller.createEvent(createEventDto, 'user-123');
 
         expect(result).toHaveProperty('id');
         expect(service.createEvent).toHaveBeenCalledWith('user-123', createEventDto);
@@ -362,13 +362,12 @@ describe('EventsModule', () => {
     describe('POST /events/:id/attend', () => {
       it('should add user to event attendees', async () => {
         const eventId = 'event-123';
-        const request = { user: { id: 'user-456' } };
 
         jest
           .spyOn(service, 'attendEvent')
           .mockResolvedValue({ message: 'Successfully attending event', attendeeCount: 1 } as any);
 
-        const result = await controller.attendEvent(eventId, request);
+        const result = await controller.attendEvent(eventId, 'user-456');
 
         expect(result).toHaveProperty('message');
         expect(service.attendEvent).toHaveBeenCalledWith(eventId, 'user-456');
@@ -378,7 +377,6 @@ describe('EventsModule', () => {
     describe('POST /events/:id/reviews', () => {
       it('should create a review', async () => {
         const eventId = 'event-123';
-        const request = { user: { id: 'user-456' } };
         const createReviewDto = {
           title: 'Great!',
           content: 'Loved it',
@@ -387,14 +385,10 @@ describe('EventsModule', () => {
 
         jest.spyOn(service, 'createReview').mockResolvedValue({ id: 'review-1' } as any);
 
-        const result = await controller.createReview(eventId, createReviewDto, request);
+        const result = await controller.createReview(eventId, createReviewDto, 'user-456');
 
         expect(result).toHaveProperty('id');
-        expect(service.createReview).toHaveBeenCalledWith(
-          eventId,
-          'user-456',
-          createReviewDto,
-        );
+        expect(service.createReview).toHaveBeenCalledWith(eventId, 'user-456', createReviewDto);
       });
     });
   });

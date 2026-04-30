@@ -31,7 +31,7 @@ model User {
   website           String?
 
   // Tipo de perfil
-  profileType       String     @default("PESSOA_FISICA") // PESSOA_FISICA | PESSOA_JURIDICA
+  profileType       String     @default("USER") // USER | ESTABLISHMENT
 
   // Geolocalização
   latitude          Float?
@@ -46,7 +46,6 @@ model User {
   twoFactorEnabled  Boolean    @default(false)
   twoFactorSecret   String?
   isActive          Boolean    @default(true)
-  isAdmin           Boolean    @default(false) // Admin flag
   lastLogin         DateTime?
 
   // LGPD / Soft Delete
@@ -66,6 +65,9 @@ model User {
   followers         Follow[]            @relation("UserFollowers")
   following         Follow[]            @relation("UserFollowing")
   notifications     Notification[]
+  pushTokens        PushToken[]
+  notificationDeliveries NotificationDelivery[]
+  media             Media[]
   locations         UserLocation[]
   organizedEvents   Event[]             @relation("EventOrganizer")
   attendedEvents    Event[]             @relation("EventAttendees")
@@ -284,17 +286,128 @@ model Notification {
   type          String   // like, comment, follow, message, event
   title         String
   body          String
+  entityType    String?
+  entityId      String?
+  payload       Json?
 
   relatedUserId String?
   relatedPostId String?
 
   isRead        Boolean  @default(false)
   readAt        DateTime?
+  deliveries    NotificationDelivery[]
 
   createdAt     DateTime @default(now())
 
   @@index([userId])
   @@index([isRead])
+  @@index([userId, createdAt])
+}
+
+enum PushPlatform {
+  ANDROID
+  IOS
+}
+
+enum PushProvider {
+  SNS
+}
+
+enum NotificationChannel {
+  IN_APP
+  PUSH
+  EMAIL
+}
+
+enum NotificationDeliveryStatus {
+  PENDING
+  SENT
+  FAILED
+  DISABLED
+}
+
+model PushToken {
+  id              String    @id @default(cuid())
+  userId          String
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  platform        PushPlatform
+  provider        PushProvider @default(SNS)
+  deviceToken     String    @unique
+  endpointArn     String?
+  isActive        Boolean   @default(true)
+  lastValidatedAt DateTime?
+  lastError       String?
+  deliveries      NotificationDelivery[]
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@index([userId, isActive])
+  @@index([platform, isActive])
+}
+
+model NotificationDelivery {
+  id                String                     @id @default(cuid())
+  notificationId    String?
+  notification      Notification?             @relation(fields: [notificationId], references: [id], onDelete: SetNull)
+  userId            String
+  user              User                       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  pushTokenId       String?
+  pushToken         PushToken?                 @relation(fields: [pushTokenId], references: [id], onDelete: SetNull)
+  channel           NotificationChannel
+  provider          PushProvider?
+  status            NotificationDeliveryStatus @default(PENDING)
+  externalMessageId String?
+  errorMessage      String?
+  deliveredAt       DateTime?
+  failedAt          DateTime?
+  createdAt         DateTime                   @default(now())
+  updatedAt         DateTime                   @updatedAt
+
+  @@index([notificationId])
+  @@index([userId, status])
+  @@index([pushTokenId])
+}
+
+enum MediaEntityType {
+  AVATAR
+  POST
+  CHAT_ATTACHMENT
+  ESTABLISHMENT
+  EVENT
+  PRODUCT
+}
+
+enum MediaProvider {
+  S3
+  LOCAL
+}
+
+enum ProductStatus {
+  ACTIVE
+  INACTIVE
+  OUT_OF_STOCK
+}
+
+model Media {
+  id         String          @id @default(cuid())
+  ownerId    String
+  owner      User            @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  entityType MediaEntityType
+  entityId   String?
+  provider   MediaProvider
+  bucket     String
+  storagePath String
+  publicUrl  String
+  mimeType   String
+  size       Int
+  width      Int?
+  height     Int?
+  createdAt  DateTime        @default(now())
+  updatedAt  DateTime        @updatedAt
+
+  @@index([ownerId])
+  @@index([entityType, entityId])
+  @@index([createdAt])
 }
 
 // ============= ESTABELECIMENTOS =============
@@ -305,20 +418,26 @@ model Establishment {
   name          String
   description   String?
   category      String   // Restaurante, Bar, Café, Loja, etc
+  subcategory   String?
 
   address       String
   phone         String?
+  whatsapp      String?
   latitude      Float
   longitude     Float
   cityName      String?
 
   rating        Float    @default(0)
   website       String?
+  openingHours  Json?
+  logoUrl       String?
+  coverImageUrl String?
 
   isPublic      Boolean  @default(true)
 
   ownerId       String
   owner         User     @relation("EstablishmentOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  products      Product[]
 
   favorites     User[]   @relation("EstablishmentFavorites")
   reviews       Review[]
@@ -338,6 +457,23 @@ model Establishment {
   @@index([category])
   @@index([ownerId])
   @@index([cityName])
+}
+
+model Product {
+  id              String        @id @default(cuid())
+  establishmentId String
+  establishment   Establishment @relation(fields: [establishmentId], references: [id], onDelete: Cascade)
+  name            String
+  description     String?
+  category        String?
+  price           Float?
+  status          ProductStatus @default(ACTIVE)
+  mainImageUrl    String?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  @@index([establishmentId, status])
+  @@index([createdAt])
 }
 
 // ============= EVENTOS =============

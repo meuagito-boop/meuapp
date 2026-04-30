@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Controller,
   Get,
   Post,
@@ -8,22 +9,40 @@ import {
   Param,
   Query,
   UseGuards,
-  Request,
   HttpCode,
   HttpStatus,
+  UploadedFile,
+  UseInterceptors,
 } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiQuery, ApiParam } from '@nestjs/swagger';
+import {
+  ApiTags,
+  ApiOperation,
+  ApiResponse,
+  ApiBearerAuth,
+  ApiQuery,
+  ApiParam,
+  ApiConsumes,
+} from '@nestjs/swagger';
+import { FileInterceptor } from '@nestjs/platform-express';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { EstablishmentsService } from './establishments.service';
 import { CreateEstablishmentDto } from './dtos/create-establishment.dto';
 import { UpdateEstablishmentDto } from './dtos/update-establishment.dto';
 import { CreateReviewDto } from '../events/dtos/create-review.dto';
 import { PaginationDto } from '../../common/dtos/pagination.dto';
+import { ListEstablishmentsQueryDto } from './dtos/list-establishments-query.dto';
+import { MediaService } from '@modules/media/media.service';
+import { CurrentUserId } from '@modules/auth/decorators/current-user.decorator';
+import { AuthorizeResourceOwner } from '@modules/auth/decorators/authorize-resource.decorator';
+import { ResourceOwnerGuard } from '@modules/auth/guards/resource-owner.guard';
 
 @ApiTags('Establishments')
 @Controller('establishments')
 export class EstablishmentsController {
-  constructor(private readonly establishmentsService: EstablishmentsService) {}
+  constructor(
+    private readonly establishmentsService: EstablishmentsService,
+    private readonly mediaService: MediaService
+  ) {}
 
   @Post()
   @UseGuards(JwtAuthGuard)
@@ -34,9 +53,51 @@ export class EstablishmentsController {
   @ApiResponse({ status: 400, description: 'Dados inválidos' })
   async createEstablishment(
     @Body() createEstablishmentDto: CreateEstablishmentDto,
-    @Request() req,
+    @CurrentUserId() userId: string
   ) {
-    return this.establishmentsService.createEstablishment(req.user.id, createEstablishmentDto);
+    return this.establishmentsService.createEstablishment(userId, createEstablishmentDto);
+  }
+
+  @Post(':id/media')
+  @UseGuards(JwtAuthGuard, ResourceOwnerGuard)
+  @AuthorizeResourceOwner({
+    resource: 'establishment',
+    param: 'id',
+    message: 'Only the establishment owner can manage establishment media.',
+  })
+  @UseInterceptors(
+    FileInterceptor('file', {
+      limits: {
+        fileSize: 10 * 1024 * 1024,
+      },
+    })
+  )
+  @ApiBearerAuth()
+  @ApiConsumes('multipart/form-data')
+  @HttpCode(HttpStatus.CREATED)
+  @ApiOperation({
+    summary: 'Upload de mídia do estabelecimento',
+    description: 'Envia imagem do estabelecimento para storage externo/local e registra metadados',
+  })
+  @ApiParam({ name: 'id', description: 'ID do estabelecimento' })
+  async uploadEstablishmentMedia(
+    @Param('id') id: string,
+    @Query('target') target: 'gallery' | 'logo' | 'cover' = 'gallery',
+    @UploadedFile() file: Express.Multer.File | undefined,
+    @CurrentUserId() userId: string
+  ) {
+    if (!['gallery', 'logo', 'cover'].includes(target)) {
+      throw new BadRequestException('Invalid establishment media target');
+    }
+
+    const uploadedMedia = await this.mediaService.uploadEstablishmentMedia(userId, id, file);
+    await this.establishmentsService.registerUploadedMediaTarget(
+      id,
+      userId,
+      uploadedMedia.publicUrl,
+      target
+    );
+    return uploadedMedia;
   }
 
   @Get()
@@ -47,20 +108,31 @@ export class EstablishmentsController {
   @ApiQuery({ name: 'longitude', required: false, type: Number })
   @ApiQuery({ name: 'distance', required: false, type: Number })
   @ApiQuery({ name: 'category', required: false, type: String })
+  @ApiQuery({ name: 'subcategory', required: false, type: String })
+  @ApiQuery({ name: 'openNow', required: false, type: Boolean })
   @ApiResponse({ status: 200, description: 'Lista de estabelecimentos' })
-  async listEstablishments(
-    @Query() paginationDto: PaginationDto,
-    @Query('latitude') latitude?: number,
-    @Query('longitude') longitude?: number,
-    @Query('distance') distance?: number,
-    @Query('category') category?: string,
-  ) {
+  async listEstablishments(@Query() queryDto: ListEstablishmentsQueryDto) {
+    const { latitude, longitude, distance, category, subcategory, openNow, page, limit } = queryDto;
+    const paginationDto: PaginationDto = { page, limit };
+
     return this.establishmentsService.listEstablishments(paginationDto, {
       latitude,
       longitude,
       distance,
       category,
+      subcategory,
+      openNow,
     });
+  }
+
+  @Get('me/owned')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Obter o estabelecimento da conta autenticada' })
+  @ApiResponse({ status: 200, description: 'Estabelecimento do dono autenticado' })
+  @ApiResponse({ status: 404, description: 'Nenhum estabelecimento ativo encontrado para a conta' })
+  async getOwnedEstablishment(@CurrentUserId() userId: string) {
+    return this.establishmentsService.getOwnedEstablishment(userId);
   }
 
   @Get(':id')
@@ -73,7 +145,12 @@ export class EstablishmentsController {
   }
 
   @Put(':id')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, ResourceOwnerGuard)
+  @AuthorizeResourceOwner({
+    resource: 'establishment',
+    param: 'id',
+    message: 'Only the establishment owner can update this establishment.',
+  })
   @ApiBearerAuth()
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Atualizar estabelecimento' })
@@ -83,24 +160,26 @@ export class EstablishmentsController {
   async updateEstablishment(
     @Param('id') id: string,
     @Body() updateEstablishmentDto: UpdateEstablishmentDto,
-    @Request() req,
+    @CurrentUserId() userId: string
   ) {
-    return this.establishmentsService.updateEstablishment(id, req.user.id, updateEstablishmentDto);
+    return this.establishmentsService.updateEstablishment(id, userId, updateEstablishmentDto);
   }
 
   @Delete(':id')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, ResourceOwnerGuard)
+  @AuthorizeResourceOwner({
+    resource: 'establishment',
+    param: 'id',
+    message: 'Only the establishment owner can delete this establishment.',
+  })
   @ApiBearerAuth()
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Deletar estabelecimento' })
   @ApiParam({ name: 'id', description: 'ID do estabelecimento' })
   @ApiResponse({ status: 200, description: 'Estabelecimento deletado' })
   @ApiResponse({ status: 403, description: 'Sem permissão para deletar' })
-  async deleteEstablishment(
-    @Param('id') id: string,
-    @Request() req,
-  ) {
-    return this.establishmentsService.deleteEstablishment(id, req.user.id);
+  async deleteEstablishment(@Param('id') id: string, @CurrentUserId() userId: string) {
+    return this.establishmentsService.deleteEstablishment(id, userId);
   }
 
   @Post(':id/reviews')
@@ -113,9 +192,9 @@ export class EstablishmentsController {
   async createReview(
     @Param('id') id: string,
     @Body() createReviewDto: CreateReviewDto,
-    @Request() req,
+    @CurrentUserId() userId: string
   ) {
-    return this.establishmentsService.createReview(id, req.user.id, createReviewDto);
+    return this.establishmentsService.createReview(id, userId, createReviewDto);
   }
 
   @Get(':id/reviews')
@@ -124,10 +203,7 @@ export class EstablishmentsController {
   @ApiQuery({ name: 'page', required: false, type: Number })
   @ApiQuery({ name: 'limit', required: false, type: Number })
   @ApiResponse({ status: 200, description: 'Lista de avaliações' })
-  async getReviews(
-    @Param('id') id: string,
-    @Query() paginationDto: PaginationDto,
-  ) {
+  async getReviews(@Param('id') id: string, @Query() paginationDto: PaginationDto) {
     return this.establishmentsService.getReviews(id, paginationDto);
   }
 
@@ -138,11 +214,8 @@ export class EstablishmentsController {
   @ApiOperation({ summary: 'Favoritar estabelecimento' })
   @ApiParam({ name: 'id', description: 'ID do estabelecimento' })
   @ApiResponse({ status: 200, description: 'Estabelecimento favoritado' })
-  async favoriteEstablishment(
-    @Param('id') id: string,
-    @Request() req,
-  ) {
-    return this.establishmentsService.favoriteEstablishment(id, req.user.id);
+  async favoriteEstablishment(@Param('id') id: string, @CurrentUserId() userId: string) {
+    return this.establishmentsService.favoriteEstablishment(id, userId);
   }
 
   @Delete(':id/favorite')
@@ -152,10 +225,7 @@ export class EstablishmentsController {
   @ApiOperation({ summary: 'Remover estabelecimento dos favoritos' })
   @ApiParam({ name: 'id', description: 'ID do estabelecimento' })
   @ApiResponse({ status: 200, description: 'Removido dos favoritos' })
-  async unfavoriteEstablishment(
-    @Param('id') id: string,
-    @Request() req,
-  ) {
-    return this.establishmentsService.unfavoriteEstablishment(id, req.user.id);
+  async unfavoriteEstablishment(@Param('id') id: string, @CurrentUserId() userId: string) {
+    return this.establishmentsService.unfavoriteEstablishment(id, userId);
   }
 }

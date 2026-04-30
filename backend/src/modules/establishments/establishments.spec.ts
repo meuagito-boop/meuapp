@@ -2,11 +2,11 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { EstablishmentsService } from './establishments.service';
 import { EstablishmentsController } from './establishments.controller';
 import { PrismaService } from '../../common/prisma/prisma.service';
+import { MediaService } from '@modules/media/media.service';
 
 describe('EstablishmentsModule', () => {
   let service: EstablishmentsService;
   let controller: EstablishmentsController;
-  let prisma: PrismaService;
 
   const mockPrismaService = {
     establishment: {
@@ -17,11 +17,22 @@ describe('EstablishmentsModule', () => {
       update: jest.fn(),
       count: jest.fn(),
     },
+    user: {
+      count: jest.fn(),
+      findUnique: jest.fn(),
+    },
     review: {
       create: jest.fn(),
       findMany: jest.fn(),
       count: jest.fn(),
     },
+    media: {
+      findMany: jest.fn().mockResolvedValue([]),
+    },
+  };
+
+  const mockMediaService = {
+    uploadEstablishmentMedia: jest.fn(),
   };
 
   beforeEach(async () => {
@@ -33,12 +44,15 @@ describe('EstablishmentsModule', () => {
           provide: PrismaService,
           useValue: mockPrismaService,
         },
+        {
+          provide: MediaService,
+          useValue: mockMediaService,
+        },
       ],
     }).compile();
 
     service = module.get<EstablishmentsService>(EstablishmentsService);
     controller = module.get<EstablishmentsController>(EstablishmentsController);
-    prisma = module.get<PrismaService>(PrismaService);
   });
 
   afterEach(() => {
@@ -50,7 +64,7 @@ describe('EstablishmentsModule', () => {
       it('should create a new establishment', async () => {
         const userId = 'user-123';
         const createEstablishmentDto = {
-          name: 'Bar do João',
+          name: 'Bar do Joao',
           description: 'Traditional bar',
           category: 'bar',
           address: 'Rua Augusta, 2500',
@@ -67,6 +81,7 @@ describe('EstablishmentsModule', () => {
           rating: 0,
           createdAt: new Date(),
           updatedAt: new Date(),
+          isDeleted: false,
           deletedAt: null,
           owner: {
             id: userId,
@@ -76,12 +91,18 @@ describe('EstablishmentsModule', () => {
           _count: {
             reviews: 0,
             favorites: 0,
+            products: 0,
           },
         };
 
-        jest
-          .spyOn(mockPrismaService.establishment, 'create')
-          .mockResolvedValue(mockEstablishment);
+        jest.spyOn(mockPrismaService.user, 'findUnique').mockResolvedValue({
+          id: userId,
+          profileType: 'ESTABLISHMENT',
+          isActive: true,
+          isDeleted: false,
+        });
+        jest.spyOn(mockPrismaService.establishment, 'findFirst').mockResolvedValue(null);
+        jest.spyOn(mockPrismaService.establishment, 'create').mockResolvedValue(mockEstablishment);
 
         const result = await service.createEstablishment(userId, createEstablishmentDto);
 
@@ -102,13 +123,65 @@ describe('EstablishmentsModule', () => {
           longitude: -46.6333,
         };
 
+        jest.spyOn(mockPrismaService.user, 'findUnique').mockResolvedValue({
+          id: userId,
+          profileType: 'ESTABLISHMENT',
+          isActive: true,
+          isDeleted: false,
+        });
+        jest.spyOn(mockPrismaService.establishment, 'findFirst').mockResolvedValue(null);
         jest
           .spyOn(mockPrismaService.establishment, 'create')
           .mockRejectedValue(new Error('Database error'));
 
+        await expect(service.createEstablishment(userId, createEstablishmentDto)).rejects.toThrow(
+          'Failed to create establishment'
+        );
+      });
+
+      it('should reject non establishment accounts', async () => {
+        jest.spyOn(mockPrismaService.user, 'findUnique').mockResolvedValue({
+          id: 'user-123',
+          profileType: 'USER',
+          isActive: true,
+          isDeleted: false,
+        });
+
         await expect(
-          service.createEstablishment(userId, createEstablishmentDto),
-        ).rejects.toThrow('Failed to create establishment');
+          service.createEstablishment('user-123', {
+            name: 'Bar',
+            description: 'Descricao valida',
+            category: 'bar',
+            address: 'Rua Augusta, 2500',
+            phone: '+5511987654321',
+            latitude: -23.5505,
+            longitude: -46.6333,
+          })
+        ).rejects.toThrow('Only ESTABLISHMENT accounts can create an establishment page');
+      });
+
+      it('should reject multiple active establishments for the same owner', async () => {
+        jest.spyOn(mockPrismaService.user, 'findUnique').mockResolvedValue({
+          id: 'user-123',
+          profileType: 'ESTABLISHMENT',
+          isActive: true,
+          isDeleted: false,
+        });
+        jest.spyOn(mockPrismaService.establishment, 'findFirst').mockResolvedValue({
+          id: 'est-existing',
+        });
+
+        await expect(
+          service.createEstablishment('user-123', {
+            name: 'Bar',
+            description: 'Descricao valida',
+            category: 'bar',
+            address: 'Rua Augusta, 2500',
+            phone: '+5511987654321',
+            latitude: -23.5505,
+            longitude: -46.6333,
+          })
+        ).rejects.toThrow('An ESTABLISHMENT account can manage only one active establishment');
       });
     });
 
@@ -122,8 +195,9 @@ describe('EstablishmentsModule', () => {
             ownerId: 'user-1',
             owner: { id: 'user-1', name: 'User 1', avatar: null },
             rating: 4.5,
-            _count: { reviews: 5, favorites: 10 },
+            isDeleted: false,
             deletedAt: null,
+            _count: { reviews: 5, favorites: 10, products: 1 },
           },
         ];
 
@@ -149,15 +223,13 @@ describe('EstablishmentsModule', () => {
           category: 'bar',
         };
 
-        jest
-          .spyOn(mockPrismaService.establishment, 'findMany')
-          .mockResolvedValue([]);
+        jest.spyOn(mockPrismaService.establishment, 'findMany').mockResolvedValue([]);
         jest.spyOn(mockPrismaService.establishment, 'count').mockResolvedValue(0);
 
         await service.listEstablishments(paginationDto, filters);
 
         expect(mockPrismaService.establishment.findMany).toHaveBeenCalled();
-        expect(mockPrismaService.establishment.count).toHaveBeenCalled();
+        expect(mockPrismaService.establishment.count).not.toHaveBeenCalled();
       });
     });
 
@@ -169,10 +241,11 @@ describe('EstablishmentsModule', () => {
           name: 'Bar',
           ownerId: 'user-1',
           rating: 4.2,
+          isDeleted: false,
+          deletedAt: null,
           owner: { id: 'user-1', name: 'User 1', avatar: null },
           reviews: [],
-          _count: { reviews: 0, favorites: 0 },
-          deletedAt: null,
+          _count: { reviews: 0, favorites: 0, products: 0 },
         };
 
         jest
@@ -186,12 +259,38 @@ describe('EstablishmentsModule', () => {
       });
 
       it('should throw NotFoundException if not found', async () => {
-        jest
-          .spyOn(mockPrismaService.establishment, 'findUnique')
-          .mockResolvedValue(null);
+        jest.spyOn(mockPrismaService.establishment, 'findUnique').mockResolvedValue(null);
 
         await expect(service.getEstablishment('non-existent')).rejects.toThrow(
-          'Establishment not found',
+          'Establishment not found'
+        );
+      });
+    });
+
+    describe('getOwnedEstablishment', () => {
+      it('should return the owned establishment', async () => {
+        jest.spyOn(mockPrismaService.establishment, 'findFirst').mockResolvedValue({
+          id: 'est-123',
+          name: 'Bar',
+          ownerId: 'owner-123',
+          rating: 4.2,
+          isDeleted: false,
+          deletedAt: null,
+          owner: { id: 'owner-123', name: 'Owner', avatar: null },
+          reviews: [],
+          _count: { reviews: 0, favorites: 0, products: 0 },
+        });
+
+        const result = await service.getOwnedEstablishment('owner-123');
+
+        expect(result).toHaveProperty('id', 'est-123');
+      });
+
+      it('should throw when the owner has no active establishment', async () => {
+        jest.spyOn(mockPrismaService.establishment, 'findFirst').mockResolvedValue(null);
+
+        await expect(service.getOwnedEstablishment('owner-123')).rejects.toThrow(
+          'Owned establishment not found'
         );
       });
     });
@@ -208,26 +307,31 @@ describe('EstablishmentsModule', () => {
         const mockEstablishment = {
           id: establishmentId,
           ownerId: userId,
+          isDeleted: false,
           deletedAt: null,
+          name: 'Bar',
+          description: 'Descricao',
+          category: 'bar',
+          subcategory: null,
+          address: 'Endereco',
+          phone: null,
+          whatsapp: null,
+          website: null,
+          isPublic: true,
+          openingHours: null,
         };
 
         jest
           .spyOn(mockPrismaService.establishment, 'findUnique')
           .mockResolvedValue(mockEstablishment);
-        jest
-          .spyOn(mockPrismaService.establishment, 'update')
-          .mockResolvedValue({
-            ...mockEstablishment,
-            ...updateDto,
-            owner: { id: userId, name: 'User', avatar: null },
-            _count: { reviews: 0, favorites: 0 },
-          } as any);
+        jest.spyOn(mockPrismaService.establishment, 'update').mockResolvedValue({
+          ...mockEstablishment,
+          ...updateDto,
+          owner: { id: userId, name: 'User', avatar: null },
+          _count: { reviews: 0, favorites: 0, products: 0 },
+        } as any);
 
-        const result = await service.updateEstablishment(
-          establishmentId,
-          userId,
-          updateDto,
-        );
+        const result = await service.updateEstablishment(establishmentId, userId, updateDto);
 
         expect(result).toHaveProperty('id', establishmentId);
         expect(mockPrismaService.establishment.update).toHaveBeenCalledTimes(1);
@@ -238,17 +342,16 @@ describe('EstablishmentsModule', () => {
         const userId = 'other-user';
         const updateDto = { name: 'Bar Updated' };
 
-        jest
-          .spyOn(mockPrismaService.establishment, 'findUnique')
-          .mockResolvedValue({
-            id: establishmentId,
-            ownerId: 'owner-123',
-            deletedAt: null,
-          });
+        jest.spyOn(mockPrismaService.establishment, 'findUnique').mockResolvedValue({
+          id: establishmentId,
+          ownerId: 'owner-123',
+          isDeleted: false,
+          deletedAt: null,
+        });
 
         await expect(
-          service.updateEstablishment(establishmentId, userId, updateDto),
-        ).rejects.toThrow('Only owner can update');
+          service.updateEstablishment(establishmentId, userId, updateDto)
+        ).rejects.toThrow('You do not have permission for this establishment');
       });
     });
 
@@ -257,12 +360,14 @@ describe('EstablishmentsModule', () => {
         const establishmentId = 'est-123';
         const userId = 'user-456';
 
-        jest
-          .spyOn(mockPrismaService.establishment, 'findUnique')
-          .mockResolvedValue({
-            id: establishmentId,
-            deletedAt: null,
-          });
+        jest.spyOn(mockPrismaService.establishment, 'findUnique').mockResolvedValue({
+          id: establishmentId,
+          isDeleted: false,
+          deletedAt: null,
+        });
+        jest.spyOn(mockPrismaService.establishment, 'findFirst').mockResolvedValue(null);
+        jest.spyOn(mockPrismaService.establishment, 'update').mockResolvedValue({} as any);
+        jest.spyOn(mockPrismaService.user, 'count').mockResolvedValue(1);
 
         const result = await service.favoriteEstablishment(establishmentId, userId);
 
@@ -274,21 +379,18 @@ describe('EstablishmentsModule', () => {
         const establishmentId = 'est-123';
         const userId = 'user-456';
 
-        jest
-          .spyOn(mockPrismaService.establishment, 'findUnique')
-          .mockResolvedValue({
-            id: establishmentId,
-            deletedAt: null,
-          });
-        jest
-          .spyOn(mockPrismaService.establishment, 'findFirst')
-          .mockResolvedValue({
-            id: establishmentId,
-          });
+        jest.spyOn(mockPrismaService.establishment, 'findUnique').mockResolvedValue({
+          id: establishmentId,
+          isDeleted: false,
+          deletedAt: null,
+        });
+        jest.spyOn(mockPrismaService.establishment, 'findFirst').mockResolvedValue({
+          id: establishmentId,
+        });
 
-        await expect(
-          service.favoriteEstablishment(establishmentId, userId),
-        ).rejects.toThrow('Already favorited');
+        await expect(service.favoriteEstablishment(establishmentId, userId)).rejects.toThrow(
+          'Already favorited'
+        );
       });
     });
 
@@ -302,12 +404,11 @@ describe('EstablishmentsModule', () => {
           rating: 5,
         };
 
-        jest
-          .spyOn(mockPrismaService.establishment, 'findUnique')
-          .mockResolvedValue({
-            id: establishmentId,
-            deletedAt: null,
-          });
+        jest.spyOn(mockPrismaService.establishment, 'findUnique').mockResolvedValue({
+          id: establishmentId,
+          isDeleted: false,
+          deletedAt: null,
+        });
 
         const mockReview = {
           id: 'review-123',
@@ -324,18 +425,10 @@ describe('EstablishmentsModule', () => {
           deletedAt: null,
         };
 
-        jest
-          .spyOn(mockPrismaService.review, 'create')
-          .mockResolvedValue(mockReview);
-        jest
-          .spyOn(mockPrismaService.review, 'findMany')
-          .mockResolvedValue([]);
+        jest.spyOn(mockPrismaService.review, 'create').mockResolvedValue(mockReview);
+        jest.spyOn(mockPrismaService.review, 'findMany').mockResolvedValue([]);
 
-        const result = await service.createReview(
-          establishmentId,
-          userId,
-          createReviewDto,
-        );
+        const result = await service.createReview(establishmentId, userId, createReviewDto);
 
         expect(result).toHaveProperty('id');
         expect(result).toHaveProperty('rating', 5);
@@ -356,23 +449,14 @@ describe('EstablishmentsModule', () => {
           longitude: -46.6333,
         };
 
-        const request = {
-          user: { id: 'user-123' },
-        };
+        jest.spyOn(service, 'createEstablishment').mockResolvedValue({ id: 'est-1' } as any);
 
-        jest
-          .spyOn(service, 'createEstablishment')
-          .mockResolvedValue({ id: 'est-1' } as any);
-
-        const result = await controller.createEstablishment(
-          createEstablishmentDto,
-          request,
-        );
+        const result = await controller.createEstablishment(createEstablishmentDto, 'user-123');
 
         expect(result).toHaveProperty('id');
         expect(service.createEstablishment).toHaveBeenCalledWith(
           'user-123',
-          createEstablishmentDto,
+          createEstablishmentDto
         );
       });
     });
@@ -400,9 +484,7 @@ describe('EstablishmentsModule', () => {
       it('should return establishment details', async () => {
         const establishmentId = 'est-123';
 
-        jest
-          .spyOn(service, 'getEstablishment')
-          .mockResolvedValue({ id: establishmentId } as any);
+        jest.spyOn(service, 'getEstablishment').mockResolvedValue({ id: establishmentId } as any);
 
         const result = await controller.getEstablishment(establishmentId);
 
@@ -411,28 +493,30 @@ describe('EstablishmentsModule', () => {
       });
     });
 
+    describe('GET /establishments/me/owned', () => {
+      it('should return the authenticated owner establishment', async () => {
+        jest.spyOn(service, 'getOwnedEstablishment').mockResolvedValue({ id: 'est-123' } as any);
+
+        const result = await controller.getOwnedEstablishment('owner-123');
+
+        expect(result).toHaveProperty('id', 'est-123');
+        expect(service.getOwnedEstablishment).toHaveBeenCalledWith('owner-123');
+      });
+    });
+
     describe('POST /establishments/:id/favorite', () => {
       it('should add to favorites', async () => {
         const establishmentId = 'est-123';
-        const request = { user: { id: 'user-456' } };
 
-        jest
-          .spyOn(service, 'favoriteEstablishment')
-          .mockResolvedValue({
-            message: 'Establishment favorited',
-            favoriteCount: 1,
-          } as any);
+        jest.spyOn(service, 'favoriteEstablishment').mockResolvedValue({
+          message: 'Establishment favorited',
+          favoriteCount: 1,
+        } as any);
 
-        const result = await controller.favoriteEstablishment(
-          establishmentId,
-          request,
-        );
+        const result = await controller.favoriteEstablishment(establishmentId, 'user-456');
 
         expect(result).toHaveProperty('message');
-        expect(service.favoriteEstablishment).toHaveBeenCalledWith(
-          establishmentId,
-          'user-456',
-        );
+        expect(service.favoriteEstablishment).toHaveBeenCalledWith(establishmentId, 'user-456');
       });
     });
   });

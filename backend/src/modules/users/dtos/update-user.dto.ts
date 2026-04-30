@@ -1,10 +1,8 @@
 import { IsEmail, IsString, IsEnum, IsOptional, MinLength } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
+import { AccountType } from '@common/enums/account-type.enum';
 
-export enum ProfileType {
-  PESSOA_FISICA = 'PESSOA_FISICA',
-  PESSOA_JURIDICA = 'PESSOA_JURIDICA',
-}
+export { AccountType as ProfileType };
 
 export class UpdateUserDto {
   @ApiProperty({
@@ -27,12 +25,12 @@ export class UpdateUserDto {
   name?: string;
 
   @ApiProperty({
-    example: 'PESSOA_FISICA',
+    example: 'USER',
     description: 'Profile type',
-    enum: ProfileType,
+    enum: AccountType,
     required: false,
   })
-  @IsEnum(ProfileType)
+  @IsEnum(AccountType)
   @IsOptional()
-  profileType?: ProfileType;
+  profileType?: AccountType;
 }

@@ -75,9 +75,7 @@ describe('SearchService', () => {
     });
 
     it('should throw BadRequestException if query is empty', async () => {
-      await expect(service.globalSearch('')).rejects.toThrow(
-        BadRequestException,
-      );
+      await expect(service.globalSearch('')).rejects.toThrow(BadRequestException);
     });
   });
 
@@ -135,7 +133,7 @@ describe('SearchService', () => {
       expect(prismaService.post.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
           orderBy: expect.any(Array),
-        }),
+        })
       );
     });
   });
@@ -150,7 +148,7 @@ describe('SearchService', () => {
           avatar: null,
           bio: 'Bio',
           location: 'São Paulo',
-          profileType: 'PESSOA_FISICA',
+          profileType: 'USER',
           _count: { followers: 42, following: 18 },
         },
       ];
@@ -171,7 +169,7 @@ describe('SearchService', () => {
       jest.spyOn(prismaService.user, 'findMany').mockResolvedValue([]);
       jest.spyOn(prismaService.user, 'count').mockResolvedValue(0);
 
-      await service.searchUsers('João', 'PESSOA_JURIDICA', {
+      await service.searchUsers('João', 'ESTABLISHMENT', {
         page: 1,
         limit: 10,
       });
@@ -180,9 +178,9 @@ describe('SearchService', () => {
     });
 
     it('should throw BadRequestException if query is empty', async () => {
-      await expect(
-        service.searchUsers('', undefined, { page: 1, limit: 10 }),
-      ).rejects.toThrow(BadRequestException);
+      await expect(service.searchUsers('', undefined, { page: 1, limit: 10 })).rejects.toThrow(
+        BadRequestException
+      );
     });
   });
 
@@ -198,7 +196,7 @@ describe('SearchService', () => {
           longitude: -46.6333,
           distance: 10,
         },
-        { page: 1, limit: 10 },
+        { page: 1, limit: 10 }
       );
 
       expect(result).toBeDefined();
@@ -217,7 +215,7 @@ describe('SearchService', () => {
           dateFrom: '2024-03-15T00:00:00Z',
           dateTo: '2024-03-31T23:59:59Z',
         },
-        { page: 1, limit: 10 },
+        { page: 1, limit: 10 }
       );
 
       expect(prismaService.event.findMany).toHaveBeenCalled();
@@ -226,9 +224,7 @@ describe('SearchService', () => {
 
   describe('searchEstablishments', () => {
     it('should return establishments by location', async () => {
-      jest
-        .spyOn(prismaService.establishment, 'findMany')
-        .mockResolvedValue([]);
+      jest.spyOn(prismaService.establishment, 'findMany').mockResolvedValue([]);
       jest.spyOn(prismaService.establishment, 'count').mockResolvedValue(0);
 
       const result = await service.searchEstablishments(
@@ -237,7 +233,7 @@ describe('SearchService', () => {
           longitude: -46.6333,
           distance: 5,
         },
-        { page: 1, limit: 10 },
+        { page: 1, limit: 10 }
       );
 
       expect(result).toBeDefined();
@@ -250,15 +246,13 @@ describe('SearchService', () => {
             latitude: undefined,
             longitude: -46.6333,
           },
-          { page: 1, limit: 10 },
-        ),
+          { page: 1, limit: 10 }
+        )
       ).rejects.toThrow(BadRequestException);
     });
 
     it('should filter by rating', async () => {
-      jest
-        .spyOn(prismaService.establishment, 'findMany')
-        .mockResolvedValue([]);
+      jest.spyOn(prismaService.establishment, 'findMany').mockResolvedValue([]);
       jest.spyOn(prismaService.establishment, 'count').mockResolvedValue(0);
 
       await service.searchEstablishments(
@@ -267,7 +261,7 @@ describe('SearchService', () => {
           longitude: -46.6333,
           minRating: 4.0,
         },
-        { page: 1, limit: 10 },
+        { page: 1, limit: 10 }
       );
 
       expect(prismaService.establishment.findMany).toHaveBeenCalled();
@@ -276,9 +270,9 @@ describe('SearchService', () => {
 
   describe('autocomplete', () => {
     it('should return autocomplete suggestions', async () => {
-      jest.spyOn(prismaService.post, 'findMany').mockResolvedValue([
-        { id: 'post-id', content: 'Festa incrível' },
-      ]);
+      jest
+        .spyOn(prismaService.post, 'findMany')
+        .mockResolvedValue([{ id: 'post-id', content: 'Festa incrível' }]);
 
       const result = await service.autocomplete('festa', ['posts'], 10);
 
@@ -296,17 +290,41 @@ describe('SearchService', () => {
       jest.spyOn(prismaService.post, 'findMany').mockResolvedValue([]);
       jest.spyOn(prismaService.user, 'findMany').mockResolvedValue([]);
       jest.spyOn(prismaService.event, 'findMany').mockResolvedValue([]);
-      jest
-        .spyOn(prismaService.establishment, 'findMany')
-        .mockResolvedValue([]);
+      jest.spyOn(prismaService.establishment, 'findMany').mockResolvedValue([]);
 
       const result = await service.autocomplete(
         'test',
         ['posts', 'users', 'events', 'establishments'],
-        10,
+        10
       );
 
       expect(result.suggestions).toBeDefined();
+    });
+
+    it('should restrict event and establishment suggestions to public records', async () => {
+      jest.spyOn(prismaService.event, 'findMany').mockResolvedValue([]);
+      jest.spyOn(prismaService.establishment, 'findMany').mockResolvedValue([]);
+
+      await service.autocomplete('test', ['events', 'establishments'], 10);
+
+      expect(prismaService.event.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: {
+            AND: expect.arrayContaining([{ deletedAt: null }, { isPublic: true }]),
+          },
+        })
+      );
+      expect(prismaService.establishment.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: {
+            AND: expect.arrayContaining([
+              { deletedAt: null },
+              { isDeleted: false },
+              { isPublic: true },
+            ]),
+          },
+        })
+      );
     });
   });
 
@@ -321,6 +339,22 @@ describe('SearchService', () => {
       expect(result.posts).toBeDefined();
       expect(result.users).toBeDefined();
       expect(result.events).toBeDefined();
+    });
+
+    it('should restrict trending events to public records', async () => {
+      jest.spyOn(prismaService.post, 'findMany').mockResolvedValue([]);
+      jest.spyOn(prismaService.user, 'findMany').mockResolvedValue([]);
+      jest.spyOn(prismaService.event, 'findMany').mockResolvedValue([]);
+
+      await service.getTrending(5);
+
+      expect(prismaService.event.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: {
+            AND: expect.arrayContaining([{ deletedAt: null }, { isPublic: true }]),
+          },
+        })
+      );
     });
   });
 });
@@ -417,6 +451,41 @@ describe('SearchController', () => {
       await controller.autocomplete('festa', 'posts', 10);
 
       expect(searchService.autocomplete).toHaveBeenCalled();
+    });
+  });
+
+  describe('searchEstablishments', () => {
+    it('should normalize openNow string values before calling the service', async () => {
+      jest.spyOn(searchService, 'searchEstablishments').mockResolvedValue({
+        data: [],
+        total: 0,
+        page: 1,
+        limit: 10,
+        totalPages: 0,
+      });
+
+      await controller.searchEstablishments(
+        '',
+        '-23.5505',
+        '-46.6333',
+        '5',
+        '',
+        '',
+        'false',
+        '',
+        '1',
+        '10'
+      );
+
+      expect(searchService.searchEstablishments).toHaveBeenCalledWith(
+        expect.objectContaining({
+          latitude: -23.5505,
+          longitude: -46.6333,
+          distance: 5,
+          openNow: false,
+        }),
+        { page: 1, limit: 10 }
+      );
     });
   });
 
