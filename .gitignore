@@ -26,3 +26,9 @@ Thumbs.db
 
 # Coverage
 coverage/
+
+# Secrets
+backend/.secrets/
+
+# Codex recovery artifacts
+.codex/recovery/
