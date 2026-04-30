@@ -1304,6 +1304,182 @@ Regra absoluta de release: nunca deixar em producao mock, botao sem acao, alerta
 | LGPD/legal | Termos, privacidade, exclusao, suporte, consentimentos e logs seguros validados | Sim |
 | Decisao de escopo | Itens fora do MVP ficam registrados, ocultos se necessario, e sem UI fake em producao | Sim |
 
+### PROMPT-009 - consolidacao com codigo real, AWS e governanca - 2026-04-30
+
+Objetivo deste complemento:
+
+- Revisar as correcoes ja executadas antes de abrir novas pendencias.
+- Sincronizar o plano com `.codex/melhorias_objetivas.md`, `.codex/PROMPT_melhorias_objetivas.md` e `doc/aws doc/*.md`.
+- Registrar decisoes tecnicas oficiais para eliminar conflitos Firebase/Resend/Sentry.
+- Adicionar fases de hardening backend, governanca do repositorio e validacao de escopo MVP.
+- Reorganizar a leitura de prioridades sem apagar historico.
+
+#### Etapa 0 - revisao das correcoes ja executadas
+
+Fontes revisadas:
+
+- `STATUS_EXECUCAO_PROMPT_AWS_2026-04-26.md`
+- `AUDITORIA_PROMPT_AWS_2026-04-26.md`
+- `AUDITORIA_ARQUITETURA_MEU_AGITO_2026-04-25.md`
+- Codigo atual em `backend/src`, `backend/prisma/schema.prisma`, `frontend/src` e `frontend/app.json`.
+
+Regra aplicada nesta revisao: item confirmado no codigo fica marcado como resolvido e nao deve ser reaberto como problema. Item divergente volta ao plano com evidencia real. Item dependente de AWS/dispositivo real fica pendente de ambiente, nao de implementacao local.
+
+| Bloco | Status anterior | Status real | Evidencia no codigo | Acao necessaria |
+|---|---|---|---|---|
+| Base de producao | Aprovado apos ressalvas | Confirmado no codigo | `backend/src/config/env.validation.ts` valida providers `none/s3`, `none/ses`, `none/sns`; `backend/Dockerfile`; `backend/src/main.ts` configura CORS, trust proxy, filters/interceptors e Redis adapter | RESOLVIDO no codigo local; validar em staging AWS real antes de producao |
+| Storage e midia | Aprovado apos ressalvas | Confirmado no codigo, com pendencia de ambiente | `backend/src/modules/media/storage.service.ts` usa S3/LOCAL; `backend/src/config/env.validation.ts` aceita apenas `none/s3`; `backend/src/modules/media/media.controller.ts` tem `GET /media/protected/:mediaId`; `backend/src/modules/feed/feed.service.ts` rejeita data URI/base64 em fluxo real | RESOLVIDO no codigo; validar bucket S3/CloudFront real, lifecycle e permissoes |
+| Auth, JWT e permissoes | Aprovado apos ressalvas | Confirmado no codigo | `backend/src/modules/auth/auth.service.ts` usa `jwtid: randomUUID()`; `backend/src/common/enums/account-type.enum.ts` define `USER/ESTABLISHMENT`; `backend/src/modules/auth/guards/resource-owner.guard.ts` existe; busca por `isAdmin` no auth/schema nao retornou fluxo ativo | RESOLVIDO no codigo; smoke mobile auth ainda obrigatorio |
+| Conta de estabelecimento | Aprovado | Confirmado parcial no codigo | `backend/src/modules/establishments` tem DTOs de create/update/list com latitude/longitude/openingHours; frontend tem `BusinessSetupScreen.tsx` | Nao reabrir backend como problema; validar onboarding empresarial ponta a ponta em staging/device |
+| Produtos/vitrine | Aprovado no backend | Backend confirmado; frontend ainda parcial | `backend/src/modules/products/products.controller.ts` e `products.service.ts` existem com AuditLog; `frontend/src/screens/main/CatalogScreen.tsx` ainda tem `MOCK_CATALOGS` quando nao ha `establishmentId` | Backend RESOLVIDO; corrigir frontend Catalog/Item para nao expor fallback fake |
+| Feed social | Aprovado apos correcao | Confirmado no codigo | `backend/src/modules/feed/agito-feed.controller.ts` expoe `GET /feed/agito`; `feed.service.ts` tem cursor pagination; `frontend/src/screens/main/FeedSocialScreen.tsx` consome `agitoPosts/getAgitoFeed` | RESOLVIDO para T_AGITO; manter Home/discovery em escopo separado |
+| Geo/discovery | Aprovado apos correcao | Confirmado no backend; smoke pendente | `backend/src/common/geo/geo.utils.ts` calcula bounding box/distancia; `opening-hours.utils.ts`; `events`, `establishments` e `search` usam latitude/longitude/distancia/openNow | RESOLVIDO no codigo backend; validar qualidade dos resultados e tela mobile com banco real |
+| Chat e tempo real | Aprovado com validacao manual pendente | Confirmado no codigo local | `backend/src/common/realtime/redis-io.adapter.ts`; `backend/src/modules/chat/chat.gateway.ts`; `chat.service.ts` usa AuditLog e anexos via media | Nao reabrir implementacao; validar multi-instancia ECS/Redis em staging |
+| Redis/Valkey | Aprovado | Confirmado no codigo, pendente AWS | `backend/src/common/cache/cache.service.ts`; `backend/src/common/rate-limit/redis-throttler.storage.ts` falha em producao sem Redis; `backend/src/app.module.ts` usa RedisThrottlerStorage | RESOLVIDO no codigo; validar ElastiCache real |
+| Push notifications | Antes divergente Firebase; depois aprovado com SNS | Confirmado no backend; mobile/provider real pendente | `backend/src/common/notification/notification.service.ts` usa AWS SNS; `PushToken` e `NotificationDelivery` existem no Prisma; `frontend/src/services/push/PushRegistrationService.ts` registra token via API; `frontend/app.json` nao referencia `googleServicesFile` | Backend RESOLVIDO; decidir/validar push Android sem Firebase ou retirar push do release |
+| Notificacoes in-app | Aprovado | Confirmado parcial | `backend/src/modules/notifications` tem controller/service/DTOs; `frontend/src/services/api/NotificationsService.ts` existe | Backend RESOLVIDO; roteamento mobile ao tocar notificacao ainda parcial |
+| E-mail | Antes SES pendente; depois aprovado | Confirmado no codigo; ambiente pendente | `backend/src/common/email/email.service.ts` usa `SESv2Client`; `env.validation.ts` valida `EMAIL_PROVIDER=ses`; testes cobrem falha SES | RESOLVIDO no codigo; validar identidade SES/sandbox em AWS |
+| AuditLog | Antes sem escrita real; depois aprovado | Confirmado no codigo | `backend/src/common/audit/audit-log.service.ts`; modelo `AuditLog`; auth/users/establishments/events/feed/products/chat/notifications chamam `record` | RESOLVIDO; ampliar somente se novos fluxos forem criados |
+| Observabilidade AWS | Parcial | Parcial | `backend/src/common/logging/structured-log.ts`, `http-logging.interceptor.ts`, `observability.bootstrap.ts`; docs AWS exigem CloudWatch/CloudTrail/X-Ray; aplicacao AWS real ainda nao executada | Manter como P0 de ambiente/staging para producao publica |
+| Testes/mobile | Aprovado com ressalvas | Parcial | Ultima validacao local passou build backend, unit backend, lint e typecheck frontend; e2e depende Postgres teste; smoke mobile/device pendente | P0 para release publico: e2e com DB teste e smoke mobile em device/staging |
+
+#### Arquitetura de Producao Alvo (AWS)
+
+Arquitetura oficial conforme `.codex/melhorias_objetivas.md`, `.codex/PROMPT_melhorias_objetivas.md` e `doc/aws doc/*.md`:
+
+| Servico | Papel no Meu Agito | Dependencias | Estado atual no codigo/docs | Falta para producao |
+|---|---|---|---|---|
+| ECS Fargate | Executar backend NestJS sem servidor gerenciado manualmente | ECR, ALB, Secrets/SSM, RDS, Redis, S3, CloudWatch | Dockerfile e docs de deploy existem | Criar cluster/service/task real, capacity, healthcheck e deploy staging/prod |
+| ECR | Armazenar imagem Docker versionada do backend | Docker build, IAM, ECS | Planejado nos docs AWS | Criar repositorio, publicar imagem imutavel por release |
+| RDS PostgreSQL | Banco principal Prisma/PostgreSQL | VPC privada, Secrets/SSM, migrations | Prisma schema/migrations existem | Criar RDS, aplicar migrations, backup/PITR e smoke com banco vazio |
+| ElastiCache Redis/Valkey | Cache, rate limit, presenca, Socket.IO adapter | ECS privado, REDIS_URL | Codigo Redis existe e producao exige Redis | Criar cluster privado e validar runtime multi-instancia |
+| S3 | Armazenamento de midia | MediaService, IAM/task role, CloudFront | StorageService S3 existe | Criar bucket/policies/lifecycle e validar upload/download real |
+| CloudFront | CDN para midia publica | S3 origin, dominio/ACM | Suporte por env `USE_CLOUDFRONT/CLOUDFRONT_BASE_URL` | Criar distribution/origin/cache/invalidation e validar URLs |
+| ALB | Entrada HTTPS e WebSocket para ECS | ACM, target group, SGs | Health endpoint existe; docs planejam ALB | Criar ALB/listeners/rules/health target e validar WebSocket |
+| ACM | Certificados TLS | DNS/ALB/CloudFront | Planejado nos docs AWS | Emitir/validar certificados dos dominios reais |
+| SES | E-mail transacional | Identidade verificada, DNS, sandbox liberado | EmailService SES implementado | Validar remetente, sandbox, bounce e envio real |
+| SNS Mobile Push | Envio push backend via AWS | Credenciais plataforma Android/iOS, PushToken, app mobile | Backend SNS implementado; mobile registra token | Definir Android sem Firebase ou excluir push do release; validar device real |
+| Secrets Manager / SSM | Segredos e env sensiveis | ECS task definition/IAM | Docs exigem; `backend/.env` fora do Git | Criar parametros/secrets reais e remover qualquer segredo de task/imagem |
+| CloudWatch | Logs/metrica/alarmes base | ECS, log driver, dashboards | Logs estruturados no app; docs planejam CloudWatch | Configurar log groups, retention, metric filters e alarmes |
+| CloudTrail | Auditoria de acoes AWS | Conta AWS, bucket/log group | Documentado como alvo | Ativar/validar trail e retencao |
+| X-Ray | Trace quando aplicavel | SDK/instrumentacao, daemon/config AWS | `observability.bootstrap.ts` existe | Validar em staging ou documentar decisao de adiar |
+
+Dependencia principal: mobile release -> ALB/HTTPS -> ECS Fargate -> RDS/Redis/S3/SES/SNS -> CloudWatch/CloudTrail. Producao publica depende de staging AWS real aprovado antes.
+
+#### Decisoes Tecnicas Oficiais
+
+| Tema | Decisao oficial | Consequencia no plano |
+|---|---|---|
+| Push | SNS Mobile Push e a camada principal de envio | Firebase nao e backend nem arquitetura principal; credenciais de plataforma so entram se forem requisito tecnico do Android/iOS e devem ficar em Secrets/SSM |
+| E-mail | Amazon SES e o provider principal | Resend nao deve voltar como provider principal; validar SES real antes de release |
+| Observabilidade | CloudWatch/CloudTrail sao a base; X-Ray quando aplicavel | Sentry e opcional, nao bloqueia por si so se CloudWatch/CloudTrail estiverem prontos |
+| Backend | AWS-first em ECS/RDS/Redis/S3/SES/SNS | Nao reintroduzir Render/Railway/Supabase/Aiven/Upstash como arquitetura-alvo |
+| Firebase | Nao e backend do sistema | Nao criar dependencia de Firebase no backend; `frontend/app.json` permanece sem `googleServicesFile` |
+
+#### Fase nova - hardening de backend
+
+| Item | Status | Evidencia no codigo | Acao necessaria | Bloqueador |
+|---|---|---|---|---|
+| Base64 em midia | OK/parcial | `feed.service.ts` rejeita data URI/base64; auth 2FA ainda retorna placeholder `data:image/png;base64,...` em stub | Manter proibicao em midia real; substituir placeholder 2FA por QR real ou ocultar 2FA | Sim se 2FA aparecer no release |
+| MediaService + S3 | OK | `MediaService` + `StorageService` + S3 client existem | Validar S3/CloudFront real em staging | Sim |
+| JWT e claims | OK | `JwtPayload`, `jwtid: randomUUID()`, `USER/ESTABLISHMENT` | Smoke auth/refresh/2FA em staging | Sim |
+| Logica morta/nao usada | Parcial | Existem telas/services parciais no mobile; backend core principal em uso | Fazer varredura por modulo antes de release e remover/ocultar apenas com decisao de escopo | Nao por si; Sim se visivel fake |
+| AuditLog | OK | `AuditLogService.record` usado nos modulos core | Garantir novos fluxos tambem auditam | Sim para fluxos sensiveis |
+| Tracking email/push | Parcial | Push tem `NotificationDelivery`; email retorna resultado mas nao ha tabela de delivery email dedicada | Criar tracking de email se verificacao/reset exigir auditoria operacional | P1; P0 se email critico sem diagnostico |
+| Env obrigatoria | OK/parcial | `env.validation.ts` valida providers e Redis em producao | Validar env real ECS/Secrets; sem localhost em prod | Sim |
+| Secrets hardcoded | OK no versionado principal | `backend/.env` fora do Git; docs exigem Secrets/SSM | Varredura final antes de release e rotacao se qualquer segredo apareceu localmente | Sim |
+| DTOs | OK/parcial | DTOs com class-validator existem em auth/feed/search/events/establishments/products/notifications | Validar contratos frontend/backend pendentes do plano | Sim para fluxos P0 |
+| Tratamento de erro | Parcial | `GlobalExceptionFilter` existe | Smoke erros reais sem 500 generico indevido e sem dados sensiveis | Sim |
+| Logs estruturados | OK/parcial | `logStructured` e `HttpLoggingInterceptor` existem | Validar CloudWatch e ausencia de senha/token nos logs | Sim |
+| Rate limit real | OK/parcial | `RedisThrottlerStorage` e `ThrottlerGuard` globais | Validar Redis/ElastiCache real e limites por rota critica | Sim |
+| Trust proxy | OK/parcial | `backend/src/main.ts` le `TRUST_PROXY` | Definir valor correto atras do ALB em staging/prod | Sim |
+| Health check expandido | Pendente | `backend/src/modules/health/health.service.ts` valida DB com `SELECT 1`; nao confirma Redis/storage | Expandir health/readiness para DB + Redis + storage/provider quando habilitados | Sim para ALB/producao |
+
+#### Fase nova - governanca do repositorio antes de deploy
+
+| Verificacao | Status atual | Acao obrigatoria | Bloqueia producao? |
+|---|---|---|---|
+| Estado do git | Limpo na ultima revisao desta rodada | Rodar `git status --short` antes de build/release | Sim |
+| Branch ativa | `chore/reorganizacao-baseline` | Definir branch padrao/release e estrategia de merge/tag | Sim |
+| Worktree | `F:/Bruno/Projetos/meu-agito` como worktree unica validada | Rodar `git worktree list --porcelain` e evitar worktrees antigas | Sim |
+| Stashes antigos | Nao validado nesta etapa | Rodar `git stash list`; revisar/remover apenas com seguranca | Nao, salvo stash critico |
+| Temporarios/caches | Parcial | Garantir `node_modules/dist/build/.expo/.gradle` fora do commit e limpar artefatos antigos | Sim para build reproduzivel |
+| Documentacao duplicada | Parcial historico mantido | Manter historico, mas usar docs canonicos: `.codex`, `doc/README.md`, `doc/aws doc`, plano atual | Nao, se fonte canonica clara |
+| Build reproduzivel | Parcial | Validar comandos backend/frontend em maquina/CI limpa | Sim |
+| Tags/releases | Pendente | Criar tag por release e guardar hashes de imagem/mobile | Sim |
+
+#### Validacao de Escopo do MVP
+
+Base: `.codex/PROJECT_CONTEXT.md` define MVP funcional, coeso, enxuto, com nucleo de valor real e sem escopo excessivo.
+
+| Funcionalidade | Pertence ao MVP? | Valor real | Estado atual | Decisao | Observacao |
+|---|---|---|---|---|---|
+| Auth/cadastro/login/refresh | Sim | Entrada no app e identidade | Backend confirmado; smoke mobile pendente | Entra no release | P0 validar ponta a ponta |
+| Onboarding pessoal | Sim | Completar perfil real | Parcial no plano | Entra se persistir real; caso contrario bloquear release | Nao pode simular username/perfil |
+| Onboarding empresarial | Sim | Criar estabelecimento real | Backend/tela existem; smoke pendente | Entra no release | Validar criacao com midia/geocode/horarios |
+| Feed social T_AGITO | Sim | Conteudo social real | Confirmado no codigo | Entra no release | Nao reabrir como mock |
+| Home/discovery | Sim | Descoberta de eventos/locais | Parcial; depende dados reais e empty states | Entra com backend real e banco vazio correto | Sem cards fake |
+| Busca | Sim | Encontrar locais/eventos | Backend real; `RECENT_SEARCHES` local fake | Entra apos corrigir recentes/empty state | P1/P0 se visivel fake |
+| Perfil usuario/estabelecimento | Sim | Identidade e vitrine | Parcial para perfil publico usuario | Entra com escopo claro | Bloquear rotas que fingem perfil publico inexistente |
+| Catalogo/item | Sim para estabelecimento/produto/evento | Vitrine publica | Backend existe; frontend ainda fallback mock | Entra apenas sem `MOCK_CATALOGS`/fallback fake | P0 |
+| Mapa | Sim se discovery usa mapa | Localizar itens | Parcial; item clicavel sem acao no plano | Entra se navegacao real/empty state ok | P0 se item clicavel morto |
+| Chat | Sim se interacao entre usuarios/estabelecimentos | Conversa real | Backend confirmado; smoke multi-device pendente | Entra se smoke realtime passar | P0 se exposto |
+| Notificacoes in-app | Sim | Alertas internos | Backend/service existem; roteamento parcial | Entra com roteamento honesto | Push pode ser fora do MVP se documentado |
+| Push | Opcional para primeiro MVP | Retencao/alertas | Backend SNS existe; plataforma mobile pendente | Entra somente se device real passar; senao sai do release | Sem Firebase como backend |
+| Settings criticas | Sim | Conta, seguranca, privacidade, delete | Parcial | Entra apenas com backend real ou itens ocultos | Nada de toggle local fake |
+| Historico/contas vinculadas/recursos auxiliares | Nao necessariamente | Conveniencia | Parcial/fake | Adiado ou oculto | P2 somente se fora da UI de producao |
+
+#### Reforco da regra de itens sem backend
+
+A matriz do PROMPT-008 continua valida. Complemento obrigatorio: antes de ocultar/remover qualquer item, registrar a decisao em uma linha da matriz com evidencia de endpoint/model/service. A decisao padrao deve ser conectar backend existente ou corrigir contrato quando isso for simples/medio e fizer parte do MVP. Remocao so e aceitavel para duplicidade, lixo real ou item sem funcao de produto.
+
+#### Prioridades consolidadas apos revisao
+
+##### P0 - BLOQUEIA PRODUCAO
+
+| Item | Evidencia | Acao |
+|---|---|---|
+| AWS staging real antes de producao | Docs AWS exigem ECS/ECR/RDS/Redis/S3/CloudFront/ALB/ACM/SES/SNS/Secrets/CloudWatch | Subir staging e aprovar smoke completo antes de prod |
+| Health check expandido | `health.service.ts` valida DB, mas nao Redis/storage | Implementar readiness DB+Redis+storage quando habilitados |
+| Catalog/Item sem fallback fake | `CatalogScreen.tsx` ainda tem `MOCK_CATALOGS` | Conectar backend real/empty state ou ocultar entradas |
+| Settings criticas com estado local/fake | Plano ja lista MyAccount/Privacy/Security/Delete | Conectar backend ou ocultar itens nao prontos |
+| Build mobile release real | Ainda pendente EAS/processo equivalente/device real | Gerar APK/AAB, validar env e smoke em device |
+| SES/SNS/S3/Redis reais | Codigo existe, ambiente real nao validado | Validar providers em staging AWS |
+| E2E e smoke com banco vazio | e2e depende postgres-test; banco zerado precisa smoke | Subir DB teste/staging limpo e validar estados vazios |
+| Seguranca/LGPD minima | Delete, termos, privacidade, logs sensiveis ainda parciais | Fechar legal/suporte/delete/log redaction |
+
+##### P1 - NECESSARIO PARA RELEASE PROFISSIONAL
+
+| Item | Evidencia | Acao |
+|---|---|---|
+| Search `RECENT_SEARCHES` | `SearchScreen.tsx` contem lista fixa | Persistir local honesto ou backend; nao parecer dado real |
+| Notifications routing | Plano registra payload/roteamento parcial | Passar params corretos para chat/perfil/item |
+| Activity/Favorites/History | Telas existem com backend nao comprovado | Criar backend ou tirar do release conscientemente |
+| Observabilidade operacional | Codigo estruturado existe, CloudWatch/CloudTrail nao aplicado | Criar log groups, alarmes, retention e runbook |
+| Governanca release | Branch/tag/pipeline ainda precisam regra final | Definir branch release, tags e artefatos |
+
+##### P2 - MELHORIA POS-MVP
+
+| Item | Condicao para ser P2 | Acao |
+|---|---|---|
+| Historico avancado | Somente se oculto da UI de producao | Planejar depois do MVP |
+| Contas vinculadas/social login | Somente se nao aparecer como tela fake | Planejar depois |
+| X-Ray completo | Se CloudWatch/CloudTrail cobrirem MVP e decisao estiver documentada | Implementar quando houver volume/necessidade |
+| Otimizacoes de ranking/geo | Se busca basica real estiver funcionando | Melhorar relevancia apos release inicial |
+
+#### Checklist consolidado de deploy real
+
+1. Correcoes ja executadas revisadas contra codigo real e marcadas como resolvidas/parciais/pendentes.
+2. Decisoes oficiais AWS-first aplicadas: ECS, ECR, RDS, ElastiCache, S3, CloudFront, ALB, ACM, SES, SNS, Secrets/SSM, CloudWatch, CloudTrail e X-Ray quando aplicavel.
+3. Firebase nao e backend; Resend nao e provider principal; Sentry nao e obrigatorio.
+4. Backend hardening fechado: env, DTOs, auth, audit, logs, rate limit, errors, health DB+Redis+storage e ausencia de secrets.
+5. Frontend/mobile sem mock visivel, sem botao morto e sem dado fixo fingindo backend.
+6. Staging AWS real aprovado antes de producao publica.
+7. Banco vazio validado sem seed obrigatoria de usuarios/estabelecimentos/produtos/eventos/posts.
+8. Build mobile release real validado em dispositivo, com API URL staging/prod e package/bundle corretos.
+9. LGPD/legal/suporte/delete/consentimentos/logs sensiveis validados.
+10. Rollback documentado com imagem ECR, task definition ECS, migrations, env/secrets, dominio/ALB/CloudFront e app mobile.
+
 Resumo de bloqueadores absolutos antes de deploy publico real:
 
 1. AWS real ponta a ponta: ECS/ECR/RDS/ElastiCache/S3/CloudFront/ALB/ACM/Secrets.
