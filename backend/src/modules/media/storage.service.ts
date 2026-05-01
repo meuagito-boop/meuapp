@@ -1,6 +1,11 @@
 import { Injectable, InternalServerErrorException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { GetObjectCommand, PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
+import {
+  GetObjectCommand,
+  HeadBucketCommand,
+  PutObjectCommand,
+  S3Client,
+} from '@aws-sdk/client-s3';
 import { randomUUID } from 'crypto';
 import { promises as fs } from 'fs';
 import { dirname, extname, resolve } from 'path';
@@ -27,6 +32,15 @@ export type ResolvedStorageFile = {
   mimeType: string;
   absolutePath?: string;
   buffer?: Buffer;
+};
+
+export type StorageHealthStatus = {
+  provider: 's3' | 'local';
+  status: 'ok' | 'error';
+  configured: boolean;
+  verified: boolean;
+  cloudFrontEnabled?: boolean;
+  error?: string;
 };
 
 function parseBoolean(value: string | undefined, fallback: boolean): boolean {
@@ -75,6 +89,16 @@ export class StorageService {
 
   buildProtectedMediaUrl(mediaId: string): string {
     return `${this.getPublicBaseUrl()}/media/protected/${encodeURIComponent(mediaId)}`;
+  }
+
+  async getHealthStatus(): Promise<StorageHealthStatus> {
+    const provider = this.resolveProvider();
+
+    if (provider === 'local') {
+      return this.getLocalHealthStatus();
+    }
+
+    return this.getS3HealthStatus();
   }
 
   getLocalAbsolutePath(storagePath: string): string {
@@ -262,6 +286,104 @@ export class StorageService {
     throw new InternalServerErrorException(
       `Missing required storage configuration: ${keys.join(' or ')}`
     );
+  }
+
+  private readOptional(keys: string[]): string | null {
+    for (const key of keys) {
+      const value = this.configService.get<string>(key);
+      if (value && value.trim().length > 0) {
+        return value.trim();
+      }
+    }
+
+    return null;
+  }
+
+  private shouldVerifyStorage(): boolean {
+    return parseBoolean(this.configService.get<string>('HEALTHCHECK_VERIFY_STORAGE'), false);
+  }
+
+  private getCloudFrontEnabled(): boolean {
+    const cloudFrontBaseUrl =
+      this.configService.get<string>('CLOUDFRONT_BASE_URL') ||
+      this.configService.get<string>('AWS_CLOUDFRONT_URL');
+
+    return (
+      parseBoolean(this.configService.get<string>('USE_CLOUDFRONT'), false) &&
+      Boolean(cloudFrontBaseUrl)
+    );
+  }
+
+  private async getLocalHealthStatus(): Promise<StorageHealthStatus> {
+    try {
+      const localRoot = this.getLocalStorageRoot();
+      await fs.mkdir(localRoot, { recursive: true });
+      await fs.access(localRoot);
+
+      return {
+        provider: 'local',
+        status: 'ok',
+        configured: true,
+        verified: true,
+      };
+    } catch (error) {
+      return {
+        provider: 'local',
+        status: 'error',
+        configured: false,
+        verified: false,
+        error: error instanceof Error ? error.message : String(error),
+      };
+    }
+  }
+
+  private async getS3HealthStatus(): Promise<StorageHealthStatus> {
+    const bucket = this.readOptional(['S3_BUCKET', 'AWS_S3_BUCKET']);
+    const region = this.readOptional(['S3_REGION', 'AWS_REGION']);
+    const configured = Boolean(bucket && region);
+    const cloudFrontEnabled = this.getCloudFrontEnabled();
+
+    if (!configured || !bucket) {
+      return {
+        provider: 's3',
+        status: 'error',
+        configured: false,
+        verified: false,
+        cloudFrontEnabled,
+        error: 'Missing S3 bucket or region',
+      };
+    }
+
+    if (!this.shouldVerifyStorage()) {
+      return {
+        provider: 's3',
+        status: 'ok',
+        configured: true,
+        verified: false,
+        cloudFrontEnabled,
+      };
+    }
+
+    try {
+      await this.getS3Client().send(new HeadBucketCommand({ Bucket: bucket }));
+
+      return {
+        provider: 's3',
+        status: 'ok',
+        configured: true,
+        verified: true,
+        cloudFrontEnabled,
+      };
+    } catch (error) {
+      return {
+        provider: 's3',
+        status: 'error',
+        configured: true,
+        verified: true,
+        cloudFrontEnabled,
+        error: error instanceof Error ? error.message : String(error),
+      };
+    }
   }
 
   private resolveFileExtension(mimeType: string, originalName?: string): string {

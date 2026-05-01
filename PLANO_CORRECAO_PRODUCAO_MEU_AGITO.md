@@ -1393,7 +1393,7 @@ Dependencia principal: mobile release -> ALB/HTTPS -> ECS Fargate -> RDS/Redis/S
 | Logs estruturados | OK/parcial | `logStructured` e `HttpLoggingInterceptor` existem | Validar CloudWatch e ausencia de senha/token nos logs | Sim |
 | Rate limit real | OK/parcial | `RedisThrottlerStorage` e `ThrottlerGuard` globais | Validar Redis/ElastiCache real e limites por rota critica | Sim |
 | Trust proxy | OK/parcial | `backend/src/main.ts` le `TRUST_PROXY` | Definir valor correto atras do ALB em staging/prod | Sim |
-| Health check expandido | Pendente | `backend/src/modules/health/health.service.ts` valida DB com `SELECT 1`; nao confirma Redis/storage | Expandir health/readiness para DB + Redis + storage/provider quando habilitados | Sim para ALB/producao |
+| Health check expandido | OK no codigo; pendente staging | `backend/src/modules/health/health.service.ts` valida DB, Redis obrigatorio quando `ENABLE_REDIS=true`/production, e storage via `StorageService.getHealthStatus`; `backend/src/modules/media/storage.service.ts` valida local/S3 e permite `HeadBucket` por `HEALTHCHECK_VERIFY_STORAGE=true` | Validar `/health` no ALB/ECS com RDS, ElastiCache e S3 reais | Sim para ALB/producao |
 
 #### Fase nova - governanca do repositorio antes de deploy
 
@@ -1440,7 +1440,7 @@ A matriz do PROMPT-008 continua valida. Complemento obrigatorio: antes de oculta
 | Item | Evidencia | Acao |
 |---|---|---|
 | AWS staging real antes de producao | Docs AWS exigem ECS/ECR/RDS/Redis/S3/CloudFront/ALB/ACM/SES/SNS/Secrets/CloudWatch | Subir staging e aprovar smoke completo antes de prod |
-| Health check expandido | `health.service.ts` valida DB, mas nao Redis/storage | Implementar readiness DB+Redis+storage quando habilitados |
+| Health check expandido | Implementado no codigo: DB + Redis obrigatorio + storage local/S3 configuravel | Validar no ALB/ECS staging com RDS, ElastiCache e S3 reais |
 | Catalog/Item sem fallback fake | `CatalogScreen.tsx` ainda tem `MOCK_CATALOGS` | Conectar backend real/empty state ou ocultar entradas |
 | Settings criticas com estado local/fake | Plano ja lista MyAccount/Privacy/Security/Delete | Conectar backend ou ocultar itens nao prontos |
 | Build mobile release real | Ainda pendente EAS/processo equivalente/device real | Gerar APK/AAB, validar env e smoke em device |
@@ -1479,6 +1479,43 @@ A matriz do PROMPT-008 continua valida. Complemento obrigatorio: antes de oculta
 8. Build mobile release real validado em dispositivo, com API URL staging/prod e package/bundle corretos.
 9. LGPD/legal/suporte/delete/consentimentos/logs sensiveis validados.
 10. Rollback documentado com imagem ECR, task definition ECS, migrations, env/secrets, dominio/ALB/CloudFront e app mobile.
+
+### EXECUCAO-001 - health/readiness expandido - 2026-04-30
+
+Objetivo executado:
+
+- Fechar o P0 local de health check expandido para ALB/ECS/staging.
+- Transformar `/health` em resposta consolidada de DB, Redis/cache e storage.
+- Evitar vazamento de detalhes sensiveis de erro em producao.
+
+Arquivos alterados:
+
+- `backend/src/modules/health/health.service.ts`
+- `backend/src/modules/health/health.module.ts`
+- `backend/src/modules/health/health.service.spec.ts`
+- `backend/src/modules/media/storage.service.ts`
+- `backend/.env.example`
+- `backend/.env.test`
+- `backend/.env.test.example`
+
+Implementacao:
+
+- `/health` agora retorna `database`, `cache` e `storage` como componentes estruturados.
+- Redis/cache passa a bloquear o status geral quando `ENABLE_REDIS=true` ou `NODE_ENV=production` e o Redis nao esta conectado.
+- `StorageService` ganhou `getHealthStatus()` para validar provider local/S3.
+- S3 valida configuracao por padrao e pode fazer `HeadBucket` quando `HEALTHCHECK_VERIFY_STORAGE=true`.
+- Erros detalhados de dependencia sao redigidos em producao como `Health dependency check failed`.
+
+Validacao executada:
+
+- `cd backend && npx jest src/modules/health/health.service.spec.ts --runInBand`: OK.
+- `cd backend && npm run build`: OK com `NODE_OPTIONS=--max-old-space-size=4096`.
+- `git diff --check`: OK.
+
+Status:
+
+- RESOLVIDO no codigo local.
+- Pendente para producao: validar `/health` no ambiente AWS staging real com RDS, ElastiCache Redis/Valkey e S3 reais.
 
 Resumo de bloqueadores absolutos antes de deploy publico real:
 

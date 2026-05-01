@@ -511,3 +511,28 @@ Status da validacao ponta a ponta:
 - o frontend ficou mais alinhado ao backend real e menos exposto a placeholder enganoso em fluxos de auth/evento/seguranca
 - mesmo assim o projeto ainda nao pode ser classificado como totalmente pronto para deploy e producao
 - continuam pendentes: observabilidade AWS real, ambiente AWS final, smoke mobile/manual e triagem das telas auxiliares ainda parciais fora do MVP
+
+## Atualizacao complementar - 2026-04-30 (America/Sao_Paulo) - health/readiness expandido
+
+### Correção aplicada
+
+- `HealthService` deixou de responder apenas DB/cache simples e passou a consolidar:
+  - DB via `SELECT 1`;
+  - Redis/cache como dependencia obrigatoria quando `ENABLE_REDIS=true` ou `NODE_ENV=production`;
+  - storage local/S3 via `StorageService.getHealthStatus()`.
+- `StorageService` ganhou health de storage:
+  - local: cria/acessa o diretório configurado;
+  - S3: valida bucket/regiao e pode executar `HeadBucket` quando `HEALTHCHECK_VERIFY_STORAGE=true`.
+- erros detalhados de dependencia sao redigidos em producao para nao expor host, credencial, bucket ou mensagem sensivel.
+- `backend/.env.example`, `.env.test` e `.env.test.example` ganharam `HEALTHCHECK_VERIFY_STORAGE=false`.
+
+### Validação executada
+
+- `cd backend && npx jest src/modules/health/health.service.spec.ts --runInBand`: OK.
+- `cd backend && npm run build`: OK com `NODE_OPTIONS=--max-old-space-size=4096`.
+- `git diff --check`: OK.
+
+### Leitura correta apos esta rodada
+
+- o P0 local "health check expandido" fica RESOLVIDO no codigo.
+- continua pendente de ambiente: validar `/health` no AWS staging real com RDS, ElastiCache Redis/Valkey e S3 reais atras do ALB.
