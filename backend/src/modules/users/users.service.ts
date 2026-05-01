@@ -7,6 +7,7 @@ import {
   Optional,
 } from '@nestjs/common';
 import * as bcrypt from 'bcryptjs';
+import { Prisma } from '@prisma/client';
 import { AuditLogService } from '@common/audit/audit-log.service';
 import { AccountType } from '@common/enums/account-type.enum';
 import { PrismaService } from '../../common/prisma/prisma.service';
@@ -155,17 +156,46 @@ export class UsersService {
 
   async update(id: string, updateUserDto: UpdateUserDto) {
     try {
+      const updateData: Prisma.UserUpdateInput = {};
+
+      if (updateUserDto.name !== undefined) {
+        updateData.name = updateUserDto.name;
+      }
+
+      if (updateUserDto.email !== undefined) {
+        const normalizedEmail = updateUserDto.email.toLowerCase();
+        const currentUser = await this.prisma.user.findUnique({
+          where: { id },
+          select: { email: true },
+        });
+
+        if (!currentUser) {
+          throw new NotFoundException('User not found');
+        }
+
+        updateData.email = normalizedEmail;
+        if (normalizedEmail !== currentUser.email.toLowerCase()) {
+          updateData.emailVerified = false;
+        }
+      }
+
+      if (updateUserDto.username !== undefined) {
+        const normalizedUsername = updateUserDto.username?.trim() || '';
+        updateData.username = normalizedUsername.length > 0 ? normalizedUsername : null;
+      }
+
+      if (updateUserDto.phoneNumber !== undefined) {
+        const normalizedPhone = updateUserDto.phoneNumber?.trim() || '';
+        updateData.phoneNumber = normalizedPhone.length > 0 ? normalizedPhone : null;
+      }
+
+      if (updateUserDto.profileType !== undefined) {
+        updateData.profileType = updateUserDto.profileType;
+      }
+
       const user = await this.prisma.user.update({
         where: { id },
-        data: {
-          ...(updateUserDto.name && { name: updateUserDto.name }),
-          ...(updateUserDto.email && {
-            email: updateUserDto.email.toLowerCase(),
-          }),
-          ...(updateUserDto.profileType && {
-            profileType: updateUserDto.profileType,
-          }),
-        },
+        data: updateData,
       });
 
       await this.auditLogService?.record({
@@ -181,8 +211,8 @@ export class UsersService {
       if ((error as any).code === 'P2025') {
         throw new NotFoundException('User not found');
       }
-      if ((error as any).code === 'P2002') {
-        throw new BadRequestException('Email already exists');
+      if (this.isPrismaErrorCode(error, 'P2002')) {
+        throw new BadRequestException(this.getUniqueConstraintMessage(error));
       }
       throw new InternalServerErrorException('Failed to update user');
     }
@@ -190,16 +220,27 @@ export class UsersService {
 
   async updateProfile(id: string, updateProfileDto: UpdateProfileDto) {
     try {
+      const updateData: Prisma.UserUpdateInput = {};
+
+      if (updateProfileDto.bio !== undefined) {
+        updateData.bio = updateProfileDto.bio;
+      }
+
+      if (updateProfileDto.avatar !== undefined) {
+        updateData.avatar = updateProfileDto.avatar;
+      }
+
+      if (updateProfileDto.location !== undefined) {
+        updateData.location = updateProfileDto.location;
+      }
+
+      if (updateProfileDto.website !== undefined) {
+        updateData.website = updateProfileDto.website;
+      }
+
       const user = await this.prisma.user.update({
         where: { id },
-        data: {
-          ...(updateProfileDto.bio && { bio: updateProfileDto.bio }),
-          ...(updateProfileDto.avatar && { avatar: updateProfileDto.avatar }),
-          ...(updateProfileDto.location && {
-            location: updateProfileDto.location,
-          }),
-          ...(updateProfileDto.website && { website: updateProfileDto.website }),
-        },
+        data: updateData,
       });
 
       // Invalidate profile cache when updated
@@ -578,5 +619,27 @@ export class UsersService {
     delete sanitized.password;
     delete sanitized.twoFactorSecret;
     return sanitized;
+  }
+
+  private isPrismaErrorCode(error: unknown, code: string) {
+    return typeof error === 'object' && error !== null && 'code' in error && error.code === code;
+  }
+
+  private getUniqueConstraintMessage(error: unknown) {
+    const target =
+      typeof error === 'object' && error !== null && 'meta' in error
+        ? (error.meta as { target?: string[] | string } | undefined)?.target
+        : undefined;
+    const fields = Array.isArray(target) ? target : target ? [target] : [];
+
+    if (fields.includes('username')) {
+      return 'Username already exists';
+    }
+
+    if (fields.includes('phoneNumber')) {
+      return 'Phone number already exists';
+    }
+
+    return 'Email already exists';
   }
 }

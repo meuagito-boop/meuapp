@@ -147,8 +147,11 @@ describe('UsersService', () => {
       const updateDto: UpdateUserDto = {
         name: 'Updated Name',
         email: 'updated@example.com',
+        username: 'updated.user',
+        phoneNumber: '+5511999999999',
       };
 
+      jest.spyOn(prismaService.user, 'findUnique').mockResolvedValue(mockUser);
       jest.spyOn(prismaService.user, 'update').mockResolvedValue({
         ...mockUser,
         ...updateDto,
@@ -158,6 +161,16 @@ describe('UsersService', () => {
 
       expect(result.name).toBe('Updated Name');
       expect(result.email).toBe('updated@example.com');
+      expect(prismaService.user.update).toHaveBeenCalledWith({
+        where: { id: 'test-id' },
+        data: {
+          name: 'Updated Name',
+          email: 'updated@example.com',
+          emailVerified: false,
+          username: 'updated.user',
+          phoneNumber: '+5511999999999',
+        },
+      });
     });
 
     it('should throw NotFoundException if user not found', async () => {
@@ -173,6 +186,7 @@ describe('UsersService', () => {
 
     it('should throw BadRequestException if email exists', async () => {
       const updateDto: UpdateUserDto = { email: 'existing@example.com' };
+      jest.spyOn(prismaService.user, 'findUnique').mockResolvedValue(mockUser);
       jest.spyOn(prismaService.user, 'update').mockImplementation(() => {
         const error = new Error();
         (error as any).code = 'P2002';

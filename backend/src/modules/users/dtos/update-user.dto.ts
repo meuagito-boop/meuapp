@@ -25,6 +25,25 @@ export class UpdateUserDto {
   name?: string;
 
   @ApiProperty({
+    example: 'john.doe',
+    description: 'Unique username',
+    required: false,
+  })
+  @IsString()
+  @MinLength(3)
+  @IsOptional()
+  username?: string | null;
+
+  @ApiProperty({
+    example: '+5511999999999',
+    description: 'User phone number',
+    required: false,
+  })
+  @IsString()
+  @IsOptional()
+  phoneNumber?: string | null;
+
+  @ApiProperty({
     example: 'USER',
     description: 'Profile type',
     enum: AccountType,

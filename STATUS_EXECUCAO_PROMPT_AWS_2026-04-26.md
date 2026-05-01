@@ -587,3 +587,36 @@ Status da validacao ponta a ponta:
 - o P0 local "Delete account validando senha no backend" fica RESOLVIDO no codigo.
 - continua pendente de ambiente: smoke mobile/staging com senha correta, senha incorreta, logout apos exclusao e tentativa de refresh token apos soft delete.
 - continua pendente de produto/LGPD: politica final de retencao/anonimizacao e suporte ao titular.
+
+## Atualizacao complementar - 2026-05-01 (America/Sao_Paulo) - Minha Conta real
+
+### Correcao aplicada
+
+- `SettingsMyAccountScreen` deixou de usar dados fixos, loading por timer, save simulado e botoes de foto sem acao.
+- A tela passou a carregar o perfil autenticado via `userStore.getProfile()` ao entrar em foco.
+- `UserService.updateAccount()` foi criado para salvar dados de conta em `PUT /users/me`.
+- `UserService.updateProfile()` passou a salvar dados de perfil em `PUT /users/me/profile`.
+- `SettingsMyAccountScreen` salva nome, e-mail, username, telefone e bio em endpoints reais e atualiza o estado com a resposta do backend.
+- Upload de avatar passou a usar `expo-image-picker` e `POST /users/me/avatar`.
+- `userStore` passou a expor `updateAccount` e a retornar o perfil atualizado em `getProfile`, `updateProfile` e `uploadAvatar`.
+- `UpdateUserDto` passou a aceitar `username` e `phoneNumber`.
+- `UsersService.update()` normaliza e-mail, username e telefone, marca `emailVerified=false` somente quando o e-mail muda e trata conflitos de unicidade com mensagens especificas.
+- `UsersService.updateProfile()` permite limpar `bio` e continua usando o contrato de perfil.
+
+### Validacao executada
+
+- `cd frontend && npx tsc --noEmit`: OK.
+- `cd backend && npm run build`: OK.
+- `cd backend && npx jest src/modules/users/users.spec.ts --runInBand`: OK, 21 testes.
+- `cd backend && npm test -- --runInBand`: OK, 15 suites e 162 testes.
+- `cd frontend && npm run lint`: OK.
+- `cd backend && npm run lint`: OK com `NODE_OPTIONS=--max-old-space-size=8192`.
+- Varredura no recorte `SettingsMyAccountScreen.tsx`, `UserService.ts` e `userStore.ts`: sem `Joao`, `setTimeout` de simulacao, `onPress: () => {}` em foto, `console.log`, `TODO`, `FIXME`, `mock`, `fake`, `dummy` ou `sample`.
+
+### Leitura correta apos esta rodada
+
+- o P0 local "Minha Conta com dados fixos/upload vazio/save simulado" fica RESOLVIDO no codigo.
+- o contrato `UserService.updateProfile` -> `PUT /users/me/profile` fica RESOLVIDO no codigo.
+- continua pendente de ambiente: smoke mobile/staging salvando conta, bio e avatar em usuario real.
+- continua pendente de infraestrutura: S3/CloudFront real para avatar.
+- continua pendente de produto/seguranca: validar erro de e-mail/username duplicado e decidir fluxo final de verificacao quando e-mail for alterado.

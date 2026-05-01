@@ -4,7 +4,9 @@ import { userService } from '../services/api/index';
 export interface UserProfile {
   id: string;
   email: string;
-  name: string;
+  name?: string;
+  username?: string;
+  phoneNumber?: string;
   bio?: string;
   avatar?: string;
   coverImage?: string;
@@ -35,15 +37,20 @@ export interface UserStore {
   error: string | null;
 
   // Actions
-  getProfile: () => Promise<void>;
+  getProfile: () => Promise<UserProfile>;
   getUserProfile: (userId: string) => Promise<UserProfile>;
-  updateProfile: (data: {
+  updateAccount: (data: {
     name?: string;
+    email?: string;
+    username?: string | null;
+    phoneNumber?: string | null;
+  }) => Promise<UserProfile>;
+  updateProfile: (data: {
     bio?: string;
     location?: string;
     website?: string;
-  }) => Promise<void>;
-  uploadAvatar: (uri: string, filename: string, onProgress?: (progress: number) => void) => Promise<void>;
+  }) => Promise<UserProfile>;
+  uploadAvatar: (uri: string, filename: string, onProgress?: (progress: number) => void) => Promise<UserProfile>;
   followUser: (userId: string) => Promise<void>;
   unfollowUser: (userId: string) => Promise<void>;
   getFollowers: (userId: string, page?: number, limit?: number) => Promise<void>;
@@ -69,6 +76,7 @@ export const userStore = create<UserStore>((set, get) => ({
     try {
       const profile = await userService.getProfile();
       set({ profile, isLoading: false });
+      return profile;
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Erro ao carregar perfil';
       set({ error: message, isLoading: false });
@@ -89,11 +97,25 @@ export const userStore = create<UserStore>((set, get) => ({
     }
   },
 
+  updateAccount: async (data) => {
+    set({ isLoading: true, error: null });
+    try {
+      const updatedProfile = await userService.updateAccount(data);
+      set({ profile: updatedProfile, isLoading: false });
+      return updatedProfile;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Erro ao atualizar conta';
+      set({ error: message, isLoading: false });
+      throw error;
+    }
+  },
+
   updateProfile: async (data) => {
     set({ isLoading: true, error: null });
     try {
       const updatedProfile = await userService.updateProfile(data);
       set({ profile: updatedProfile, isLoading: false });
+      return updatedProfile;
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Erro ao atualizar perfil';
       set({ error: message, isLoading: false });
@@ -106,6 +128,7 @@ export const userStore = create<UserStore>((set, get) => ({
     try {
       const updatedProfile = await userService.uploadAvatar(uri, filename, onProgress);
       set({ profile: updatedProfile, isLoading: false });
+      return updatedProfile;
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Erro ao enviar avatar';
       set({ error: message, isLoading: false });

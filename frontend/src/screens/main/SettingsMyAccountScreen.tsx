@@ -1,56 +1,115 @@
 import { useFocusEffect, useNavigation, ParamListBase } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import * as ImagePicker from 'expo-image-picker';
 import React, { useState, useCallback } from 'react';
 import {
-  StyleSheet,
-  View,
-  Text,
-  ScrollView,
-  TouchableOpacity,
-  SafeAreaView,
-  TextInput,
-  Alert,
   ActivityIndicator,
+  Alert,
+  Image,
+  SafeAreaView,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 
 import { colors } from '@constants/colors';
 import { spacing, fontSize } from '@constants/design';
-
-/**
- * SettingsMyAccount - Sub-tela de Minha Conta
- * Tela 02 de T_CONFIG
- * Edita: Foto, Nome, Username, Bio, E-mail, Telefone
- */
+import { userStore, type UserProfile } from '@stores/userStore';
 
 interface AccountData {
-  avatar: string;
+  avatar?: string;
   name: string;
   username: string;
   bio: string;
   email: string;
-  phone: string;
+  phoneNumber: string;
 }
+
+const EMPTY_ACCOUNT: AccountData = {
+  avatar: undefined,
+  name: '',
+  username: '',
+  bio: '',
+  email: '',
+  phoneNumber: '',
+};
+
+const mapProfileToAccount = (profile: UserProfile | null | undefined): AccountData => ({
+  avatar: profile?.avatar || undefined,
+  name: profile?.name || '',
+  username: profile?.username || '',
+  bio: profile?.bio || '',
+  email: profile?.email || '',
+  phoneNumber: profile?.phoneNumber || '',
+});
+
+const getInitials = (name: string, email: string) => {
+  const source = name.trim().length > 0 ? name : email;
+  const initials = source
+    .split(/[.\s@_-]+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase())
+    .join('');
+
+  return initials || 'US';
+};
+
+const getErrorMessage = (error: unknown, fallback: string) =>
+  error instanceof Error ? error.message : fallback;
 
 export default function SettingsMyAccountScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<ParamListBase>>();
-  const [isLoading, setIsLoading] = useState(false);
+  const getProfile = userStore((state) => state.getProfile);
+  const updateAccount = userStore((state) => state.updateAccount);
+  const updateProfile = userStore((state) => state.updateProfile);
+  const uploadAvatar = userStore((state) => state.uploadAvatar);
+  const clearUserError = userStore((state) => state.clearError);
+
+  const [account, setAccount] = useState<AccountData>(EMPTY_ACCOUNT);
+  const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
+  const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
   const [hasChanges, setHasChanges] = useState(false);
-  const [account, setAccount] = useState<AccountData>({
-    avatar: 'ðŸ‘¤',
-    name: 'JoÃ£o Silva',
-    username: 'joao.silva',
-    bio: 'Descobrindo os melhores lugares da cidade ðŸŒ†',
-    email: 'joao@example.com',
-    phone: '(11) 98765-4321',
-  });
+  const [requestError, setRequestError] = useState<string | null>(null);
 
   useFocusEffect(
     useCallback(() => {
-      // Load account data
-      setIsLoading(true);
-      setTimeout(() => setIsLoading(false), 300);
-    }, []),
+      let isActive = true;
+
+      const loadProfile = async () => {
+        setIsLoading(true);
+        setRequestError(null);
+        clearUserError();
+
+        try {
+          const profile = await getProfile();
+          if (!isActive) {
+            return;
+          }
+
+          setAccount(mapProfileToAccount(profile));
+          setHasChanges(false);
+        } catch (error) {
+          if (isActive) {
+            setRequestError(getErrorMessage(error, 'Nao foi possivel carregar sua conta.'));
+          }
+        } finally {
+          if (isActive) {
+            setIsLoading(false);
+          }
+        }
+      };
+
+      void loadProfile();
+
+      return () => {
+        isActive = false;
+      };
+    }, [clearUserError, getProfile])
   );
 
   const handleFieldChange = (field: keyof AccountData, value: string) => {
@@ -58,23 +117,104 @@ export default function SettingsMyAccountScreen() {
     setHasChanges(true);
   };
 
-  const handleChangePhoto = () => {
-    Alert.alert('Alterar Foto', 'Funcionalidade de cÃ¢mera/galeria', [
-      { text: 'Cancelar', style: 'cancel' },
-      { text: 'CÃ¢mera', onPress: () => {} },
-      { text: 'Galeria', onPress: () => {} },
-    ]);
+  const validateBeforeSave = () => {
+    if (account.name.trim().length < 3) {
+      Alert.alert('Nome invalido', 'Informe um nome com pelo menos 3 caracteres.');
+      return false;
+    }
+
+    if (account.email.trim().length === 0 || !account.email.includes('@')) {
+      Alert.alert('Email invalido', 'Informe um email valido.');
+      return false;
+    }
+
+    if (account.username.trim().length > 0 && account.username.trim().length < 3) {
+      Alert.alert('Username invalido', 'Use pelo menos 3 caracteres ou deixe o campo vazio.');
+      return false;
+    }
+
+    if (account.bio.length > 150) {
+      Alert.alert('Bio muito longa', 'A bio deve ter no maximo 150 caracteres.');
+      return false;
+    }
+
+    return true;
+  };
+
+  const handleChangePhoto = async () => {
+    setRequestError(null);
+    clearUserError();
+
+    try {
+      const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!permission.granted) {
+        Alert.alert('Permissao negada', 'Autorize o acesso a galeria para alterar sua foto.');
+        return;
+      }
+
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.85,
+      });
+
+      if (result.canceled || result.assets.length === 0) {
+        return;
+      }
+
+      const asset = result.assets[0];
+      const filename = asset.fileName || `avatar-${Date.now()}.jpg`;
+
+      setIsUploadingAvatar(true);
+      const updatedProfile = await uploadAvatar(asset.uri, filename);
+      setAccount((current) => ({
+        ...current,
+        avatar: updatedProfile.avatar || current.avatar,
+      }));
+      Alert.alert('Foto atualizada', 'Sua foto foi enviada com sucesso.');
+    } catch (error) {
+      const message = getErrorMessage(error, 'Nao foi possivel atualizar a foto.');
+      setRequestError(message);
+      Alert.alert('Erro ao atualizar foto', message);
+    } finally {
+      setIsUploadingAvatar(false);
+    }
   };
 
   const handleSave = async () => {
-    if (!hasChanges) return;
+    if (!hasChanges || isSaving || isUploadingAvatar) {
+      return;
+    }
+
+    if (!validateBeforeSave()) {
+      return;
+    }
 
     setIsSaving(true);
+    setRequestError(null);
+    clearUserError();
+
     try {
-      // Simulate API call
-      await new Promise((resolve) => setTimeout(resolve, 1000));
-      Alert.alert('âœ“ Perfil salvo com sucesso');
+      await updateAccount({
+        name: account.name.trim(),
+        email: account.email.trim().toLowerCase(),
+        username: account.username.trim().length > 0 ? account.username.trim() : null,
+        phoneNumber: account.phoneNumber.trim().length > 0 ? account.phoneNumber.trim() : null,
+      });
+
+      await updateProfile({
+        bio: account.bio.trim(),
+      });
+
+      const refreshedProfile = await getProfile();
+      setAccount(mapProfileToAccount(refreshedProfile));
       setHasChanges(false);
+      Alert.alert('Perfil salvo', 'Suas informacoes foram atualizadas.');
+    } catch (error) {
+      const message = getErrorMessage(error, 'Erro ao salvar conta. Tente novamente.');
+      setRequestError(message);
+      Alert.alert('Erro ao salvar', message);
     } finally {
       setIsSaving(false);
     }
@@ -85,28 +225,31 @@ export default function SettingsMyAccountScreen() {
       <SafeAreaView style={styles.container}>
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={colors.primary} />
+          <Text style={styles.loadingText}>Carregando sua conta...</Text>
         </View>
       </SafeAreaView>
     );
   }
+
+  const initials = getInitials(account.name, account.email);
 
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()}>
           <View style={styles.backButton}>
-            <Text style={styles.backIcon}>â†</Text>
+            <Text style={styles.backIcon}>{'<'}</Text>
           </View>
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Minha Conta</Text>
         <TouchableOpacity
           onPress={handleSave}
-          disabled={!hasChanges || isSaving}
+          disabled={!hasChanges || isSaving || isUploadingAvatar}
         >
           <Text
             style={[
               styles.headerAction,
-              (!hasChanges || isSaving) && styles.headerActionDisabled,
+              (!hasChanges || isSaving || isUploadingAvatar) && styles.headerActionDisabled,
             ]}
           >
             {isSaving ? 'Salvando...' : 'Salvar'}
@@ -119,20 +262,27 @@ export default function SettingsMyAccountScreen() {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
       >
-        {/* Avatar Section */}
         <View style={styles.avatarSection}>
           <TouchableOpacity
             style={styles.avatarButton}
             onPress={handleChangePhoto}
+            disabled={isSaving || isUploadingAvatar}
           >
             <View style={styles.avatar}>
-              <Text style={styles.avatarText}>{account.avatar}</Text>
+              {account.avatar ? (
+                <Image source={{ uri: account.avatar }} resizeMode="cover" style={styles.avatarImage} />
+              ) : (
+                <Text style={styles.avatarText}>{initials}</Text>
+              )}
             </View>
-            <Text style={styles.avatarEditLabel}>Editar foto</Text>
+            <Text style={styles.avatarEditLabel}>
+              {isUploadingAvatar ? 'Enviando...' : 'Alterar foto'}
+            </Text>
           </TouchableOpacity>
         </View>
 
-        {/* Form Fields */}
+        {requestError ? <Text style={styles.errorText}>{requestError}</Text> : null}
+
         <View style={styles.formGroup}>
           <View style={styles.formField}>
             <Text style={styles.fieldLabel}>Nome</Text>
@@ -140,7 +290,9 @@ export default function SettingsMyAccountScreen() {
               style={styles.fieldInput}
               value={account.name}
               onChangeText={(text) => handleFieldChange('name', text)}
+              placeholder="Seu nome"
               placeholderTextColor={colors.textTertiary}
+              editable={!isSaving}
             />
           </View>
 
@@ -150,9 +302,12 @@ export default function SettingsMyAccountScreen() {
               style={styles.fieldInput}
               value={account.username}
               onChangeText={(text) => handleFieldChange('username', text)}
+              placeholder="seu.usuario"
               placeholderTextColor={colors.textTertiary}
+              autoCapitalize="none"
+              editable={!isSaving}
             />
-            <Text style={styles.fieldHint}>Seu identificador Ãºnico no app</Text>
+            <Text style={styles.fieldHint}>Identificador publico do perfil.</Text>
           </View>
 
           <View style={styles.formField}>
@@ -161,23 +316,26 @@ export default function SettingsMyAccountScreen() {
               style={[styles.fieldInput, styles.bioInput]}
               value={account.bio}
               onChangeText={(text) => handleFieldChange('bio', text)}
-              multiline
-              numberOfLines={3}
+              placeholder="Conte um pouco sobre voce"
               placeholderTextColor={colors.textTertiary}
+              multiline
+              maxLength={150}
+              editable={!isSaving}
             />
-            <Text style={styles.fieldHint}>
-              {account.bio.length}/150 caracteres
-            </Text>
+            <Text style={styles.fieldHint}>{account.bio.length}/150 caracteres</Text>
           </View>
 
           <View style={styles.formField}>
-            <Text style={styles.fieldLabel}>E-mail</Text>
+            <Text style={styles.fieldLabel}>Email</Text>
             <TextInput
               style={styles.fieldInput}
               value={account.email}
               onChangeText={(text) => handleFieldChange('email', text)}
-              keyboardType="email-address"
+              placeholder="email@exemplo.com"
               placeholderTextColor={colors.textTertiary}
+              keyboardType="email-address"
+              autoCapitalize="none"
+              editable={!isSaving}
             />
           </View>
 
@@ -185,10 +343,12 @@ export default function SettingsMyAccountScreen() {
             <Text style={styles.fieldLabel}>Telefone</Text>
             <TextInput
               style={styles.fieldInput}
-              value={account.phone}
-              onChangeText={(text) => handleFieldChange('phone', text)}
-              keyboardType="phone-pad"
+              value={account.phoneNumber}
+              onChangeText={(text) => handleFieldChange('phoneNumber', text)}
+              placeholder="+55 11 99999-9999"
               placeholderTextColor={colors.textTertiary}
+              keyboardType="phone-pad"
+              editable={!isSaving}
             />
           </View>
         </View>
@@ -206,6 +366,11 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+    gap: spacing.sm,
+  },
+  loadingText: {
+    color: colors.textSecondary,
+    fontSize: fontSize.sm,
   },
   header: {
     flexDirection: 'row',
@@ -260,22 +425,37 @@ const styles = StyleSheet.create({
     gap: spacing.md,
   },
   avatar: {
-    width: 68,
-    height: 68,
-    borderRadius: 34,
-    backgroundColor: colors.primary,
+    width: 76,
+    height: 76,
+    borderRadius: 38,
+    backgroundColor: colors.surface,
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 2,
     borderColor: colors.primary,
+    overflow: 'hidden',
+  },
+  avatarImage: {
+    width: '100%',
+    height: '100%',
   },
   avatarText: {
-    fontSize: 28,
+    color: colors.primary,
+    fontSize: fontSize.lg,
+    fontWeight: '900',
   },
   avatarEditLabel: {
     fontSize: fontSize.sm,
     color: colors.primary,
     fontWeight: '700',
+  },
+  errorText: {
+    color: colors.error,
+    fontSize: fontSize.sm,
+    lineHeight: 18,
+    marginHorizontal: spacing.md,
+    marginBottom: spacing.md,
+    textAlign: 'center',
   },
   formGroup: {
     paddingHorizontal: spacing.md,

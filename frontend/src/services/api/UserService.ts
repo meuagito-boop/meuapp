@@ -2,8 +2,10 @@ import ApiClient from './ApiClient';
 
 export interface UserProfile {
   id: string;
-  name: string;
+  name?: string;
   email: string;
+  username?: string;
+  phoneNumber?: string;
   avatar?: string;
   bio?: string;
   coverImage?: string;
@@ -20,8 +22,14 @@ export interface UserProfile {
   createdAt: string;
 }
 
-export interface UpdateProfileRequest {
+export interface UpdateAccountRequest {
   name?: string;
+  email?: string;
+  username?: string | null;
+  phoneNumber?: string | null;
+}
+
+export interface UpdateProfileRequest {
   bio?: string;
   location?: string;
   website?: string;
@@ -50,8 +58,12 @@ class UserService {
     return this.apiClient.get(`/users/${userId}`);
   }
 
-  async updateProfile(data: UpdateProfileRequest): Promise<UserProfile> {
+  async updateAccount(data: UpdateAccountRequest): Promise<UserProfile> {
     return this.apiClient.put('/users/me', data);
+  }
+
+  async updateProfile(data: UpdateProfileRequest): Promise<UserProfile> {
+    return this.apiClient.put('/users/me/profile', data);
   }
 
   async uploadAvatar(
