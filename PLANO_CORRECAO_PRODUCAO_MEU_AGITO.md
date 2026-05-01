@@ -455,7 +455,7 @@ Criterio de aceite:
 | `frontend/app.json:17-44` | Push mobile nao deve depender de Firebase/google-services; Android e iOS precisam de estrategia final sem Firebase | Definir push via SNS/APNs e alternativa Android compativel com a decisao de nao usar Firebase, ou retirar push real do primeiro release |
 | `frontend/src/screens/main/MapScreen.tsx:111-131` | Item da lista do mapa e `TouchableOpacity` sem `onPress` | Conectar item a Perfil/Item ou trocar por `View` nao clicavel |
 | `frontend/src/App.tsx:70-76` | `NavigationContainer` nao recebe config `linking` | Implementar deep links se push/e-mail/link externo precisarem abrir telas internas |
-| `frontend/src/screens/auth/SignUpScreen.tsx:61-67` | `SignUp` sem `profileType` fica em loading infinito | Redirecionar para `ProfileSelection` ou exibir erro acionavel |
+| `frontend/src/screens/auth/SignUpScreen.tsx` | RESOLVIDO no codigo local pela EXECUCAO-007: `SignUp` sem `profileType` mostra estado acionavel para escolher tipo de conta | Validar smoke abrindo `SignUp` direto e fluxo normal por `ProfileSelection` |
 | `frontend/src/screens/auth/PersonalSetupScreen.tsx:104-106` | Botao "Usar minha localizacao atual" define `Sao Paulo, SP` fixo | Usar geolocalizacao real ou remover acao |
 | `frontend/src/screens/auth/PersonalSetupScreen.tsx:119-124` | Avatar do setup pessoal alterna apenas estado local | Implementar picker/upload real ou remover acao |
 | `frontend/src/screens/auth/PersonalSetupScreen.tsx:253-266` | Pular/proximo/finalizar setup nao persistem dados pessoais | Persistir antes de completar onboarding |
@@ -749,7 +749,7 @@ Tabela de navegacao:
 | `frontend/src/App.tsx:70-76` | Abrir app por deep link externo | Rota interna correspondente | `NavigationContainer` sem `linking`; nenhum deep link nativo configurado | Deep links nao existem no app atual | Se push/e-mail/link externo precisarem abrir tela interna, criar `linking` com prefixes, screens e params; se nao, documentar que deep link esta fora do release |
 | `frontend/src/screens/auth/SplashScreen.tsx:31-45` | Abrir app apos splash | `pendingOnboardingScreen`, `Login` ou `Onboarding` | Usa `navigation.replace(...)` para telas registradas | Sem nome inexistente encontrado | Manter; validar em smoke auth |
 | `frontend/src/screens/auth/ProfileSelectionScreen.tsx:46-49` | Escolher tipo de perfil e continuar | `SignUp` com `profileType` e `nextSetupScreen` | `SignUp` recebe parametros corretos | Sem problema na chamada atual | Manter; validar em smoke cadastro |
-| `frontend/src/screens/auth/SignUpScreen.tsx:61-67` | Abrir `SignUp` sem parametros | Voltar para escolha de perfil ou mostrar erro | Tela fica em loading infinito | Parametro obrigatorio ausente nao e tratado | Redirecionar para `ProfileSelection` ou exibir erro acionavel quando `profileType` faltar |
+| `frontend/src/screens/auth/SignUpScreen.tsx` | Abrir `SignUp` sem parametros | Voltar para escolha de perfil ou mostrar erro | Apos EXECUCAO-007, mostra estado acionavel com botao para `ProfileSelection` e link para `Login` | Parametro obrigatorio deixou de causar loading infinito | Validar smoke direto na rota e fluxo normal por `ProfileSelection` |
 | `frontend/src/screens/auth/SignUpScreen.tsx:214-217` | Cadastro concluido | `PersonalSetup` ou `BusinessSetup` | `navigation.replace(resolvedNextScreen)` | Destino dinamico e tipado pelo store, sem rota inexistente encontrada | Manter; validar que backend/store nunca devolvem valor fora de `PersonalSetup`/`BusinessSetup` |
 | `frontend/src/screens/main/FeedSocialScreen.tsx:239-245` | Tocar avatar do autor no feed | Perfil publico do autor | Navega `Profile` com `{ type, userId }` | `ProfileScreen` nao carrega perfil publico por `userId`; para `establishment` tambem falta `establishmentId` | Passar `establishmentId` no feed quando autor for estabelecimento e implementar carregamento de perfil publico de usuario por `userId` |
 | `frontend/src/screens/main/ProfileScreen.tsx:148-192` | Receber `Profile` com `type: 'user'` e `userId` | Perfil do usuario indicado | Renderiza dados da conta logada e ignora `userId` | Parametro de rota aceito pela origem nao e consumido no destino | Criar fluxo de perfil publico de usuario ou bloquear navegacao para autores `USER` |
@@ -780,7 +780,7 @@ Correcoes derivadas:
 1. Corrigir navegacao do feed para perfil publico, eliminando o uso de `userId` em destino que nao o consome.
 2. Corrigir roteamento de notificacoes para preservar `conversationId`, `relatedUserId`, `entityType` e `entityId`.
 3. Decidir e implementar deep links nativos se o release precisar abrir telas por e-mail/push/link externo.
-4. Remover loading infinito de `SignUp` sem `profileType`.
+4. RESOLVIDO no codigo local pela EXECUCAO-007: remover loading infinito de `SignUp` sem `profileType`.
 5. Conectar `MapScreen` list item ou remover comportamento clicavel.
 6. Remover/implementar cards de Activity que terminam em `Em breve`.
 7. Dar caminho real para `SettingsLinkedAccounts` ou remover a rota.
@@ -1716,6 +1716,35 @@ Status:
 
 - RESOLVIDO no codigo local.
 - Pendente para producao: smoke mobile/staging criando post sem midia, criando post com imagem real via upload e editando post existente.
+
+### EXECUCAO-007 - SignUp sem loading infinito quando falta profileType - 2026-05-01
+
+Objetivo executado:
+
+- Fechar o P0 local em que `SignUpScreen` ficava em loading infinito quando aberta sem `profileType`.
+- Dar uma acao real para o usuario voltar ao fluxo correto de escolha de tipo de conta.
+
+Arquivos alterados:
+
+- `frontend/src/screens/auth/SignUpScreen.tsx`
+
+Implementacao:
+
+- Removido o `ActivityIndicator` infinito do caso sem `profileType`.
+- `SignUpScreen` agora mostra um estado acionavel explicando que o usuario precisa escolher o tipo de conta.
+- O botao `Escolher tipo de conta` executa `navigation.replace('ProfileSelection')`.
+- O link secundario leva para `Login`.
+- O fluxo normal vindo de `ProfileSelection` continua enviando `profileType` e `nextSetupScreen`.
+
+Validacao executada:
+
+- `cd frontend && npx tsc --noEmit`: OK.
+- `cd frontend && npm run lint`: OK.
+
+Status:
+
+- RESOLVIDO no codigo local.
+- Pendente para producao: smoke mobile abrindo cadastro pelo fluxo normal e abrindo `SignUp` diretamente sem parametros.
 
 Resumo de bloqueadores absolutos antes de deploy publico real:
 

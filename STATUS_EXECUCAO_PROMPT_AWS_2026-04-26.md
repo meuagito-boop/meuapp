@@ -660,3 +660,23 @@ Status da validacao ponta a ponta:
 
 - o P0 local "FeedService enviando video para DTO que rejeita campo extra" fica RESOLVIDO no codigo.
 - continua pendente de ambiente: smoke mobile/staging criando post sem midia, criando post com imagem real e editando post existente.
+
+## Atualizacao complementar - 2026-05-01 (America/Sao_Paulo) - SignUp sem loading infinito
+
+### Correcao aplicada
+
+- `SignUpScreen` deixou de renderizar `ActivityIndicator` infinito quando aberta sem `profileType`.
+- A tela agora exibe uma mensagem acionavel informando que o usuario precisa escolher o tipo de conta.
+- O botao `Escolher tipo de conta` executa `navigation.replace('ProfileSelection')`.
+- O link secundario direciona para `Login`.
+- O fluxo normal de `ProfileSelection` para `SignUp` permanece com `profileType` e `nextSetupScreen`.
+
+### Validacao executada
+
+- `cd frontend && npx tsc --noEmit`: OK.
+- `cd frontend && npm run lint`: OK.
+
+### Leitura correta apos esta rodada
+
+- o P0 local "SignUp sem profileType em loading infinito" fica RESOLVIDO no codigo.
+- continua pendente de ambiente: smoke mobile abrindo cadastro pelo fluxo normal e abrindo `SignUp` diretamente sem parametros.

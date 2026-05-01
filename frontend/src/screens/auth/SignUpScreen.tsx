@@ -8,7 +8,6 @@ import {
   KeyboardAvoidingView,
   Platform,
   Alert,
-  ActivityIndicator,
 } from 'react-native';
 
 import { useNavigation, useRoute, ParamListBase, type RouteProp } from '@react-navigation/native';
@@ -60,8 +59,20 @@ export default function SignUpScreen() {
 
   if (!profileType) {
     return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color={colors.primary} />
+      <View style={styles.missingProfileTypeContainer}>
+        <Text style={styles.title}>Escolha o tipo de conta</Text>
+        <Text style={styles.subtitle}>
+          Para criar sua conta, selecione antes se ela sera pessoal ou empresarial.
+        </Text>
+        <Button
+          label="Escolher tipo de conta"
+          onPress={() => navigation.replace('ProfileSelection' as never)}
+          fullWidth
+          style={styles.missingProfileTypeButton}
+        />
+        <TouchableOpacity onPress={() => navigation.navigate('Login' as never)}>
+          <Text style={styles.footerText}>Ja tem conta? Faca login</Text>
+        </TouchableOpacity>
       </View>
     );
   }
@@ -356,11 +367,15 @@ export default function SignUpScreen() {
 }
 
 const styles = StyleSheet.create({
-  loadingContainer: {
+  missingProfileTypeContainer: {
     flex: 1,
     backgroundColor: colors.background,
     justifyContent: 'center',
-    alignItems: 'center',
+    paddingHorizontal: spacing.lg,
+  },
+  missingProfileTypeButton: {
+    marginTop: spacing.xl,
+    marginBottom: spacing.lg,
   },
   container: {
     flex: 1,
