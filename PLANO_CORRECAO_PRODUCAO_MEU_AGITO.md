@@ -169,6 +169,15 @@ Evidencias:
 - `frontend/src/screens/main/ItemScreen.tsx:130-139` cria `item-fallback`.
 - `frontend/src/screens/main/ItemScreen.tsx:270-276` mostra alerta `Fluxo fora do MVP atual`.
 
+Status atualizado em 2026-05-01:
+
+- RESOLVIDO no codigo local pela EXECUCAO-002.
+- `CatalogScreen.tsx` nao possui mais `MOCK_CATALOGS` nem categorias fixas por template como substituto de backend.
+- `CatalogScreen.tsx` carrega produtos apenas via `catalogService.getEstablishmentProducts(establishmentId)`; quando a rota nao recebe `establishmentId`, mostra estado vazio honesto sem busca/filtros/itens fake.
+- `ItemScreen.tsx` nao cria mais `item-fallback` e nao mostra CTA generico de pedido/reserva/agenda/assinatura fora do backend real.
+- Produto e evento continuam usando endpoints reais (`CatalogService.getProduct` e `LocationService.getEvent`).
+- Pendente: smoke mobile/staging com estabelecimento real, produto real e evento real.
+
 Impacto:
 
 - O app ainda pode exibir catalogo/item como se fossem reais quando estao em modo mock ou incompleto.
@@ -415,8 +424,8 @@ Criterio de aceite:
 | `frontend/src/screens/main/ActivityScreen.tsx:40-71` | Cards `coming_soon` e alerta `Em breve` | Implementar ou remover |
 | `frontend/src/screens/main/ActivityFavoritesScreen.tsx:27-46` | Favoritos sem lista backend | Criar endpoint/lista ou remover |
 | `frontend/src/screens/main/ActivityHistoryScreen.tsx:27-39` | Historico sem contrato backend | Criar contrato ou remover |
-| `frontend/src/screens/main/CatalogScreen.tsx:57-175` | Catalogo usa mock fora do modo remoto | Exigir dados reais ou estado vazio |
-| `frontend/src/screens/main/ItemScreen.tsx:49-139` | Item generico e acoes fora do MVP | Remover ou implementar contratos |
+| `frontend/src/screens/main/CatalogScreen.tsx` | RESOLVIDO no codigo local: removido `MOCK_CATALOGS`; rota sem `establishmentId` mostra estado honesto | Validar smoke mobile/staging com estabelecimento real |
+| `frontend/src/screens/main/ItemScreen.tsx` | RESOLVIDO no codigo local: removido `item-fallback` e CTA generico sem backend | Validar produto/evento real em device/staging |
 | `frontend/src/screens/main/SettingsMyAccountScreen.tsx:40-77` | Conta fixa, upload vazio, save simulado | Conectar a API de usuario e media |
 | `frontend/src/screens/main/SettingsCityScreen.tsx:22-52` | Cidade e recentes locais | Persistir preferencia real |
 | `frontend/src/screens/main/SettingsScreen.tsx:88-163` | Toggle/acao local | Conectar backend ou remover |
@@ -460,7 +469,7 @@ Criterio de aceite:
 - [ ] Onboarding business validado ponta a ponta.
 - [ ] Settings persistindo dados reais ou ocultando itens fora do release.
 - [ ] Favoritos/historico implementados ou removidos.
-- [ ] Catalogo e Item sem fallback fake.
+- [x] Catalogo e Item sem fallback fake no codigo local; smoke mobile/staging pendente.
 - [ ] Delete account validando senha no backend.
 - [ ] Endpoints de gestao de catalogo com UI owner ou fora do release.
 - [ ] Env de producao criado e revisado.
@@ -579,8 +588,8 @@ Classificacao por area:
 | Feed | Implementado e funcional em codigo | `frontend/src/services/api/FeedService.ts`, `backend/src/modules/feed/feed.controller.ts` | Ainda depende de smoke real |
 | Busca | Implementado e funcional em codigo | `frontend/src/services/api/SearchService.ts`, `backend/src/modules/search/search.controller.ts` | Ainda depende de smoke real |
 | Perfil estabelecimento | Implementado e funcional em codigo | `frontend/src/screens/main/ProfileScreen.tsx`, `frontend/src/services/api/LocationService.ts` | Estados vazios reais existem |
-| Catalogo publico de produto | Criado parcialmente | `frontend/src/screens/main/CatalogScreen.tsx:159-189` | Real quando recebe `establishmentId`; mock quando nao recebe |
-| Item produto/evento | Criado parcialmente | `frontend/src/screens/main/ItemScreen.tsx:157-229` | Produto/evento real; templates genericos incompletos |
+| Catalogo publico de produto | Implementado no codigo local; smoke pendente | `frontend/src/screens/main/CatalogScreen.tsx` | Real quando recebe `establishmentId`; rota sem contexto mostra estado honesto sem mock |
+| Item produto/evento | Implementado no codigo local para produto/evento; smoke pendente | `frontend/src/screens/main/ItemScreen.tsx` | Produto/evento real; templates genericos sem backend nao exibem CTA fake |
 | Chat | Implementado e funcional em codigo | `frontend/src/screens/main/ChatScreen.tsx`, `backend/src/modules/chat/chat.gateway.ts` | Requer smoke 2 usuarios e Redis externo |
 | Notificacoes in-app | Implementado e funcional em codigo | `frontend/src/services/api/NotificationsService.ts:69-105`, `backend/src/modules/notifications/notifications.controller.ts:29-100` | Tela ainda tem placeholders visuais |
 | Push real | Pendente para producao/deploy | `backend/src/common/notification/notification.service.ts:48-52` | SNS pode ficar desabilitado |
@@ -612,8 +621,8 @@ Tabela de problemas exigida pelo prompt:
 | `frontend/src/screens/main/ActivityScreen.tsx` | Cards `coming_soon` exibem alerta `Em breve` | Criado parcialmente | Area principal mostra recurso nao entregue | `frontend/src/screens/main/ActivityScreen.tsx:40-71` | Implementar ou ocultar cards | P1 |
 | `frontend/src/screens/main/ActivityFavoritesScreen.tsx` | Tela declara falta de endpoint/lista consolidada | Criado parcialmente | Favoritos nao estao consumiveis nesta area | `frontend/src/screens/main/ActivityFavoritesScreen.tsx:27-46` | Criar endpoint/lista ou remover tela | P1 |
 | `frontend/src/screens/main/ActivityHistoryScreen.tsx` | Tela declara falta de contrato canonico de historico | Criado parcialmente | Historico nao e funcional | `frontend/src/screens/main/ActivityHistoryScreen.tsx:27-39` | Criar contrato ou remover tela | P1 |
-| `frontend/src/screens/main/CatalogScreen.tsx` | Catalogo usa `MOCK_CATALOGS` quando nao ha `establishmentId` | Mockado/estatico/fake | Usuario pode ver produtos/servicos fake | `frontend/src/screens/main/CatalogScreen.tsx:57-175` | Remover fallback mock ou exigir contexto real | P0 |
-| `frontend/src/screens/main/ItemScreen.tsx` | Templates genericos possuem `item-fallback` e CTA fora do MVP | Criado parcialmente | CTA de pedido/reserva/agenda nao executa fluxo real | `frontend/src/screens/main/ItemScreen.tsx:49-139`, `270-276` | Remover CTAs ou implementar contratos reais | P0 |
+| `frontend/src/screens/main/CatalogScreen.tsx` | RESOLVIDO no codigo local: `MOCK_CATALOGS` removido e rota sem `establishmentId` nao renderiza catalogo fake | Pendente smoke | Evita produtos/servicos fake no caminho publico | `frontend/src/screens/main/CatalogScreen.tsx` | Validar com estabelecimento real e banco vazio em staging | P0 ate smoke |
+| `frontend/src/screens/main/ItemScreen.tsx` | RESOLVIDO no codigo local: `item-fallback` e CTA generico removidos | Pendente smoke | Evita CTA de pedido/reserva/agenda sem backend | `frontend/src/screens/main/ItemScreen.tsx` | Validar produto/evento real e rota invalida em device/staging | P0 ate smoke |
 | `frontend/src/services/api/UserService.ts` + `backend/src/modules/users/users.controller.ts` | UI de delete account pode pedir senha, mas service/backend deletam sem senha | Quebrado ou sem ligacao | Garantia de seguranca inconsistente | `frontend/src/services/api/UserService.ts:93-95`; `backend/src/modules/users/users.controller.ts:269-280` | Validar senha no backend antes de soft delete | P0 |
 | `frontend/src/screens/main/NotificationsScreen.tsx` | Tela tem placeholders `??` e `?` visiveis | Mockado/estatico/fake | UI final fica quebrada | `frontend/src/screens/main/NotificationsScreen.tsx:49-69`, `306-335` | Trocar por icones/textos reais | P1 |
 | `frontend/src/screens/main/SettingsMyAccountScreen.tsx` e telas Settings | Textos mojibake visiveis | Quebrado ou sem ligacao | Release visualmente quebrado | `frontend/src/screens/main/SettingsMyAccountScreen.tsx:41-44`; `SettingsScreen.tsx:89-90`; `SettingsPrivacyScreen.tsx:88-115` | Normalizar encoding e revisar strings | P1 |
@@ -669,8 +678,8 @@ Matriz de telas:
 | Perfil | Sim | Sim | Sim, tab e navegacao por busca/feed/home | Real para estabelecimento | Sim | Fallback visual de avatar/produto | Sim em codigo; depende smoke | `RootNavigator.tsx:189-197`, `ProfileScreen.tsx:191-193`, `233-256` |
 | Configuracoes | Sim | Sim | Sim, tab | Parcial/local | Parcial | Varios itens estaticos/local-only | Nao | `RootNavigator.tsx:198-211`, `SettingsScreen.tsx:55-176`; conectar ou remover itens |
 | Notificacoes | Sim | Sim | Sim, via Feed/header e MainStack | Real | Sim | Placeholders `??`/`?` | Nao | `RootNavigator.tsx:220`, `FeedSocialScreen.tsx:204`, `NotificationsScreen.tsx:138-226`, `49-69`, `306-335` |
-| Catalogo | Sim | Sim | Sim, via Perfil | Real somente com `establishmentId` | Sim | `MOCK_CATALOGS` quando sem remoto | Nao | `RootNavigator.tsx:221`, `ProfileScreen.tsx:233-242`, `CatalogScreen.tsx:57-175`, `182-189` |
-| Item | Sim | Sim | Sim, via Home/Catalogo/Perfil | Real para produto/evento | Sim | `item-fallback` e CTA fora do MVP | Nao | `RootNavigator.tsx:222`, `CatalogScreen.tsx:328`, `ItemScreen.tsx:49-139`, `169-208`, `270-289` |
+| Catalogo | Sim | Sim | Sim, via Perfil | Real com `establishmentId`; sem contexto mostra estado honesto | Sim | Nao encontrado no codigo local apos EXECUCAO-002 | Sim em codigo; depende smoke | `RootNavigator.tsx:221`, `ProfileScreen.tsx:233-242`, `CatalogScreen.tsx`; validar staging/device |
+| Item | Sim | Sim | Sim, via Home/Catalogo/Perfil | Real para produto/evento | Sim | Nao encontrado no codigo local apos EXECUCAO-002 | Sim em codigo; depende smoke | `RootNavigator.tsx:222`, `CatalogScreen.tsx`, `ItemScreen.tsx`; validar produto/evento e rota invalida |
 | Favoritos | Sim | Sim | Sim, via Atividade | Nao consome lista real | Nao | Tela informa lacuna | Nao | `RootNavigator.tsx:74`, `ActivityScreen.tsx:33-76`, `ActivityFavoritesScreen.tsx:27-46` |
 | Historico | Sim | Sim | Sim, via Atividade | Nao existe contrato real | Nao | Tela informa lacuna | Nao | `RootNavigator.tsx:75`, `ActivityScreen.tsx:57-76`, `ActivityHistoryScreen.tsx:27-39` |
 | Minha conta | Sim | Sim | Sim, via Settings | Fake/local | Nao | Dados fixos, upload vazio, save simulado | Nao | `RootNavigator.tsx:84`, `SettingsScreen.tsx:65`, `SettingsMyAccountScreen.tsx:40-77` |
@@ -1283,8 +1292,8 @@ Regra absoluta de release: nunca deixar em producao mock, botao sem acao, alerta
 | `frontend/src/screens/main/ActivityScreen.tsx` | Central de atividade | Ver historico/favoritos/interacoes reais | Parcial/nao comprovado | Parcial | Sim se tab/entrada visivel | Criar backend novo e conectar ou manter fora do release | Definir cards com contadores reais e rotas funcionais; sem card morto | P1; P0 se exibe dado falso |
 | `frontend/src/screens/main/ActivityFavoritesScreen.tsx` | Favoritos | Ver itens favoritados reais | Nao comprovado | Nao comprovado | Sim se recurso visivel | Criar model/migration/DTO/controller/service e conectar frontend | Model favoritos, endpoints listar/adicionar/remover, empty state real | P1; P0 se visivel fake |
 | `frontend/src/screens/main/ActivityHistoryScreen.tsx` | Historico | Ver itens visitados/acoes recentes | Nao comprovado | Nao comprovado | Nao necessariamente | Manter fora do release ou criar backend novo | Se mantido, implementar tracking real; se nao, ocultar entrada em producao | P1 se visivel; P2 se oculto |
-| `frontend/src/screens/main/CatalogScreen.tsx` | Catalogo | Ver produtos/eventos reais de estabelecimento | Sim parcial via products/events; validar filtros | Sim products/events | Sim | Conectar ao backend existente e corrigir contrato | Remover `MOCK_CATALOGS`, consumir endpoints reais, empty state sem fake | P0 |
-| `frontend/src/screens/main/ItemScreen.tsx` | Detalhe de item | Ver produto/evento real e agir | Sim parcial; validar detalhe por tipo | Sim products/events | Sim se catalogo/home abrem item | Conectar ao backend existente e corrigir contrato | Remover fallback fake, buscar por id/tipo, tratar 404/empty | P0 |
+| `frontend/src/screens/main/CatalogScreen.tsx` | Catalogo | Ver produtos reais de estabelecimento | Sim via `GET /establishments/:id/products`; eventos entram por Home/Item | Sim products/events | Sim | Conectado ao backend existente no codigo local | `MOCK_CATALOGS` removido; rota sem `establishmentId` mostra estado honesto; validar smoke | P0 ate smoke |
+| `frontend/src/screens/main/ItemScreen.tsx` | Detalhe de item | Ver produto/evento real e agir | Sim via `GET /products/:id` e `GET /events/:id`; acoes de presenca usam backend | Sim products/events | Sim se catalogo/home abrem item | Conectado ao backend existente no codigo local | `item-fallback` e CTA generico removidos; validar 404/empty e device real | P0 ate smoke |
 | `frontend/src/screens/main/SearchScreen.tsx` | `RECENT_SEARCHES` | Reusar buscas recentes reais | Nao comprovado | Pode ser local storage aceitavel se declarado; backend nao obrigatorio | Sim se exibido | Corrigir contrato ou persistir local sem fingir backend | Declarar local-only honesto ou criar endpoint/preferencia; nao exibir sugestoes fake como reais | P1; P0 se parece dado real |
 | `frontend/src/screens/main/MapScreen.tsx` | Item clicavel no mapa/lista | Abrir perfil/item do lugar/evento | Endpoint de origem parcial; destino existe parcialmente | Sim para establishment/event/product | Sim | Conectar ao backend existente/corrigir navegacao | Adicionar `onPress` real para Perfil/Item ou trocar por View nao clicavel | P0 se clicavel sem acao |
 | `frontend/src/screens/main/NotificationsScreen.tsx` | Roteamento ao tocar notificacao | Abrir conversa, perfil, item ou entidade relacionada | Parcial via notifications/chat/profile | Sim parcial | Sim se notificacoes visiveis | Corrigir contrato frontend/backend | Usar payload real, nested route com params e fallback honesto | P1; P0 se push/notificacoes no release |
@@ -1331,7 +1340,7 @@ Regra aplicada nesta revisao: item confirmado no codigo fica marcado como resolv
 | Storage e midia | Aprovado apos ressalvas | Confirmado no codigo, com pendencia de ambiente | `backend/src/modules/media/storage.service.ts` usa S3/LOCAL; `backend/src/config/env.validation.ts` aceita apenas `none/s3`; `backend/src/modules/media/media.controller.ts` tem `GET /media/protected/:mediaId`; `backend/src/modules/feed/feed.service.ts` rejeita data URI/base64 em fluxo real | RESOLVIDO no codigo; validar bucket S3/CloudFront real, lifecycle e permissoes |
 | Auth, JWT e permissoes | Aprovado apos ressalvas | Confirmado no codigo | `backend/src/modules/auth/auth.service.ts` usa `jwtid: randomUUID()`; `backend/src/common/enums/account-type.enum.ts` define `USER/ESTABLISHMENT`; `backend/src/modules/auth/guards/resource-owner.guard.ts` existe; busca por `isAdmin` no auth/schema nao retornou fluxo ativo | RESOLVIDO no codigo; smoke mobile auth ainda obrigatorio |
 | Conta de estabelecimento | Aprovado | Confirmado parcial no codigo | `backend/src/modules/establishments` tem DTOs de create/update/list com latitude/longitude/openingHours; frontend tem `BusinessSetupScreen.tsx` | Nao reabrir backend como problema; validar onboarding empresarial ponta a ponta em staging/device |
-| Produtos/vitrine | Aprovado no backend | Backend confirmado; frontend ainda parcial | `backend/src/modules/products/products.controller.ts` e `products.service.ts` existem com AuditLog; `frontend/src/screens/main/CatalogScreen.tsx` ainda tem `MOCK_CATALOGS` quando nao ha `establishmentId` | Backend RESOLVIDO; corrigir frontend Catalog/Item para nao expor fallback fake |
+| Produtos/vitrine | Aprovado no backend | Backend confirmado; frontend corrigido no codigo local | `backend/src/modules/products/products.controller.ts` e `products.service.ts` existem com AuditLog; EXECUCAO-002 removeu `MOCK_CATALOGS` e `item-fallback` de `CatalogScreen.tsx`/`ItemScreen.tsx` | Backend RESOLVIDO; frontend RESOLVIDO no codigo local; validar Catalog/Item em smoke mobile/staging |
 | Feed social | Aprovado apos correcao | Confirmado no codigo | `backend/src/modules/feed/agito-feed.controller.ts` expoe `GET /feed/agito`; `feed.service.ts` tem cursor pagination; `frontend/src/screens/main/FeedSocialScreen.tsx` consome `agitoPosts/getAgitoFeed` | RESOLVIDO para T_AGITO; manter Home/discovery em escopo separado |
 | Geo/discovery | Aprovado apos correcao | Confirmado no backend; smoke pendente | `backend/src/common/geo/geo.utils.ts` calcula bounding box/distancia; `opening-hours.utils.ts`; `events`, `establishments` e `search` usam latitude/longitude/distancia/openNow | RESOLVIDO no codigo backend; validar qualidade dos resultados e tela mobile com banco real |
 | Chat e tempo real | Aprovado com validacao manual pendente | Confirmado no codigo local | `backend/src/common/realtime/redis-io.adapter.ts`; `backend/src/modules/chat/chat.gateway.ts`; `chat.service.ts` usa AuditLog e anexos via media | Nao reabrir implementacao; validar multi-instancia ECS/Redis em staging |
@@ -1421,7 +1430,7 @@ Base: `.codex/PROJECT_CONTEXT.md` define MVP funcional, coeso, enxuto, com nucle
 | Home/discovery | Sim | Descoberta de eventos/locais | Parcial; depende dados reais e empty states | Entra com backend real e banco vazio correto | Sem cards fake |
 | Busca | Sim | Encontrar locais/eventos | Backend real; `RECENT_SEARCHES` local fake | Entra apos corrigir recentes/empty state | P1/P0 se visivel fake |
 | Perfil usuario/estabelecimento | Sim | Identidade e vitrine | Parcial para perfil publico usuario | Entra com escopo claro | Bloquear rotas que fingem perfil publico inexistente |
-| Catalogo/item | Sim para estabelecimento/produto/evento | Vitrine publica | Backend existe; frontend ainda fallback mock | Entra apenas sem `MOCK_CATALOGS`/fallback fake | P0 |
+| Catalogo/item | Sim para estabelecimento/produto/evento | Vitrine publica | Backend existe; frontend sem fallback mock no codigo local | Entra apos smoke mobile/staging confirmar produto/evento reais e banco vazio | P0 ate smoke |
 | Mapa | Sim se discovery usa mapa | Localizar itens | Parcial; item clicavel sem acao no plano | Entra se navegacao real/empty state ok | P0 se item clicavel morto |
 | Chat | Sim se interacao entre usuarios/estabelecimentos | Conversa real | Backend confirmado; smoke multi-device pendente | Entra se smoke realtime passar | P0 se exposto |
 | Notificacoes in-app | Sim | Alertas internos | Backend/service existem; roteamento parcial | Entra com roteamento honesto | Push pode ser fora do MVP se documentado |
@@ -1441,7 +1450,7 @@ A matriz do PROMPT-008 continua valida. Complemento obrigatorio: antes de oculta
 |---|---|---|
 | AWS staging real antes de producao | Docs AWS exigem ECS/ECR/RDS/Redis/S3/CloudFront/ALB/ACM/SES/SNS/Secrets/CloudWatch | Subir staging e aprovar smoke completo antes de prod |
 | Health check expandido | Implementado no codigo: DB + Redis obrigatorio + storage local/S3 configuravel | Validar no ALB/ECS staging com RDS, ElastiCache e S3 reais |
-| Catalog/Item sem fallback fake | `CatalogScreen.tsx` ainda tem `MOCK_CATALOGS` | Conectar backend real/empty state ou ocultar entradas |
+| Catalog/Item sem fallback fake | RESOLVIDO no codigo local pela EXECUCAO-002; smoke mobile/staging pendente | Validar estabelecimento real, produto real, evento real e rotas sem contexto |
 | Settings criticas com estado local/fake | Plano ja lista MyAccount/Privacy/Security/Delete | Conectar backend ou ocultar itens nao prontos |
 | Build mobile release real | Ainda pendente EAS/processo equivalente/device real | Gerar APK/AAB, validar env e smoke em device |
 | SES/SNS/S3/Redis reais | Codigo existe, ambiente real nao validado | Validar providers em staging AWS |
@@ -1516,6 +1525,40 @@ Status:
 
 - RESOLVIDO no codigo local.
 - Pendente para producao: validar `/health` no ambiente AWS staging real com RDS, ElastiCache Redis/Valkey e S3 reais.
+
+### EXECUCAO-002 - Catalogo/Item sem fallback fake - 2026-05-01
+
+Objetivo executado:
+
+- Fechar o P0 local de Catalogo/Item que permitia dados fake ou CTA sem backend.
+- Garantir que a vitrine publica consuma backend real ou mostre estado honesto.
+- Impedir que templates genericos exibam item/acao como se existissem em producao.
+
+Arquivos alterados:
+
+- `frontend/src/screens/main/CatalogScreen.tsx`
+- `frontend/src/screens/main/ItemScreen.tsx`
+
+Implementacao:
+
+- `CatalogScreen` deixou de declarar e usar `MOCK_CATALOGS`.
+- `CatalogScreen` carrega itens apenas com `catalogService.getEstablishmentProducts(establishmentId)`.
+- Rota de Catalogo sem `establishmentId` agora mostra `Catalogo indisponivel` sem busca, filtros ou cards simulados.
+- O indicador visual `SHR` sem acao foi removido do cabecalho do Catalogo.
+- `ItemScreen` deixou de criar `item-fallback`.
+- `ItemScreen` deixou de exibir CTA generico para pedido, reserva, agenda, assinatura ou carrinho fora do backend real.
+- Produto e evento permanecem conectados aos endpoints reais (`GET /products/:id`, `GET /events/:id`, confirmar/cancelar presenca).
+
+Validacao executada:
+
+- `cd frontend && npm run lint`: OK.
+- `cd frontend && npx tsc --noEmit`: OK.
+- Varredura em `CatalogScreen.tsx`, `ItemScreen.tsx` e `CatalogService.ts`: sem `MOCK_CATALOGS`, `item-fallback`, `Fluxo fora do MVP`, `em breve`, `fake`, `dummy`, `sample`, `TODO`, `FIXME` ou `console.log` neste recorte.
+
+Status:
+
+- RESOLVIDO no codigo local.
+- Pendente para producao: smoke mobile/staging abrindo Catalogo por perfil de estabelecimento real, produto real, evento real e banco vazio sem seed.
 
 Resumo de bloqueadores absolutos antes de deploy publico real:
 

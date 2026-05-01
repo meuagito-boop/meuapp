@@ -46,32 +46,6 @@ type ItemRouteParams = {
   item?: GenericItemPayload;
 };
 
-const GENERIC_ACTION_BY_TEMPLATE: Record<
-  Exclude<ItemTemplate, 'produto' | 'evento'>,
-  { label: string; info: string }
-> = {
-  servico: {
-    label: 'Agendar',
-    info: 'Disponivel em fase posterior ao MVP atual.',
-  },
-  prato: {
-    label: 'Adicionar ao carrinho',
-    info: 'Pedido e carrinho continuam fora do escopo deste bloco.',
-  },
-  quarto: {
-    label: 'Reservar',
-    info: 'Reservas ainda nao fazem parte do runtime validado.',
-  },
-  plano: {
-    label: 'Assinar',
-    info: 'Assinaturas ainda nao fazem parte do runtime validado.',
-  },
-  procedimento: {
-    label: 'Agendar',
-    info: 'Agendamentos ainda nao fazem parte do runtime validado.',
-  },
-};
-
 const formatPrice = (value?: number | null) => {
   if (value == null) {
     return 'Consulte';
@@ -128,15 +102,7 @@ export default function ItemScreen() {
   const routeParams = route.params as ItemRouteParams | undefined;
 
   const template: ItemTemplate = routeParams?.template ?? 'servico';
-  const genericItem: GenericItemPayload =
-    routeParams?.item ?? {
-      id: 'item-fallback',
-      name: 'Item',
-      description: 'Detalhes indisponiveis.',
-      category: 'Categoria',
-      price: 'Consulte',
-      fallbackLabel: 'ITM',
-    };
+  const genericItem = routeParams?.item ?? null;
 
   const [expandedDescription, setExpandedDescription] = useState(false);
   const [product, setProduct] = useState<CatalogProduct | null>(null);
@@ -147,12 +113,12 @@ export default function ItemScreen() {
   const [productError, setProductError] = useState<string | null>(null);
   const [eventError, setEventError] = useState<string | null>(null);
 
-  const resolvedProductId = routeParams?.productId ?? genericItem.id;
-  const resolvedEventId = genericItem.id;
+  const resolvedProductId = routeParams?.productId ?? genericItem?.id;
+  const resolvedEventId = genericItem?.id;
 
   useEffect(() => {
     setExpandedDescription(false);
-  }, [genericItem.id, resolvedProductId, resolvedEventId, template]);
+  }, [genericItem?.id, resolvedProductId, resolvedEventId, template]);
 
   useEffect(() => {
     if (template !== 'produto' || !resolvedProductId) {
@@ -265,15 +231,6 @@ export default function ItemScreen() {
         establishmentId: productEstablishmentId,
       },
     });
-  };
-
-  const handleGenericAction = () => {
-    if (template === 'produto' || template === 'evento') {
-      return;
-    }
-
-    const action = GENERIC_ACTION_BY_TEMPLATE[template];
-    Alert.alert('Fluxo fora do MVP atual', action.info);
   };
 
   const handleEventAction = async () => {
@@ -564,44 +521,15 @@ export default function ItemScreen() {
     );
   }
 
-  const genericAction = GENERIC_ACTION_BY_TEMPLATE[template];
-
   return (
-    <View style={styles.container}>
-      {renderHeader(genericItem.name)}
-
-      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        <View style={styles.gallery}>
-          {genericItem.imageUrl ? (
-            <Image source={{ uri: genericItem.imageUrl }} resizeMode="cover" style={styles.galleryImage} />
-          ) : (
-            <Text style={styles.galleryFallback}>{genericItem.fallbackLabel || 'ITM'}</Text>
-          )}
-          {genericItem.badge ? <Text style={styles.galleryBadge}>{genericItem.badge}</Text> : null}
-        </View>
-
-        <Text style={styles.itemName}>{genericItem.name}</Text>
-        <Text style={styles.itemCategory}>{genericItem.category}</Text>
-        <Text style={styles.itemDescription}>{genericItem.description}</Text>
-
-        <View style={styles.priceCard}>
-          <Text style={styles.sectionLabel}>Preco</Text>
-          <Text style={styles.priceValue}>{genericItem.price}</Text>
-        </View>
-
-        <View style={styles.sectionCard}>
-          <Text style={styles.sectionLabel}>Fluxo atual</Text>
-          <Text style={styles.sectionText}>{genericAction.info}</Text>
-        </View>
-
-        <View style={styles.bottomSpacer} />
-      </ScrollView>
-
-      <View style={styles.actionFooter}>
-        <TouchableOpacity style={styles.primaryAction} onPress={handleGenericAction}>
-          <Text style={styles.primaryActionText}>{genericAction.label}</Text>
-        </TouchableOpacity>
-      </View>
+    <View style={styles.centerState}>
+      <Text style={styles.errorTitle}>Item indisponivel</Text>
+      <Text style={styles.centerText}>
+        Nao foi possivel abrir este item. Acesse por uma vitrine publicada ou pela lista de eventos.
+      </Text>
+      <TouchableOpacity style={styles.primaryAction} onPress={() => navigation.goBack()}>
+        <Text style={styles.primaryActionText}>Voltar</Text>
+      </TouchableOpacity>
     </View>
   );
 }

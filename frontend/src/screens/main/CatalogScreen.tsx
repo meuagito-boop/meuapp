@@ -54,84 +54,6 @@ const TEMPLATE_LABEL: Record<CatalogTemplate, string> = {
   evento: 'Eventos',
 };
 
-const MOCK_CATALOGS: Record<CatalogTemplate, CatalogItem[]> = {
-  prato: [
-    {
-      id: 'dish-1',
-      name: 'Pizza Margherita',
-      description: 'Molho artesanal, mozzarella e manjericao.',
-      category: 'Pratos',
-      price: 'R$ 49,90',
-      badge: 'Mais pedido',
-      fallbackLabel: 'PZA',
-    },
-  ],
-  produto: [],
-  quarto: [
-    {
-      id: 'room-1',
-      name: 'Suite Deluxe',
-      description: 'Vista especial e cafe da manha incluso.',
-      category: 'Deluxe',
-      price: 'R$ 420 / noite',
-      badge: 'Disponivel',
-      fallbackLabel: 'BED',
-    },
-  ],
-  plano: [
-    {
-      id: 'plan-1',
-      name: 'Plano anual',
-      description: 'Acesso total e economia anual.',
-      category: 'Anual',
-      price: 'R$ 99 / mes',
-      badge: 'Mais escolhido',
-      fallbackLabel: 'SUB',
-    },
-  ],
-  procedimento: [
-    {
-      id: 'proc-1',
-      name: 'Consulta dermatologica',
-      description: 'Avaliacao completa com especialista.',
-      category: 'Consultas',
-      price: 'R$ 180,00',
-      fallbackLabel: 'MED',
-    },
-  ],
-  servico: [
-    {
-      id: 'service-1',
-      name: 'Corte + barba',
-      description: 'Pacote completo com finalizacao.',
-      category: 'Combos',
-      price: 'R$ 75,00',
-      fallbackLabel: 'CUT',
-    },
-  ],
-  evento: [
-    {
-      id: 'event-1',
-      name: 'Noite de rock',
-      description: 'Bandas locais ao vivo.',
-      category: 'Shows',
-      price: 'R$ 35,00',
-      badge: 'Hoje',
-      fallbackLabel: 'EVT',
-    },
-  ],
-};
-
-const CATEGORY_LABELS_BY_TEMPLATE: Record<CatalogTemplate, string[]> = {
-  prato: ['Todos', 'Entradas', 'Pratos', 'Sobremesas', 'Bebidas'],
-  produto: ['Todos'],
-  quarto: ['Todos', 'Standard', 'Deluxe', 'Suite'],
-  plano: ['Todos', 'Mensal', 'Anual'],
-  procedimento: ['Todos', 'Consultas', 'Estetica'],
-  servico: ['Todos', 'Cortes', 'Barba', 'Combos'],
-  evento: ['Todos', 'Hoje', 'Shows'],
-};
-
 const formatPrice = (value?: number | null) => {
   if (value == null) {
     return 'Consulte';
@@ -159,17 +81,18 @@ export default function CatalogScreen() {
   const establishmentId = routeParams?.establishmentId;
   const establishmentName = routeParams?.establishmentName ?? 'Estabelecimento';
   const remoteMode = Boolean(establishmentId);
+  const hasRealCatalogSource = remoteMode && Boolean(establishmentId);
   const template: CatalogTemplate = remoteMode ? 'produto' : routeParams?.template ?? 'servico';
 
   const [query, setQuery] = useState('');
   const [activeCategory, setActiveCategory] = useState('Todos');
-  const [items, setItems] = useState<CatalogItem[]>(remoteMode ? [] : MOCK_CATALOGS[template]);
+  const [items, setItems] = useState<CatalogItem[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!remoteMode || !establishmentId) {
-      setItems(MOCK_CATALOGS[template]);
+    if (!hasRealCatalogSource || !establishmentId) {
+      setItems([]);
       setIsLoading(false);
       setLoadError(null);
       return;
@@ -206,11 +129,11 @@ export default function CatalogScreen() {
     return () => {
       isMounted = false;
     };
-  }, [establishmentId, remoteMode, template]);
+  }, [establishmentId, hasRealCatalogSource]);
 
   const categories = useMemo(() => {
-    if (!remoteMode) {
-      return CATEGORY_LABELS_BY_TEMPLATE[template];
+    if (!hasRealCatalogSource) {
+      return ['Todos'];
     }
 
     const dynamicCategories = Array.from(
@@ -218,7 +141,7 @@ export default function CatalogScreen() {
     );
 
     return ['Todos', ...dynamicCategories];
-  }, [items, remoteMode, template]);
+  }, [hasRealCatalogSource, items]);
 
   useEffect(() => {
     if (!categories.includes(activeCategory)) {
@@ -240,6 +163,18 @@ export default function CatalogScreen() {
     });
   }, [activeCategory, items, query]);
 
+  const hasActiveFilter = query.trim().length > 0 || activeCategory !== 'Todos';
+  const emptyTitle = !hasRealCatalogSource
+    ? 'Catalogo indisponivel'
+    : hasActiveFilter
+    ? 'Nenhum item encontrado'
+    : 'Nenhum item publicado';
+  const emptySubtitle = !hasRealCatalogSource
+    ? 'Acesse a vitrine por um perfil de estabelecimento publicado.'
+    : hasActiveFilter
+    ? 'Ajuste o termo da busca ou limpe os filtros atuais.'
+    : 'A vitrine publica deste estabelecimento ainda nao possui produtos ativos.';
+
   return (
     <View style={styles.container}>
       <View style={styles.header}>
@@ -254,45 +189,47 @@ export default function CatalogScreen() {
           <Text style={styles.headerSubtitle}>{TEMPLATE_LABEL[template]}</Text>
         </View>
 
-        <View style={styles.circleButton}>
-          <Text style={styles.circleIcon}>SHR</Text>
-        </View>
+        <View style={styles.headerGhost} />
       </View>
 
-      <View style={styles.searchContainer}>
-        <Text style={styles.searchIcon}>SRC</Text>
-        <TextInput
-          value={query}
-          onChangeText={setQuery}
-          placeholder={`Buscar em ${TEMPLATE_LABEL[template].toLowerCase()}`}
-          placeholderTextColor={colors.textTertiary}
-          style={styles.searchInput}
-        />
-        {query.length > 0 ? (
-          <TouchableOpacity onPress={() => setQuery('')}>
-            <Text style={styles.clearSearch}>X</Text>
-          </TouchableOpacity>
-        ) : null}
-      </View>
+      {hasRealCatalogSource ? (
+        <>
+          <View style={styles.searchContainer}>
+            <Text style={styles.searchIcon}>SRC</Text>
+            <TextInput
+              value={query}
+              onChangeText={setQuery}
+              placeholder={`Buscar em ${TEMPLATE_LABEL[template].toLowerCase()}`}
+              placeholderTextColor={colors.textTertiary}
+              style={styles.searchInput}
+            />
+            {query.length > 0 ? (
+              <TouchableOpacity onPress={() => setQuery('')}>
+                <Text style={styles.clearSearch}>X</Text>
+              </TouchableOpacity>
+            ) : null}
+          </View>
 
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.chipsRow}
-      >
-        {categories.map((category) => {
-          const active = category === activeCategory;
-          return (
-            <TouchableOpacity
-              key={category}
-              style={[styles.chip, active && styles.chipActive]}
-              onPress={() => setActiveCategory(category)}
-            >
-              <Text style={[styles.chipText, active && styles.chipTextActive]}>{category}</Text>
-            </TouchableOpacity>
-          );
-        })}
-      </ScrollView>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.chipsRow}
+          >
+            {categories.map((category) => {
+              const active = category === activeCategory;
+              return (
+                <TouchableOpacity
+                  key={category}
+                  style={[styles.chip, active && styles.chipActive]}
+                  onPress={() => setActiveCategory(category)}
+                >
+                  <Text style={[styles.chipText, active && styles.chipTextActive]}>{category}</Text>
+                </TouchableOpacity>
+              );
+            })}
+          </ScrollView>
+        </>
+      ) : null}
 
       {isLoading ? (
         <View style={styles.emptyState}>
@@ -306,14 +243,8 @@ export default function CatalogScreen() {
         </View>
       ) : filteredItems.length === 0 ? (
         <View style={styles.emptyState}>
-          <Text style={styles.emptyTitle}>
-            {remoteMode ? 'Nenhum item publicado' : 'Nenhum item encontrado'}
-          </Text>
-          <Text style={styles.emptySubtitle}>
-            {remoteMode
-              ? 'A vitrine publica deste estabelecimento ainda nao possui produtos ativos.'
-              : 'Ajuste o termo da busca ou limpe os filtros atuais.'}
-          </Text>
+          <Text style={styles.emptyTitle}>{emptyTitle}</Text>
+          <Text style={styles.emptySubtitle}>{emptySubtitle}</Text>
         </View>
       ) : (
         <FlatList
@@ -392,6 +323,10 @@ const styles = StyleSheet.create({
   headerTitles: {
     flex: 1,
     alignItems: 'center',
+  },
+  headerGhost: {
+    width: 34,
+    height: 34,
   },
   headerTitle: {
     color: colors.text,

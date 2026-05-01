@@ -536,3 +536,26 @@ Status da validacao ponta a ponta:
 
 - o P0 local "health check expandido" fica RESOLVIDO no codigo.
 - continua pendente de ambiente: validar `/health` no AWS staging real com RDS, ElastiCache Redis/Valkey e S3 reais atras do ALB.
+
+## Atualizacao complementar - 2026-05-01 (America/Sao_Paulo) - Catalogo/Item sem fallback fake
+
+### Correção aplicada
+
+- `CatalogScreen` deixou de manter `MOCK_CATALOGS` para prato, quarto, plano, procedimento, servico e evento.
+- `CatalogScreen` agora usa apenas `catalogService.getEstablishmentProducts(establishmentId)` para listar produtos reais de estabelecimento.
+- Catalogo aberto sem `establishmentId` passa a mostrar estado honesto de rota sem contexto, sem busca/filtros/cards simulados.
+- O indicador visual `SHR` sem acao foi removido do cabecalho do Catalogo.
+- `ItemScreen` deixou de criar `item-fallback`.
+- `ItemScreen` deixou de exibir botoes genericos de pedido, reserva, agenda, assinatura ou carrinho quando nao existe backend real para o template.
+- Produto e evento continuam usando APIs reais: `CatalogService.getProduct`, `LocationService.getEvent`, `attendEvent` e `cancelAttendance`.
+
+### Validação executada
+
+- `cd frontend && npm run lint`: OK.
+- `cd frontend && npx tsc --noEmit`: OK.
+- Varredura no recorte `CatalogScreen.tsx`, `ItemScreen.tsx` e `CatalogService.ts`: sem `MOCK_CATALOGS`, `item-fallback`, `Fluxo fora do MVP`, `em breve`, `fake`, `dummy`, `sample`, `TODO`, `FIXME` ou `console.log`.
+
+### Leitura correta apos esta rodada
+
+- o P0 local "Catalog/Item sem fallback fake" fica RESOLVIDO no codigo.
+- continua pendente de ambiente: smoke mobile/staging com estabelecimento real, produto real, evento real e banco vazio sem seed.
