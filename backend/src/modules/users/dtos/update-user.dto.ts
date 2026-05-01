@@ -1,4 +1,4 @@
-import { IsEmail, IsString, IsEnum, IsOptional, MinLength } from 'class-validator';
+import { IsEmail, IsString, IsEnum, IsOptional, MinLength, Matches } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 import { AccountType } from '@common/enums/account-type.enum';
 
@@ -31,6 +31,10 @@ export class UpdateUserDto {
   })
   @IsString()
   @MinLength(3)
+  @Matches(/^[a-zA-Z0-9._]{3,30}$/, {
+    message:
+      'Username must be 3-30 characters and contain only letters, numbers, dots or underscores',
+  })
   @IsOptional()
   username?: string | null;
 

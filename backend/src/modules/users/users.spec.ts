@@ -23,6 +23,7 @@ describe('UsersService', () => {
     id: 'test-id',
     email: 'test@example.com',
     name: 'Test User',
+    username: 'test.user',
     password: 'hashed-password',
     profileType: 'USER',
     bio: 'Test bio',
@@ -139,6 +140,52 @@ describe('UsersService', () => {
       const result = await service.findAll({ search: 'Test' });
 
       expect(result.data).toBeDefined();
+    });
+  });
+
+  describe('isUsernameAvailable', () => {
+    it('should return available when username is not used', async () => {
+      jest.spyOn(prismaService.user, 'findUnique').mockResolvedValue(null);
+
+      const result = await service.isUsernameAvailable('New.User');
+
+      expect(result).toEqual({
+        username: 'new.user',
+        available: true,
+      });
+      expect(prismaService.user.findUnique).toHaveBeenCalledWith({
+        where: { username: 'new.user' },
+        select: { id: true },
+      });
+    });
+
+    it('should return unavailable when username belongs to another user', async () => {
+      jest.spyOn(prismaService.user, 'findUnique').mockResolvedValue({ id: 'other-id' });
+
+      const result = await service.isUsernameAvailable('taken.user', 'test-id');
+
+      expect(result).toEqual({
+        username: 'taken.user',
+        available: false,
+      });
+    });
+
+    it('should return available when username belongs to current user', async () => {
+      jest.spyOn(prismaService.user, 'findUnique').mockResolvedValue({ id: 'test-id' });
+
+      const result = await service.isUsernameAvailable('test.user', 'test-id');
+
+      expect(result).toEqual({
+        username: 'test.user',
+        available: true,
+      });
+    });
+
+    it('should reject invalid username', async () => {
+      await expect(service.isUsernameAvailable('invalid user')).rejects.toThrow(
+        BadRequestException
+      );
+      expect(prismaService.user.findUnique).not.toHaveBeenCalled();
     });
   });
 
@@ -395,6 +442,7 @@ describe('UsersController', () => {
             findAll: jest.fn(),
             update: jest.fn(),
             updateProfile: jest.fn(),
+            isUsernameAvailable: jest.fn(),
             softDelete: jest.fn(),
             followUser: jest.fn(),
             unfollowUser: jest.fn(),
@@ -471,6 +519,22 @@ describe('UsersController', () => {
       const result = await controller.listUsers({ page: 1, limit: 10 });
 
       expect(result).toBeDefined();
+    });
+  });
+
+  describe('checkUsernameAvailability', () => {
+    it('should check username availability for current user', async () => {
+      jest.spyOn(usersService, 'isUsernameAvailable').mockResolvedValue({
+        username: 'test.user',
+        available: true,
+      });
+
+      const result = await controller.checkUsernameAvailability('test-id', {
+        username: 'test.user',
+      });
+
+      expect(result.available).toBe(true);
+      expect(usersService.isUsernameAvailable).toHaveBeenCalledWith('test.user', 'test-id');
     });
   });
 

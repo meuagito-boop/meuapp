@@ -62,6 +62,12 @@ class UserService {
     return this.apiClient.put('/users/me', data);
   }
 
+  async checkUsernameAvailability(username: string): Promise<{ username: string; available: boolean }> {
+    return this.apiClient.get('/users/username/availability', {
+      params: { username },
+    });
+  }
+
   async updateProfile(data: UpdateProfileRequest): Promise<UserProfile> {
     return this.apiClient.put('/users/me/profile', data);
   }

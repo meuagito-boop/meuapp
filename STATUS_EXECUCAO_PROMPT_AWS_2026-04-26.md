@@ -700,3 +700,32 @@ Status da validacao ponta a ponta:
 
 - o P0 local "MapScreen com item clicavel sem onPress" fica RESOLVIDO no codigo.
 - continua pendente de ambiente: smoke mobile/staging alternando mapa/lista, abrindo evento real, abrindo estabelecimento real, testando lista vazia e permissao/localizacao.
+
+## Atualizacao complementar - 2026-05-01 (America/Sao_Paulo) - PersonalSetup real
+
+### Correcao aplicada
+
+- `PersonalSetupScreen` deixou de simular disponibilidade de username com `setTimeout`/`includes('taken')`.
+- Backend recebeu `GET /users/username/availability`, protegido por JWT, com DTO e validacao de formato.
+- `UsersService.isUsernameAvailable()` normaliza username, rejeita formato invalido e considera disponivel o username que ja pertence ao usuario autenticado.
+- `UpdateUserDto` passou a validar o mesmo formato de username.
+- Mobile passou a chamar `UserService.checkUsernameAvailability()`.
+- Avatar do setup pessoal passou a usar `expo-image-picker` e `userStore.uploadAvatar()` contra `POST /users/me/avatar`.
+- Botao de localizacao deixou de definir `Sao Paulo, SP` fixo e passou a usar `GeolocationService.getCurrentLocation()` + reverse geocode.
+- Finalizacao do onboarding pessoal passou a persistir `PUT /users/me`, `PUT /users/me/profile` e so depois executar `completeOnboarding({ tab: 'Home' })`.
+- A etapa de interesses foi removida do fluxo atual porque nao existe model/endpoint canonico para persistir preferencias/interesses sem criar backend novo.
+
+### Validacao executada
+
+- `cd backend && npx jest src/modules/users/users.spec.ts --runInBand`: OK.
+- `cd backend && npm run build`: OK.
+- `cd backend && npm run lint`: OK.
+- `cd frontend && npx tsc --noEmit`: OK.
+- `cd frontend && npm run lint`: OK.
+- Varredura em `PersonalSetupScreen.tsx` para `setTimeout`, `taken`, `Sao Paulo`, `INTERESTS`, `selectedInterests`, `Pular`, `mock`, `fake`, `dummy`, `sample`, `TODO`, `FIXME`, `console.log` e `onPress={() => {}}`: sem ocorrencias.
+
+### Leitura correta apos esta rodada
+
+- o P0 local "PersonalSetup com username/GPS/avatar/finalizacao fake" fica RESOLVIDO no codigo.
+- continua pendente de ambiente: smoke mobile/staging com usuario pessoal novo, DB vazio, username livre/duplicado/invalido, permissao de localizacao concedida/negada e upload real em S3/CloudFront.
+- continua pendente de produto/backend futuro: preferencias/interesses pessoais so podem voltar a UI depois de model/migration/DTO/controller/service reais ou decisao formal de escopo.

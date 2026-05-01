@@ -30,6 +30,7 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { UpdateUserDto } from './dtos/update-user.dto';
 import { UpdateProfileDto } from './dtos/update-profile.dto';
 import { DeleteAccountDto } from './dtos/delete-account.dto';
+import { UsernameAvailabilityQueryDto } from './dtos/username-availability.dto';
 import { PaginationDto } from '../../common/dtos/pagination.dto';
 import { MediaService } from '@modules/media/media.service';
 import { CurrentUserId } from '@modules/auth/decorators/current-user.decorator';
@@ -67,6 +68,28 @@ export class UsersController {
   })
   async getCurrentUser(@CurrentUserId() userId: string) {
     return this.usersService.findById(userId);
+  }
+
+  @Get('username/availability')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Check username availability for current user' })
+  @ApiQuery({ name: 'username', required: true, type: String })
+  @ApiResponse({
+    status: 200,
+    description: 'Username availability',
+    schema: {
+      example: {
+        username: 'joao.silva',
+        available: true,
+      },
+    },
+  })
+  async checkUsernameAvailability(
+    @CurrentUserId() userId: string,
+    @Query() query: UsernameAvailabilityQueryDto
+  ) {
+    return this.usersService.isUsernameAvailable(query.username, userId);
   }
 
   // ===== PARAMETERIZED SUB-ROUTES (:id/xxx - must come before :id) =====

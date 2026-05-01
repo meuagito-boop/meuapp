@@ -131,14 +131,17 @@ Evidencias:
 
 - `frontend/src/screens/auth/PersonalSetupScreen.tsx:66-79` simula disponibilidade de username com `setTimeout` e `includes('taken')`.
 - `frontend/src/screens/auth/PersonalSetupScreen.tsx:81-87` finaliza chamando apenas `completeOnboarding()`.
+- Status atualizado em 2026-05-01: os achados acima foram RESOLVIDOS no codigo local pela EXECUCAO-009. `PersonalSetupScreen` passou a consultar disponibilidade real via `GET /users/username/availability`, enviar avatar por `POST /users/me/avatar`, obter localizacao real via `GeolocationService`, persistir username por `PUT /users/me` e bio/cidade por `PUT /users/me/profile` antes de chamar `completeOnboarding()`. A etapa de interesses foi retirada do release atual porque nao existe model/endpoint canonico de preferencias/interesses no backend atual. Pendencias remanescentes: smoke mobile/staging, S3/CloudFront real para avatar e permissao de localizacao em dispositivo real.
 
 Impacto:
 
-- Dados de perfil pessoal, username, cidade e interesses nao ficam garantidos no backend.
+- Historico anterior: dados de perfil pessoal, username, cidade e interesses nao ficavam garantidos no backend.
+- Estado atual no codigo local: username, bio, cidade/localizacao e avatar ficam conectados a services reais; interesses nao sao exibidos ate existir contrato backend oficial.
 
 Correcao:
 
-- Criar endpoints/servicos para salvar setup pessoal e validar username de forma real.
+- RESOLVIDO no codigo local para username, bio, cidade/localizacao e avatar pela EXECUCAO-009.
+- Manter interesses fora da UI de producao ate existir model/migration/DTO/controller/service real ou decisao formal de produto.
 
 ### B5 - Activity, Favoritos e Historico existem, mas nao estao completos
 
@@ -342,15 +345,18 @@ Criterio de aceite:
 
 ### Fase 3 - Onboarding pessoal
 
-1. Criar endpoint de disponibilidade de username ou usar contrato existente, se houver.
-2. Persistir username, cidade e interesses no backend.
-3. Ajustar `completeOnboarding()` para rodar somente depois da persistencia.
-4. Validar fluxo cadastro pessoal completo.
+1. RESOLVIDO no codigo local pela EXECUCAO-009: criar endpoint de disponibilidade de username (`GET /users/username/availability`) e consumir pelo mobile.
+2. RESOLVIDO no codigo local pela EXECUCAO-009: persistir username por `PUT /users/me` e bio/cidade por `PUT /users/me/profile`.
+3. RESOLVIDO no codigo local pela EXECUCAO-009: avatar do setup pessoal usa picker/upload real via `POST /users/me/avatar`.
+4. RESOLVIDO no codigo local pela EXECUCAO-009: `completeOnboarding()` roda somente depois da persistencia de conta/perfil.
+5. DECISAO DE ESCOPO: interesses foram removidos do fluxo atual porque nao existe contrato backend canonico para persistir preferencias/interesses.
+6. Validar fluxo cadastro pessoal completo em device/staging.
 
 Criterio de aceite:
 
 - Usuario pessoal recem-criado entra no app com perfil salvo no backend.
 - Username duplicado e rejeitado pelo backend.
+- Tela nao exibe etapa de interesses fake enquanto nao existir backend real.
 
 ### Fase 4 - Activity, Favoritos e Historico
 
@@ -431,7 +437,7 @@ Criterio de aceite:
 | `backend/src/common/email/email.service.ts:51-55` | E-mail pode ficar desabilitado | Exigir SES no ambiente final |
 | `backend/src/common/notification/notification.service.ts:48-52` | Push pode ficar desabilitado | Exigir SNS no ambiente final |
 | `docker-compose.yml:79-82` | Storage/email/push desligados no runtime local | Nao usar compose local como prova de producao |
-| `frontend/src/screens/auth/PersonalSetupScreen.tsx:66-87` | Username e onboarding pessoal simulados | Validar e persistir no backend |
+| `frontend/src/screens/auth/PersonalSetupScreen.tsx` | RESOLVIDO no codigo local pela EXECUCAO-009: username, bio, cidade/localizacao e avatar deixaram de ser simulados | Validar smoke mobile/staging; manter interesses fora do release ate existir backend real |
 | `frontend/src/screens/main/ActivityScreen.tsx:40-71` | Cards `coming_soon` e alerta `Em breve` | Implementar ou remover |
 | `frontend/src/screens/main/ActivityFavoritesScreen.tsx:27-46` | Favoritos sem lista backend | Criar endpoint/lista ou remover |
 | `frontend/src/screens/main/ActivityHistoryScreen.tsx:27-39` | Historico sem contrato backend | Criar contrato ou remover |
@@ -456,9 +462,9 @@ Criterio de aceite:
 | `frontend/src/screens/main/MapScreen.tsx` | RESOLVIDO no codigo local pela EXECUCAO-008: item da lista e callout de marker navegam para `Item`/`Profile` | Validar smoke de mapa/lista com evento e estabelecimento reais |
 | `frontend/src/App.tsx:70-76` | `NavigationContainer` nao recebe config `linking` | Implementar deep links se push/e-mail/link externo precisarem abrir telas internas |
 | `frontend/src/screens/auth/SignUpScreen.tsx` | RESOLVIDO no codigo local pela EXECUCAO-007: `SignUp` sem `profileType` mostra estado acionavel para escolher tipo de conta | Validar smoke abrindo `SignUp` direto e fluxo normal por `ProfileSelection` |
-| `frontend/src/screens/auth/PersonalSetupScreen.tsx:104-106` | Botao "Usar minha localizacao atual" define `Sao Paulo, SP` fixo | Usar geolocalizacao real ou remover acao |
-| `frontend/src/screens/auth/PersonalSetupScreen.tsx:119-124` | Avatar do setup pessoal alterna apenas estado local | Implementar picker/upload real ou remover acao |
-| `frontend/src/screens/auth/PersonalSetupScreen.tsx:253-266` | Pular/proximo/finalizar setup nao persistem dados pessoais | Persistir antes de completar onboarding |
+| `frontend/src/screens/auth/PersonalSetupScreen.tsx` | RESOLVIDO no codigo local pela EXECUCAO-009: GPS deixou de definir `Sao Paulo, SP` fixo e usa `GeolocationService` + reverse geocode | Validar permissao/localizacao em device real |
+| `frontend/src/screens/auth/PersonalSetupScreen.tsx` | RESOLVIDO no codigo local pela EXECUCAO-009: avatar do setup pessoal usa picker/upload real | Validar S3/CloudFront em staging |
+| `frontend/src/screens/auth/PersonalSetupScreen.tsx` | RESOLVIDO no codigo local pela EXECUCAO-009: finalizar setup persiste conta/perfil antes do onboarding completo | Validar usuario novo pessoal em DB vazio/staging |
 | `frontend/src/screens/main/SearchScreen.tsx:52` + `frontend/src/screens/main/SearchScreen.tsx:295-299` | `RECENT_SEARCHES` e estatico apesar de parecer historico/acao real | Persistir buscas recentes reais ou renomear como sugestoes fixas |
 | `frontend/src/screens/main/SettingsAuxScreens.tsx:129-154` | Preferencias de notificacao e idioma sao estaticas/sem persistencia | Criar contratos reais ou ocultar do release |
 | `frontend/src/screens/main/SettingsAuxScreens.tsx:188-210` | Bloqueados e alterar senha sao scaffolds sem lista/formulario real | Implementar lista real e formulario de senha ou remover entradas |
@@ -476,7 +482,7 @@ Criterio de aceite:
 - [ ] Worktree/branch revisada antes de release.
 - [ ] Nenhuma tela de producao com mock, scaffold, `coming_soon` ou botao sem acao.
 - [ ] Nenhum texto corrompido ou placeholder visivel.
-- [ ] Onboarding pessoal persistindo no backend.
+- [x] Onboarding pessoal persistindo username, bio, cidade/localizacao e avatar no codigo local; smoke mobile/staging pendente.
 - [ ] Onboarding business validado ponta a ponta.
 - [ ] Settings persistindo dados reais ou ocultando itens fora do release.
 - [ ] Favoritos/historico implementados ou removidos.
@@ -595,7 +601,7 @@ Classificacao por area:
 |---|---|---|---|
 | Auth login/signup/reset/2FA | Implementado e funcional em codigo | `frontend/src/services/api/AuthService.ts`, `backend/src/modules/auth/auth.controller.ts` | Ainda depende de smoke mobile final |
 | Onboarding business | Implementado e funcional em codigo | `frontend/src/screens/auth/BusinessSetupScreen.tsx:337-358` | Cria estabelecimento, sobe midia e completa onboarding |
-| Onboarding pessoal | Mockado/estatico/fake | `frontend/src/screens/auth/PersonalSetupScreen.tsx:66-87` | Username e persistencia nao sao reais |
+| Onboarding pessoal | Implementado no codigo local; smoke pendente | `frontend/src/screens/auth/PersonalSetupScreen.tsx`; `frontend/src/services/api/UserService.ts`; `backend/src/modules/users/users.controller.ts`; `backend/src/modules/users/users.service.ts` | Username, bio, cidade/localizacao e avatar usam backend real; interesses ficam fora do release ate existir contrato backend |
 | Feed | Implementado e funcional em codigo | `frontend/src/services/api/FeedService.ts`, `backend/src/modules/feed/feed.controller.ts` | Ainda depende de smoke real |
 | Busca | Implementado e funcional em codigo | `frontend/src/services/api/SearchService.ts`, `backend/src/modules/search/search.controller.ts` | Ainda depende de smoke real |
 | Perfil estabelecimento | Implementado e funcional em codigo | `frontend/src/screens/main/ProfileScreen.tsx`, `frontend/src/services/api/LocationService.ts` | Estados vazios reais existem |
@@ -622,7 +628,7 @@ Tabela de problemas exigida pelo prompt:
 | `backend/src/common/notification/notification.service.ts` | Push fica desabilitado quando provider nao e `sns` | Pendente para producao/deploy | Push real nao funciona sem erro de build/start | `backend/src/common/notification/notification.service.ts:48-52` | Exigir SNS e validar ARNs por plataforma | P0 |
 | `frontend/src/utils/runtimeApiUrl.ts` | Build de producao cai para `https://api.meuagito.com` se `EXPO_PUBLIC_API_URL` nao existir | Pendente para producao/deploy | App pode apontar para dominio nao validado no release | `frontend/src/utils/runtimeApiUrl.ts:4-43` | Validar DNS/ALB ou exigir `EXPO_PUBLIC_API_URL` no build | P0 |
 | `frontend/app.json` | Estrategia de push mobile sem Firebase ainda precisa ser fechada para Android/iOS | Pendente para producao/deploy | Push real pode ficar fora do release ou sem token nativo em Android | `frontend/app.json:17-44`; decisao do projeto: sem Firebase/Render | Definir SNS/APNs e alternativa Android sem Firebase, ou declarar push fora do MVP | P1 |
-| `frontend/src/screens/auth/PersonalSetupScreen.tsx` | Disponibilidade de username e finalizacao de perfil sao simuladas | Mockado/estatico/fake | Perfil pessoal pode concluir onboarding sem persistencia real | `frontend/src/screens/auth/PersonalSetupScreen.tsx:66-87` | Criar/usar endpoint real de username e salvar setup pessoal | P0 |
+| `frontend/src/screens/auth/PersonalSetupScreen.tsx` + `backend/src/modules/users/users.controller.ts` | RESOLVIDO no codigo local pela EXECUCAO-009: disponibilidade de username e finalizacao de perfil usam backend real | Pendente smoke | Perfil pessoal persiste username, bio, cidade e avatar antes de completar onboarding; interesses nao ficam visiveis sem backend | `PersonalSetupScreen.tsx`; `UserService.checkUsernameAvailability()`; `GET /users/username/availability`; `PUT /users/me`; `PUT /users/me/profile`; `POST /users/me/avatar` | Validar usuario novo pessoal em staging/device, username duplicado, upload avatar e permissao de localizacao | P0 ate smoke |
 | `frontend/src/screens/main/SettingsMyAccountScreen.tsx` | RESOLVIDO no codigo local pela EXECUCAO-004: dados de conta, bio e avatar passaram a usar services reais | Pendente smoke | Usuario edita perfil usando backend real; producao ainda depende de smoke e S3/CloudFront | `SettingsMyAccountScreen.tsx`; `UserService.ts`; `userStore.ts`; `users.service.ts`; `update-user.dto.ts` | Validar device/staging, upload em S3/CloudFront e alteracao de e-mail/username duplicado | P0 ate smoke |
 | `frontend/src/screens/main/SettingsCityScreen.tsx` | Cidades e recentes sao locais/fixos | Mockado/estatico/fake | Preferencia de cidade nao persiste | `frontend/src/screens/main/SettingsCityScreen.tsx:22-52` | Conectar preferencia real ou remover tela | P1 |
 | `frontend/src/screens/main/SettingsScreen.tsx` | GPS e desativacao de conta sao acoes locais/alerta | Quebrado ou sem ligacao | Usuario ve acao sem efeito backend | `frontend/src/screens/main/SettingsScreen.tsx:88-163` | Persistir preferencias e implementar desativacao real | P0 |
@@ -678,7 +684,7 @@ Matriz de telas:
 | TwoFactorLogin | Sim | Sim | Sim | Real | Sim | Nao encontrado | Sim em codigo; depende smoke | `RootNavigator.tsx:59`, `TwoFactorLoginScreen.tsx:30`, `AuthService.ts:84` |
 | VerifyEmail | Sim | Sim | Sim | Real | Sim | Nao encontrado | Parcial ate SES real | `RootNavigator.tsx:62`, `VerifyEmailScreen.tsx:22`, `AuthService.ts:164-172` |
 | ProfileSelection | Sim | Sim | Sim | Selecao local | Nao | Opcoes estaticas e mojibake | Parcial | `RootNavigator.tsx:63`, `ProfileSelectionScreen.tsx:15-49`; corrigir encoding |
-| PersonalSetup | Sim | Sim | Sim | Fake/parcial | Nao | Username simulado | Nao | `RootNavigator.tsx:64`, `PersonalSetupScreen.tsx:66-87`; criar persistencia real |
+| PersonalSetup | Sim | Sim | Sim | Real no codigo local; smoke pendente | Sim | Nao encontrado no codigo local apos EXECUCAO-009; interesses fora do release por ausencia de backend | Sim em codigo; depende smoke | `RootNavigator.tsx:64`, `PersonalSetupScreen.tsx`, `UserService.checkUsernameAvailability()`, `GET /users/username/availability`, `PUT /users/me`, `PUT /users/me/profile`, `POST /users/me/avatar`; validar staging/device |
 | BusinessSetup | Sim | Sim | Sim | Real | Sim | Nao encontrado | Sim em codigo; depende smoke | `RootNavigator.tsx:65`, `BusinessSetupScreen.tsx:219`, `278-358` |
 | Home | Sim | Sim | Sim, tab | Real | Sim | Apenas fallback visual de midia | Sim em codigo; depende smoke | `RootNavigator.tsx:135-142`, `HomeScreen.tsx:180-214` |
 | Feed | Sim | Sim | Sim, tab | Real | Sim | Nao encontrado | Sim em codigo; depende smoke | `RootNavigator.tsx:143-150`, `FeedSocialScreen.tsx:84-90`, `feedStore.ts:164` |
@@ -715,7 +721,7 @@ Resumo do mapeamento:
 - Telas esperadas registradas no navigator: encontradas.
 - Telas esperadas realmente prontas em codigo, dependendo apenas de smoke/deploy: Login, SignUp, TwoFactorLogin, BusinessSetup, Home, Feed, Chat, Perfil, 2FA.
 - Telas com service real mas ainda nao prontas por placeholder/fallback/acao parcial: Buscar e Notificacoes. `Mapa` saiu desta lista no codigo local pela EXECUCAO-008, pendente de smoke.
-- Telas criadas visualmente mas sem backend real suficiente: PersonalSetup, Atividade, Favoritos, Historico, Cidade, Privacidade, Seguranca, Raio de busca, Preferencias de notificacoes, Bloqueados, Alterar senha, Dispositivos, Historico de acessos, Idioma. `Minha conta` saiu desta lista no codigo local pela EXECUCAO-004, pendente apenas de smoke/staging e storage real.
+- Telas criadas visualmente mas sem backend real suficiente: Atividade, Favoritos, Historico, Cidade, Privacidade, Seguranca, Raio de busca, Preferencias de notificacoes, Bloqueados, Alterar senha, Dispositivos, Historico de acessos, Idioma. `Minha conta` saiu desta lista no codigo local pela EXECUCAO-004 e `PersonalSetup` saiu pela EXECUCAO-009, ambos pendentes apenas de smoke/staging e integracoes reais de storage/localizacao quando aplicavel.
 - Tela registrada mas sem acesso de usuario encontrado: Contas vinculadas.
 
 Correcoes derivadas:
@@ -822,7 +828,7 @@ Classificacao por grupos:
 | Funcional real em codigo; smoke pendente | Alterar foto em Minha conta | `frontend/src/screens/main/SettingsMyAccountScreen.tsx`, `UserService.uploadAvatar()` | Usa galeria nativa e `POST /users/me/avatar`; validar S3/CloudFront em staging |
 | Nao implementado | Pedidos, Agendamentos e Reservas em Activity | `frontend/src/screens/main/ActivityScreen.tsx:36-55`, `69-71` | Cards terminam em alerta `Em breve` |
 | Nao implementado | CTAs genericos de Item | `frontend/src/screens/main/ItemScreen.tsx:49-73`, `270-276`, `600-603` | `Agendar`, `Reservar`, `Assinar` e similares apenas exibem alerta |
-| Nao implementado | Setup pessoal real | `frontend/src/screens/auth/PersonalSetupScreen.tsx:66-87`, `104-106`, `119-124`, `253-266` | Username, GPS, avatar, skip e finish sao locais/simulados |
+| Funcional real em codigo; smoke pendente | Setup pessoal real | `frontend/src/screens/auth/PersonalSetupScreen.tsx`; `frontend/src/services/api/UserService.ts`; `backend/src/modules/users/users.controller.ts` | Username, GPS/cidade, avatar, bio e finish usam services reais; interesses fora do release por ausencia de backend canonico |
 
 Tabela de acoes com problema:
 
@@ -847,10 +853,10 @@ Tabela de acoes com problema:
 | `frontend/src/screens/main/ItemScreen.tsx` | CTA generico | Agendar, reservar, assinar, adicionar ao carrinho | RESOLVIDO no codigo local; smoke pendente | Apos EXECUCAO-002, CTA generico fora do backend foi removido | `ItemScreen.tsx` | Validar produto/evento real em device/staging |
 | `frontend/src/screens/main/FeedSocialScreen.tsx` | Avatar do autor | Abrir perfil publico | Parcial | Navega com `{ type, userId }`, mas destino nao consome corretamente esse contrato | `FeedSocialScreen.tsx:239-245` | Passar `establishmentId` ou implementar perfil publico por `userId` |
 | `frontend/src/screens/main/NotificationsScreen.tsx` | Linha de notificacao | Abrir entidade relacionada | Parcial | Marca como lida, mas descarta `conversationId`, `relatedUserId` e `entityType/entityId` | `NotificationsScreen.tsx:222-249`, `274-278` | Criar roteador de notificacoes por entidade |
-| `frontend/src/screens/auth/PersonalSetupScreen.tsx` | Username | Verificar disponibilidade | Mock/fake | Usa `setTimeout` e `!normalized.includes('taken')` | `PersonalSetupScreen.tsx:66-79` | Chamar endpoint real de username |
-| `frontend/src/screens/auth/PersonalSetupScreen.tsx` | Avatar | Adicionar/trocar foto | Mock/fake | Apenas alterna `hasAvatar` local | `PersonalSetupScreen.tsx:119-124` | Implementar picker/upload real |
-| `frontend/src/screens/auth/PersonalSetupScreen.tsx` | GPS | Usar localizacao atual | Mock/fake | Define cidade fixa `Sao Paulo, SP` | `PersonalSetupScreen.tsx:104-106`, `166-168` | Usar permissao/geolocalizacao real |
-| `frontend/src/screens/auth/PersonalSetupScreen.tsx` | Pular/finalizar | Completar setup pessoal | Nao implementado | Avanca etapas localmente e finaliza com `completeOnboarding()` sem persistencia | `PersonalSetupScreen.tsx:81-87`, `97-102`, `253-266` | Salvar username, bio, avatar, cidade e interesses antes de finalizar |
+| `frontend/src/screens/auth/PersonalSetupScreen.tsx` | Username | Verificar disponibilidade | Funcional real em codigo; smoke pendente | Chama `UserService.checkUsernameAvailability()` contra endpoint autenticado | `PersonalSetupScreen.tsx`; `UserService.ts`; `UsersController.checkUsernameAvailability()` | Validar username livre, duplicado e invalido em staging/device |
+| `frontend/src/screens/auth/PersonalSetupScreen.tsx` | Avatar | Adicionar/trocar foto | Funcional real em codigo; smoke pendente | Usa `expo-image-picker` e `userStore.uploadAvatar()` | `PersonalSetupScreen.tsx`; `POST /users/me/avatar` | Validar upload com S3/CloudFront real |
+| `frontend/src/screens/auth/PersonalSetupScreen.tsx` | GPS | Usar localizacao atual | Funcional real em codigo; smoke pendente | Usa `GeolocationService.getCurrentLocation()` e reverse geocode, sem cidade fixa | `PersonalSetupScreen.tsx`; `GeolocationService` | Validar permissao concedida/negada e cidade resolvida em device |
+| `frontend/src/screens/auth/PersonalSetupScreen.tsx` | Finalizar | Completar setup pessoal | Funcional real em codigo; smoke pendente | Persiste `PUT /users/me`, `PUT /users/me/profile` e so depois chama `completeOnboarding()` | `PersonalSetupScreen.tsx`; `UserService.ts`; `userStore.ts` | Validar cadastro pessoal novo em DB vazio/staging |
 | `frontend/src/screens/main/SearchScreen.tsx` | Chips `Buscas rapidas` | Reexecutar busca | Parcial | Acao chama busca real, mas lista vem de constante estatica `RECENT_SEARCHES` | `SearchScreen.tsx:52`, `295-299` | Persistir historico real ou renomear para sugestoes fixas |
 
 Correcoes derivadas:
@@ -895,7 +901,7 @@ Tabela service/endpoints:
 | `AuthService.ts:109-129` | `POST /auth/logout`, `POST /auth/enable-2fa`, `POST /auth/verify-2fa`, `POST /auth/disable-2fa` | `AuthController` `@Post('logout')`, `enable-2fa`, `verify-2fa`, `disable-2fa` em `auth.controller.ts:118-287` | OK estatico | Rotas protegidas dependem do bearer injetado pelo `ApiClient` | Smoke autenticado |
 | `AuthService.ts:135-172` | `POST /auth/request-password-reset`, `reset-password`, `change-password`, `verify-email`, `resend-verification-email` | Endpoints equivalentes em `auth.controller.ts:129-216` | OK estatico | Payloads batem com DTOs; e-mail real depende de SES | Fechar SES e smoke de e-mail |
 | `UserService.ts:45-50` | `GET /users/me`, `GET /users/:userId` | `UsersController` `@Get('me')` e `@Get(':id')` em `users.controller.ts:48-69`, `171-185` | OK estatico | `getUserProfile` usa rota generica, nao `public-profile` | Decidir se perfil publico deve usar `GET /users/:id/public-profile` |
-| `UserService.ts` | `PUT /users/me` para conta e `PUT /users/me/profile` para perfil | `UsersController` `@Put('me')` usa `UpdateUserDto`; `@Put('me/profile')` usa `UpdateProfileDto` em `users.controller.ts:187-233` | OK no codigo local; smoke pendente | EXECUCAO-004 separou `updateAccount` e `updateProfile`; `UpdateUserDto` aceita `username` e `phoneNumber` | Validar smoke autenticado, e-mail/username duplicado e limpeza de bio |
+| `UserService.ts` | `GET /users/username/availability`, `PUT /users/me` para conta e `PUT /users/me/profile` para perfil | `UsersController` `@Get('username/availability')`, `@Put('me')` e `@Put('me/profile')` | OK no codigo local; smoke pendente | EXECUCAO-004 separou `updateAccount`/`updateProfile`; EXECUCAO-009 adicionou check real de username e `UpdateUserDto` valida formato de username | Validar smoke autenticado, username livre/duplicado/invalido, e-mail duplicado e limpeza de bio |
 | `UserService.ts:57-70` | Multipart `POST /users/me/avatar` campo `file` | `UsersController` `@Post('me/avatar')` + `FileInterceptor('file')` em `users.controller.ts:236-267` | OK estatico | Depende de storage real para producao | Validar S3/CloudFront e smoke de upload |
 | `UserService.ts:73-101` | follow/unfollow, followers/following, search `GET /users`, delete `DELETE /users/me` | Endpoints equivalentes em `users.controller.ts:121-169`, `267-309` | OK no codigo local; smoke pendente | Delete account envia senha e backend valida antes do soft delete | Validar em device/staging com senha correta/incorreta e refresh token revogado |
 | `CatalogService.ts:22-28` | `GET /establishments/:id/products`, `GET /products/:id` | `ProductsController` `@Get('establishments/:id/products')`, `@Get('products/:id')` em `products.controller.ts:42-54` | OK no codigo local; smoke pendente | Leitura existe e EXECUCAO-002 removeu fallback fake de Catalog/Item | Validar Catalog/Item com estabelecimento/produto real em staging/device |
@@ -946,7 +952,7 @@ Resultado priorizado por gravidade:
 | P0 | `frontend/src/screens/main/CatalogScreen.tsx:57-123`, `166-172`, `324-334` | `MOCK_CATALOGS` alimenta catalogo quando nao existe `establishmentId`; card pode navegar para `Item` com item local | Nao | Produtos reais do estabelecimento ou estado vazio real | `catalogService.getEstablishmentProducts(establishmentId)` -> `GET /establishments/:id/products`; item real via `GET /products/:id` | Usuario ve cardapio/quartos/planos/servicos que nao existem no backend; gera decisao baseada em dado falso |
 | P0 ate smoke | `frontend/src/screens/main/SettingsMyAccountScreen.tsx`; `frontend/src/services/api/UserService.ts`; `frontend/src/stores/userStore.ts` | RESOLVIDO no codigo local pela EXECUCAO-004: conta inicial fixa, timer e save simulado foram removidos | Nao aplicavel ao codigo local atual; ainda nao aprovado para producao sem smoke | Perfil do usuario autenticado, avatar real, email real, bio reais | `userStore.getProfile()`, `UserService.updateAccount()`, `UserService.updateProfile()`, `UserService.uploadAvatar()` | Risco remanescente de producao esta em storage real, smoke de device e alteracao de e-mail/duplicidade |
 | P0 ate smoke | `frontend/src/screens/main/SettingsMyAccountScreen.tsx` | RESOLVIDO no codigo local pela EXECUCAO-004: alert de foto com funcoes vazias foi substituido por picker/upload real | Nao aplicavel ao codigo local atual; ainda nao aprovado para producao sem smoke | Imagem escolhida pelo usuario e upload real | `expo-image-picker` + `userService.uploadAvatar()` -> `POST /users/me/avatar` | Se S3/CloudFront nao estiverem validados, avatar pode falhar em producao |
-| P0 | `frontend/src/screens/auth/PersonalSetupScreen.tsx:66-79`, `81-87`, `97-105`, `119-124`, `185-205`, `251-266` | Onboarding pessoal valida username com `setTimeout`, usa cidade fixa `Sao Paulo, SP`, avatar booleano local, interesses locais e finaliza sem persistir dados | Nao | Username, bio, cidade, avatar e interesses persistidos no usuario/perfil | Criar/usar endpoints de perfil pessoal: `GET /users/me`, `PUT /users/me/profile`, `POST /users/me/avatar` e endpoint novo de username/interesses/cidade se o modelo exigir | Usuario sai do onboarding com perfil nao configurado no backend; personalizacao/feed ficam inconsistentes |
+| P0 ate smoke | `frontend/src/screens/auth/PersonalSetupScreen.tsx`; `frontend/src/services/api/UserService.ts`; `backend/src/modules/users/users.controller.ts`; `backend/src/modules/users/users.service.ts` | RESOLVIDO no codigo local pela EXECUCAO-009: onboarding pessoal nao usa mais `setTimeout`, cidade fixa, avatar booleano local ou finalizacao sem persistencia | Nao aplicavel ao codigo local atual; ainda nao aprovado para producao sem smoke | Username, bio, cidade/localizacao e avatar reais persistidos; interesses fora do release ate existir backend canonico | `GET /users/username/availability`, `PUT /users/me`, `PUT /users/me/profile`, `POST /users/me/avatar` | Risco remanescente esta em smoke mobile/staging, S3/CloudFront real, permissao de localizacao e decisao futura de preferencias/interesses |
 | P0 | `frontend/src/screens/main/SettingsCityScreen.tsx:22-52`, `71-80`, `104-127` | Lista de cidades e recentes fixos; GPS seleciona `Sao Paulo, SP`; confirmar so atualiza estado local e `goBack()` | Nao | Cidade real por geolocalizacao/permissao e preferencia persistida | `GeolocationService`/`useLocation`; criar endpoint de preferencia de cidade se a cidade for perfil persistente | Feed/localizacao podem parecer atualizados sem alterar backend ou cache; experiencia local incorreta |
 | P1 | `frontend/src/screens/main/SettingsAuxScreens.tsx:375-397` | Dispositivos e historico de acesso exibem `Windows Chrome`, `Android Pixel`, `Sao Paulo, BR`, `Santos, BR` fixos | Nao | Sessoes reais, dispositivos reais e eventos de login/auditoria | Criar endpoints de sessoes/audit log, ou ocultar telas; possivel base: `AuditLogService` backend | Risco de seguranca: usuario ve acessos inventados e nao consegue reconhecer acesso real indevido |
 | P1 | `frontend/src/screens/main/SettingsAuxScreens.tsx:102-154`, `188-210` | Contas vinculadas, raio, preferencias de notificacao, idioma, bloqueados e alterar senha sao linhas estaticas/switches disabled/scaffold sem formulario | Nao para telas de configuracao acionaveis | Estado real das preferencias, provedores vinculados, bloqueios e formulario de senha | Auth: `authService.changePassword()`; notificacoes: `notificationsService`; demais exigem endpoints de preferencias/bloqueios | Usuario altera nada apesar da UI parecer area de conta real; suporte e privacidade ficam inconsistentes |
@@ -980,7 +986,7 @@ Ordem de correcao desta auditoria:
 
 1. Remover `MOCK_CATALOGS` do caminho de producao: se nao houver `establishmentId`, mostrar estado vazio/erro de rota invalida em vez de catalogo local.
 2. RESOLVIDO no codigo local pela EXECUCAO-004: `SettingsMyAccountScreen` usa `userStore.getProfile`, `PUT /users/me`, `PUT /users/me/profile` e `POST /users/me/avatar`; timers e dados de Joao foram removidos.
-3. Reimplementar `PersonalSetupScreen` para persistir perfil, cidade, avatar e interesses; criar endpoints ausentes antes de liberar onboarding pessoal.
+3. RESOLVIDO no codigo local pela EXECUCAO-009: `PersonalSetupScreen` persiste username, bio, cidade/localizacao e avatar; interesses ficaram fora do release por ausencia de backend canonico.
 4. Reimplementar `SettingsCityScreen` com geolocalizacao real e persistencia de cidade, ou remover tela do release.
 5. Ocultar ou implementar telas auxiliares de configuracao que mostram dispositivos, historico, privacidade, notificacoes, idioma, bloqueados e raio sem contrato real.
 6. Remover CTAs de pedidos/agendamentos/reservas/assinaturas/carrinho do release ate existirem endpoints reais.
@@ -1024,7 +1030,7 @@ Checklist por area:
 | TypeScript mobile | README registra OK anterior; script nao existe no package | Rodar tsc direto | `cd frontend && npx tsc --noEmit` | Zero erro de tipo | Sim |
 | Lint mobile | Script existe | Rodar lint | `cd frontend && npm run lint` | Zero erro; warnings aceitaveis documentados | Sim |
 | API URL producao | Pendente | Conferir env do build | `cd frontend && Get-Content .env` e build com `EXPO_PUBLIC_API_URL=https://api...` | Build nao aponta `localhost`; API resolve via HTTPS real | Sim |
-| Remocao de mocks bloqueantes | Parcial | Validar itens PROMPT-006 | Varredura + smoke das telas | Catalogo e minha conta ja resolvidos no codigo local; onboarding pessoal e cidade nao podem simular producao | Sim |
+| Remocao de mocks bloqueantes | Parcial | Validar itens PROMPT-006 | Varredura + smoke das telas | Catalogo, minha conta e onboarding pessoal ja resolvidos no codigo local; cidade/settings/activity ainda nao podem simular producao | Sim |
 | Config de push mobile | Parcial | Conferir estrategia sem Firebase, APNs e env SNS | Build/device com provider definido | Android/iOS geram token nativo sem Firebase ou push fica declarado fora do MVP | Sim para push no release |
 | Deep links/notificacao para telas | Pendente/parcial | Abrir app por notificacao/link | Smoke manual com push real | Notificacao abre entidade correta ou comportamento fora do escopo declarado | Nao para MVP sem deep link; Sim se push exigir roteamento |
 
@@ -1294,7 +1300,7 @@ Regra absoluta de release: nunca deixar em producao mock, botao sem acao, alerta
 
 | Arquivo | Tela/Acao | Intencao do usuario | Existe endpoint? | Existe model Prisma? | Pertence ao MVP? | Decisao | Correcao necessaria | Prioridade |
 |---|---|---|---|---|---|---|---|---|
-| `frontend/src/screens/auth/PersonalSetupScreen.tsx` | Setup pessoal, username/interesses/localizacao | Concluir perfil real apos cadastro | Parcial/nao comprovado para todos os campos | Parcial via User/Profile; validar schema atual | Sim | Corrigir contrato frontend/backend ou criar endpoint faltante | Persistir dados reais, validar username real, remover simulacao e smoke com DB vazio | P0 |
+| `frontend/src/screens/auth/PersonalSetupScreen.tsx` | Setup pessoal, username/localizacao/avatar/bio; interesses fora do release | Concluir perfil real apos cadastro | Sim para username, perfil e avatar: `GET /users/username/availability`, `PUT /users/me`, `PUT /users/me/profile`, `POST /users/me/avatar`; nao existe endpoint canonico de interesses | Sim via User/Profile e media; nao existe model canonico de interesses/preferencias | Sim | Conectar backend existente - RESOLVIDO no codigo local pela EXECUCAO-009; manter interesses fora do release | Smoke mobile/staging, DB vazio, username duplicado/invalido, upload avatar e permissao de localizacao | P0 ate smoke |
 | `frontend/src/screens/main/SettingsMyAccountScreen.tsx` | Editar dados da conta/avatar | Atualizar conta real e midia | Sim: `PUT /users/me`, `PUT /users/me/profile`, `POST /users/me/avatar` | Sim para usuario; midia depende Media/S3 | Sim | Conectar ao backend existente - RESOLVIDO no codigo local pela EXECUCAO-004 | Smoke mobile/staging, S3/CloudFront, erro de duplicidade e alteracao de e-mail | P0 ate smoke |
 | `frontend/src/screens/main/SettingsCityScreen.tsx` | Alterar cidade/preferencia | Salvar cidade real usada em home/busca | Nao comprovado | Parcial se User/Profile tiver localizacao; cidade preferida precisa validar | Sim se cidade afeta descoberta | Criar backend novo e conectar ou manter fora do release | Persistir cidade, recarregar home/busca/mapa e remover lista local fake | P1; vira P0 se visivel com fake |
 | `frontend/src/screens/main/SettingsPrivacyScreen.tsx` | Alterar privacidade/mensagens/check-ins | Controlar exposicao de dados e interacoes | Nao comprovado | Nao comprovado | Sim para release profissional | Criar model/migration/DTO/controller/service e conectar frontend, ou ocultar temporariamente | Modelar preferencias, endpoint GET/PUT, carregar estado real e salvar | P1; P0 se visivel alterando so estado local |
@@ -1435,7 +1441,7 @@ Base: `.codex/PROJECT_CONTEXT.md` define MVP funcional, coeso, enxuto, com nucle
 | Funcionalidade | Pertence ao MVP? | Valor real | Estado atual | Decisao | Observacao |
 |---|---|---|---|---|---|
 | Auth/cadastro/login/refresh | Sim | Entrada no app e identidade | Backend confirmado; smoke mobile pendente | Entra no release | P0 validar ponta a ponta |
-| Onboarding pessoal | Sim | Completar perfil real | Parcial no plano | Entra se persistir real; caso contrario bloquear release | Nao pode simular username/perfil |
+| Onboarding pessoal | Sim | Completar perfil real | Conectado no codigo local; smoke pendente | Entra apos smoke mobile/staging | Username, bio, cidade/localizacao e avatar usam backend real; interesses ficam fora do release ate existir backend canonico |
 | Onboarding empresarial | Sim | Criar estabelecimento real | Backend/tela existem; smoke pendente | Entra no release | Validar criacao com midia/geocode/horarios |
 | Feed social T_AGITO | Sim | Conteudo social real | Confirmado no codigo | Entra no release | Nao reabrir como mock |
 | Home/discovery | Sim | Descoberta de eventos/locais | Parcial; depende dados reais e empty states | Entra com backend real e banco vazio correto | Sem cards fake |
@@ -1462,6 +1468,7 @@ A matriz do PROMPT-008 continua valida. Complemento obrigatorio: antes de oculta
 | AWS staging real antes de producao | Docs AWS exigem ECS/ECR/RDS/Redis/S3/CloudFront/ALB/ACM/SES/SNS/Secrets/CloudWatch | Subir staging e aprovar smoke completo antes de prod |
 | Health check expandido | Implementado no codigo: DB + Redis obrigatorio + storage local/S3 configuravel | Validar no ALB/ECS staging com RDS, ElastiCache e S3 reais |
 | Catalog/Item sem fallback fake | RESOLVIDO no codigo local pela EXECUCAO-002; smoke mobile/staging pendente | Validar estabelecimento real, produto real, evento real e rotas sem contexto |
+| Onboarding pessoal real | RESOLVIDO no codigo local pela EXECUCAO-009; smoke mobile/staging pendente | Validar usuario pessoal novo com DB vazio, username livre/duplicado/invalido, upload avatar e permissao de localizacao |
 | Settings criticas com estado local/fake | MyAccount resolvido no codigo local pela EXECUCAO-004; Delete resolvido pela EXECUCAO-003; Privacy/Security/City e preferencias auxiliares ainda parciais | Conectar backend ou ocultar itens nao prontos; validar MyAccount/Delete em smoke |
 | Build mobile release real | Ainda pendente EAS/processo equivalente/device real | Gerar APK/AAB, validar env e smoke em device |
 | SES/SNS/S3/Redis reais | Codigo existe, ambiente real nao validado | Validar providers em staging AWS |
@@ -1775,6 +1782,51 @@ Status:
 
 - RESOLVIDO no codigo local.
 - Pendente para producao: smoke mobile/staging alternando mapa/lista, abrindo evento real, abrindo estabelecimento real, testando lista vazia e permissao/localizacao.
+
+### EXECUCAO-009 - PersonalSetup real sem mock de username/GPS/avatar/interesses - 2026-05-01
+
+Objetivo executado:
+
+- Fechar o P0 local em que `PersonalSetupScreen` simulava username, cidade/GPS, avatar e finalizacao de onboarding sem persistir dados reais.
+- Conectar o onboarding pessoal aos contratos backend ja existentes quando havia suporte real.
+- Evitar manter etapa de interesses fake em producao enquanto nao existe model/endpoint canonico para preferencias/interesses.
+
+Arquivos alterados:
+
+- `backend/src/modules/users/dtos/username-availability.dto.ts`
+- `backend/src/modules/users/dtos/update-user.dto.ts`
+- `backend/src/modules/users/users.controller.ts`
+- `backend/src/modules/users/users.service.ts`
+- `backend/src/modules/users/users.spec.ts`
+- `frontend/src/screens/auth/PersonalSetupScreen.tsx`
+- `frontend/src/services/api/UserService.ts`
+
+Implementacao:
+
+- Backend recebeu `GET /users/username/availability`, autenticado por JWT, com DTO validando username de 3 a 30 caracteres usando letras, numeros, ponto ou underscore.
+- `UsersService.isUsernameAvailable()` normaliza username, rejeita formato invalido e permite o username atual do proprio usuario.
+- `UpdateUserDto` passou a validar o mesmo formato de username usado pelo check de disponibilidade.
+- `UserService` mobile passou a expor `checkUsernameAvailability()`.
+- `PersonalSetupScreen` deixou de usar `setTimeout`, `includes('taken')`, cidade fixa `Sao Paulo, SP`, avatar booleano local e etapa de interesses local.
+- Avatar do setup pessoal passou a usar `expo-image-picker` + `userStore.uploadAvatar()` -> `POST /users/me/avatar`.
+- Localizacao passou a usar `GeolocationService.getCurrentLocation()` + reverse geocode, sem fallback falso.
+- Finalizacao passou a executar `updateAccount({ username })`, `updateProfile({ bio, location })` e somente depois `completeOnboarding({ tab: 'Home' })`.
+- Interesses foram retirados do fluxo atual por decisao de escopo: nao existe contrato backend canonico para persistir esse dado sem criar schema/model novo.
+
+Validacao executada:
+
+- `cd backend && npx jest src/modules/users/users.spec.ts --runInBand`: OK.
+- `cd backend && npm run build`: OK.
+- `cd backend && npm run lint`: OK.
+- `cd frontend && npx tsc --noEmit`: OK.
+- `cd frontend && npm run lint`: OK.
+- Varredura em `PersonalSetupScreen.tsx` para `setTimeout`, `taken`, `Sao Paulo`, `INTERESTS`, `selectedInterests`, `Pular`, `mock`, `fake`, `dummy`, `sample`, `TODO`, `FIXME`, `console.log` e `onPress={() => {}}`: sem ocorrencias.
+
+Status:
+
+- RESOLVIDO no codigo local para username, bio, cidade/localizacao e avatar.
+- Pendente para producao: smoke mobile/staging com usuario pessoal novo, banco vazio, username livre/duplicado/invalido, permissao de localizacao concedida/negada e upload real em S3/CloudFront.
+- Pendente de produto/backend futuro: preferencias/interesses pessoais, caso voltem ao escopo, exigem model/migration/DTO/controller/service e conexao mobile antes de aparecerem na UI.
 
 Resumo de bloqueadores absolutos antes de deploy publico real:
 

@@ -97,6 +97,26 @@ export class UsersService {
     }
   }
 
+  async isUsernameAvailable(username: string, currentUserId?: string) {
+    const normalizedUsername = username.trim().replace(/^@/, '').toLowerCase();
+
+    if (!/^[a-zA-Z0-9._]{3,30}$/.test(normalizedUsername)) {
+      throw new BadRequestException(
+        'Username must be 3-30 characters and contain only letters, numbers, dots or underscores'
+      );
+    }
+
+    const existingUser = await this.prisma.user.findUnique({
+      where: { username: normalizedUsername },
+      select: { id: true },
+    });
+
+    return {
+      username: normalizedUsername,
+      available: !existingUser || existingUser.id === currentUserId,
+    };
+  }
+
   async findAll(paginationDto: PaginationDto) {
     try {
       const { page = 1, limit = 10, search } = paginationDto;
@@ -180,7 +200,8 @@ export class UsersService {
       }
 
       if (updateUserDto.username !== undefined) {
-        const normalizedUsername = updateUserDto.username?.trim() || '';
+        const normalizedUsername =
+          updateUserDto.username?.trim().replace(/^@/, '').toLowerCase() || '';
         updateData.username = normalizedUsername.length > 0 ? normalizedUsername : null;
       }
 
