@@ -5,7 +5,6 @@ export interface Post {
   content: string;
   images?: string[];
   imageUrls?: string[];
-  video?: string;
   locationName?: string | null;
   latitude?: number | null;
   longitude?: number | null;
@@ -51,7 +50,6 @@ export interface CreatePostRequest {
   content: string;
   images?: string[];
   imageUrls?: string[];
-  video?: string;
 }
 
 export interface CreateCommentRequest {
@@ -150,7 +148,6 @@ class FeedService {
     const post = await this.apiClient.post<Post>('/posts', {
       content: data.content,
       imageUrls: data.imageUrls ?? data.images ?? [],
-      video: data.video,
     });
     return this.normalizePost(post);
   }
@@ -212,7 +209,6 @@ class FeedService {
     const post = await this.apiClient.put<Post>(`/posts/${postId}`, {
       content: data.content,
       imageUrls: data.imageUrls ?? data.images ?? [],
-      video: data.video,
     });
     return this.normalizePost(post);
   }

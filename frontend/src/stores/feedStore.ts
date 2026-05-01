@@ -7,7 +7,6 @@ export interface Post {
   content: string;
   images?: string[];
   imageUrls?: string[];
-  video?: string;
   locationName?: string | null;
   latitude?: number | null;
   longitude?: number | null;
@@ -86,8 +85,8 @@ export interface FeedStore {
   setAgitoMode: (mode: FeedMode) => void;
   getExplorePosts: (page?: number, limit?: number) => Promise<void>;
   getPost: (postId: string) => Promise<Post>;
-  createPost: (content: string, images?: string[], video?: string) => Promise<void>;
-  updatePost: (postId: string, content: string, images?: string[], video?: string) => Promise<void>;
+  createPost: (content: string, images?: string[]) => Promise<void>;
+  updatePost: (postId: string, content: string, images?: string[]) => Promise<void>;
   deletePost: (postId: string) => Promise<void>;
   likePost: (postId: string) => Promise<void>;
   unlikePost: (postId: string) => Promise<void>;
@@ -228,13 +227,12 @@ export const feedStore = create<FeedStore>((set, get) => ({
     }
   },
 
-  createPost: async (content, images, video) => {
+  createPost: async (content, images) => {
     set({ isLoadingFeed: true, isLoadingAgito: true, error: null });
     try {
       const newPost = await feedService.createPost({
         content,
         images,
-        video,
       });
 
       set((state) => ({
@@ -250,13 +248,12 @@ export const feedStore = create<FeedStore>((set, get) => ({
     }
   },
 
-  updatePost: async (postId, content, images, video) => {
+  updatePost: async (postId, content, images) => {
     set({ error: null });
     try {
       const updatedPost = await feedService.updatePost(postId, {
         content,
         images,
-        video,
       });
 
       set((state) => ({

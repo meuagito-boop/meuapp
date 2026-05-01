@@ -465,7 +465,7 @@ Criterio de aceite:
 | `frontend/src/screens/main/SettingsScreen.tsx:196-198` | Render de toggle aceita fallback vazio `(() => {})` | Remover fallback vazio e exigir handler real por item |
 | `frontend/src/services/api/AuthService.ts:94-103` + `frontend/src/services/api/ApiClient.ts` | RESOLVIDO no codigo local pela EXECUCAO-005: refresh manual preserva `Authorization` explicito e `/auth/refresh` nao dispara retry automatico | Validar smoke de expiracao/refresh em device/staging |
 | `frontend/src/services/api/UserService.ts` + `backend/src/modules/users/users.controller.ts:187-233` | RESOLVIDO no codigo local pela EXECUCAO-004: `updateAccount` usa `PUT /users/me` e `updateProfile` usa `PUT /users/me/profile` | Validar smoke autenticado e erro de e-mail/username duplicado |
-| `frontend/src/services/api/FeedService.ts:149-155` + `frontend/src/services/api/FeedService.ts:211-216` | Front envia `video`, mas `CreatePostDto` e `UpdatePostDto` nao aceitam esse campo | Remover `video` do payload ou implementar suporte backend antes do release |
+| `frontend/src/services/api/FeedService.ts` + `frontend/src/stores/feedStore.ts` | RESOLVIDO no codigo local pela EXECUCAO-006: mobile nao envia mais `video` em create/update de post | Validar smoke de criar/editar post com imagem real |
 | `backend/src/modules/feed/feed.controller.ts:380-403` + `backend/src/modules/feed/feed.controller.ts:488-519` | Endpoints de liked/likes e edicao de comentario existem, mas nao ha chamada correspondente no `FeedService` | Criar metodos e UI ou remover escopo do release |
 | `backend/src/modules/users/users.controller.ts:73-119` + `backend/src/modules/users/users.controller.ts:214-233` | Parcial apos EXECUCAO-004: `PUT /users/me/profile` passou a ser usado pelo mobile; perfil publico/stats/is-following ainda nao tem consumo mobile confirmado | Conectar `getUserProfile`/telas publicas aos endpoints corretos ou declarar fora do escopo |
 | `backend/src/modules/media/media.controller.ts:34-126` | Controller generico de media existe, mas frontend usa uploads especificos de usuario/evento/estabelecimento/post | Definir se media generica faz parte do release ou remover/ocultar |
@@ -880,7 +880,7 @@ Validacoes executadas nesta rodada:
 Resumo da comparacao:
 
 - Endpoint chamado mas inexistente: nenhum confirmado na leitura estatica dos services. O caso `FeedService.ts:166-168` monta `/posts/media${query}`, mas o caminho base corresponde a `POST /posts/media`; `postId` e query opcional.
-- Quebrado por contrato: `FeedService.createPost/updatePost` com campo `video`. `UserService.updateProfile` foi RESOLVIDO no codigo local pela EXECUCAO-004 e `AuthService.refreshToken` foi RESOLVIDO no codigo local pela EXECUCAO-005.
+- Quebrado por contrato: nenhum dos tres P0 locais anteriores permanece aberto no codigo local. `UserService.updateProfile` foi RESOLVIDO pela EXECUCAO-004, `AuthService.refreshToken` pela EXECUCAO-005 e `FeedService.createPost/updatePost` com `video` pela EXECUCAO-006.
 - Parcial para producao: tratamento de erro e generico no `ApiClient`; alguns fluxos dependem de SES/SNS/S3/CloudFront reais e smoke mobile.
 - Endpoint backend existente mas sem consumo mobile confirmado: gestao owner de produtos, media generica, liked/likes de post, edicao de comentario, public-profile/stats/is-following de usuario, legal JSON e health. `PUT /users/me/profile` passou a ser consumido pelo mobile na EXECUCAO-004.
 
@@ -901,10 +901,10 @@ Tabela service/endpoints:
 | `CatalogService.ts:22-28` | `GET /establishments/:id/products`, `GET /products/:id` | `ProductsController` `@Get('establishments/:id/products')`, `@Get('products/:id')` em `products.controller.ts:42-54` | OK no codigo local; smoke pendente | Leitura existe e EXECUCAO-002 removeu fallback fake de Catalog/Item | Validar Catalog/Item com estabelecimento/produto real em staging/device |
 | `Sem service frontend` | Criar/editar/arquivar/upload de produto | `ProductsController` `POST/PUT/DELETE /establishments/:id/products...` e `POST .../media` em `products.controller.ts:56-145` | Endpoint existente nao usado | Owner nao consegue gerir catalogo completo pelo service mobile atual | Criar metodos no `CatalogService` e telas owner, ou retirar gestao de produtos do release |
 | `ChatService.ts:72-181` | Conversas, mensagens, editar/deletar, marcar lida, busca, unread, arquivar | `ChatController` endpoints equivalentes em `chat.controller.ts:44-205` | OK estatico | JSON `{ recipientId }`, `{ content }` e multipart `content` + `file` batem com controller/DTO | Validar anexos reais e push/chat realtime no smoke |
-| `FeedService.ts:149-155` | `POST /posts` com `content`, `imageUrls`, `video` | `FeedController` `@Post()` em `feed.controller.ts:51-73`; `CreatePostDto` em `create-post.dto.ts:12-56` | Quebrado quando `video` vem preenchido | `CreatePostDto` nao define `video`; backend rejeita campo extra | Remover `video` do payload ou adicionar suporte backend/testes |
+| `FeedService.ts` | `POST /posts` com `content` e `imageUrls` | `FeedController` `@Post()` em `feed.controller.ts:51-73`; `CreatePostDto` em `create-post.dto.ts:12-56` | OK no codigo local; smoke pendente | EXECUCAO-006 removeu `video` de `CreatePostRequest`, `feedStore.createPost` e payload de `POST /posts` | Validar criar post com e sem imagem em staging/device |
 | `FeedService.ts:158-174` | Multipart `POST /posts/media?postId=...` campo `file` | `FeedController` `@Post('media')` em `feed.controller.ts:76-107` | OK estatico | Query `postId` e opcional; nao e rota inexistente | Manter e validar S3/CloudFront |
 | `FeedService.ts:177-207` | `GET /posts/feed`, `GET /feed/agito`, `GET /posts/explore`, `GET /posts/:id` | `FeedController` e `AgitoFeedController` em `feed.controller.ts:114-220`, `agito-feed.controller.ts:13` | OK estatico | Paginacao `page/limit` e cursor `cursor/limit/mode` batem com DTOs | Smoke de feed real |
-| `FeedService.ts:211-216` | `PUT /posts/:id` com `content`, `imageUrls`, `video` | `FeedController` `@Put(':id')` em `feed.controller.ts:257-285`; `UpdatePostDto` em `update-post.dto.ts:12-56` | Quebrado quando `video` vem preenchido | `UpdatePostDto` nao define `video`; backend rejeita campo extra | Mesmo ajuste de contrato do create post |
+| `FeedService.ts` | `PUT /posts/:id` com `content` e `imageUrls` | `FeedController` `@Put(':id')` em `feed.controller.ts:257-285`; `UpdatePostDto` em `update-post.dto.ts:12-56` | OK no codigo local; smoke pendente | EXECUCAO-006 removeu `video` de `feedStore.updatePost` e payload de `PUT /posts/:id` | Validar editar post com e sem imagem em staging/device |
 | `FeedService.ts:220-264` | delete/like/unlike/comments/comment-like/delete/user posts | Endpoints equivalentes em `feed.controller.ts:293-592` | OK estatico | Nenhuma incompatibilidade confirmada nessas chamadas | Smoke autenticado |
 | `Sem service frontend` | `GET /posts/:id/liked`, `GET /posts/:id/likes`, `PUT /posts/comments/:commentId` | `FeedController` em `feed.controller.ts:380-403`, `488-519` | Endpoint existente nao usado | App nao tem metodo para checar liked/listar likes/editar comentario | Criar metodos e UI ou remover do escopo |
 | `LocationService.ts:500-594` | Eventos: create/upload/list/get/update/delete/attend/reviews | `EventsController` endpoints em `events.controller.ts:49-363` | OK estatico | Payload e normalizado; `CreateEventRequest` tem `address`/`image`, mas normalizador nao envia e DTO backend nao aceita | Ajustar tipo/UI para nao prometer campos nao persistidos ou adicionar campos ao backend |
@@ -920,7 +920,7 @@ Ordem exata de correcao desta auditoria:
 
 1. RESOLVIDO no codigo local pela EXECUCAO-005: `AuthService.refreshToken` preserva o bearer de refresh e nao e sobrescrito pelo interceptor de access token.
 2. RESOLVIDO no codigo local pela EXECUCAO-004: `UserService.updateProfile` usa `PUT /users/me/profile` e dados de conta foram separados em `updateAccount`.
-3. Alinhar contrato de post com `video`: remover do frontend ou implementar DTO/backend/storage para video.
+3. RESOLVIDO no codigo local pela EXECUCAO-006: contrato de post foi alinhado removendo `video` do frontend.
 4. Remover fallback fake do catalogo quando nao houver `establishmentId`, porque os endpoints reais de leitura existem.
 5. Decidir se gestao owner de produtos entra no release; se entrar, criar metodos no service e telas conectadas.
 6. Decidir se endpoints genericos de media/public-profile/stats/is-following/liked/likes/comment-edit ficam no release; conectar ou declarar fora do escopo.
@@ -1686,6 +1686,36 @@ Status:
 
 - RESOLVIDO no codigo local.
 - Pendente para producao: smoke mobile/staging com access token expirado, refresh token valido, refresh token invalido, logout apos falha de refresh e reinicio do app com tokens persistidos.
+
+### EXECUCAO-006 - FeedService alinhado aos DTOs de post - 2026-05-01
+
+Objetivo executado:
+
+- Fechar o P0 local em que `FeedService.createPost` e `FeedService.updatePost` enviavam `video` para endpoints cujos DTOs (`CreatePostDto` e `UpdatePostDto`) rejeitam campos extras.
+- Manter o contrato mobile coerente com o backend real: `content` e `imageUrls/images` para criacao/edicao de posts.
+
+Arquivos alterados:
+
+- `frontend/src/services/api/FeedService.ts`
+- `frontend/src/stores/feedStore.ts`
+
+Implementacao:
+
+- Removido `video` de `Post` e `CreatePostRequest` no `FeedService`.
+- Removido `video` dos payloads de `POST /posts` e `PUT /posts/:id`.
+- Removido `video` das assinaturas de `feedStore.createPost` e `feedStore.updatePost`.
+- A varredura em `frontend/src` nao encontrou mais campo `video` em tipos, store ou payloads de feed.
+
+Validacao executada:
+
+- `cd frontend && npx tsc --noEmit`: OK.
+- `cd frontend && npm run lint`: OK.
+- Varredura em `frontend/src`: sem ocorrencias de campo `video`; restaram apenas chamadas `createPost`/`updatePost` sem esse argumento.
+
+Status:
+
+- RESOLVIDO no codigo local.
+- Pendente para producao: smoke mobile/staging criando post sem midia, criando post com imagem real via upload e editando post existente.
 
 Resumo de bloqueadores absolutos antes de deploy publico real:
 

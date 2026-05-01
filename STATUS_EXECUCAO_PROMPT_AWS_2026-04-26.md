@@ -639,3 +639,24 @@ Status da validacao ponta a ponta:
 
 - o P0 local "AuthService.refreshToken passando pelo interceptor que injeta access token" fica RESOLVIDO no codigo.
 - continua pendente de ambiente: smoke mobile/staging com access token expirado, refresh token valido, refresh token invalido, logout apos falha e app reiniciado com tokens persistidos.
+
+## Atualizacao complementar - 2026-05-01 (America/Sao_Paulo) - FeedService sem campo video invalido
+
+### Correcao aplicada
+
+- `FeedService` deixou de declarar `video` em `Post` e `CreatePostRequest`.
+- `FeedService.createPost()` deixou de enviar `video` no payload de `POST /posts`.
+- `FeedService.updatePost()` deixou de enviar `video` no payload de `PUT /posts/:id`.
+- `feedStore.createPost()` e `feedStore.updatePost()` deixaram de aceitar/repassar argumento `video`.
+- O contrato mobile agora bate com `CreatePostDto` e `UpdatePostDto`, que aceitam `content`, `imageUrls/images` e nao aceitam `video`.
+
+### Validacao executada
+
+- `cd frontend && npx tsc --noEmit`: OK.
+- `cd frontend && npm run lint`: OK.
+- Varredura em `frontend/src`: sem ocorrencias de campo `video`; restaram apenas chamadas `createPost`/`updatePost` sem esse argumento.
+
+### Leitura correta apos esta rodada
+
+- o P0 local "FeedService enviando video para DTO que rejeita campo extra" fica RESOLVIDO no codigo.
+- continua pendente de ambiente: smoke mobile/staging criando post sem midia, criando post com imagem real e editando post existente.
