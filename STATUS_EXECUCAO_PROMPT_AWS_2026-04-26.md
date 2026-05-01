@@ -559,3 +559,31 @@ Status da validacao ponta a ponta:
 
 - o P0 local "Catalog/Item sem fallback fake" fica RESOLVIDO no codigo.
 - continua pendente de ambiente: smoke mobile/staging com estabelecimento real, produto real, evento real e banco vazio sem seed.
+
+## Atualizacao complementar - 2026-05-01 (America/Sao_Paulo) - Delete account com senha validada
+
+### Correção aplicada
+
+- `SettingsDeleteAccountScreen` passou a enviar a senha digitada para `userStore.deleteAccount(password)`.
+- `UserService.deleteAccount(password)` passou a chamar `DELETE /users/me` com body `{ password }`.
+- `backend/src/modules/users/dtos/delete-account.dto.ts` foi criado para exigir senha no contrato.
+- `UsersController` ganhou `DELETE /users/me` autenticado.
+- `DELETE /users/:id` tambem passou a exigir senha para evitar bypass do endpoint antigo.
+- `UsersService.softDelete(id, password)` passou a validar `bcrypt.compare`, bloquear senha invalida e revogar refresh tokens via `refreshToken.deleteMany`.
+- Cache de perfil/stats do usuario e invalidado apos exclusao.
+
+### Validação executada
+
+- `cd backend && npx jest src/modules/users/users.spec.ts --runInBand`: OK.
+- `cd backend && npm test -- --runInBand`: OK, 15 suites e 162 testes.
+- `cd backend && npm run build`: OK.
+- `cd backend && npm run lint`: OK com `NODE_OPTIONS=--max-old-space-size=8192`.
+- `cd frontend && npm run lint`: OK.
+- `cd frontend && npx tsc --noEmit`: OK.
+- Varredura de chamadas frontend: `deleteAccount` agora recebe senha nos pontos encontrados.
+
+### Leitura correta apos esta rodada
+
+- o P0 local "Delete account validando senha no backend" fica RESOLVIDO no codigo.
+- continua pendente de ambiente: smoke mobile/staging com senha correta, senha incorreta, logout apos exclusao e tentativa de refresh token apos soft delete.
+- continua pendente de produto/LGPD: politica final de retencao/anonimizacao e suporte ao titular.

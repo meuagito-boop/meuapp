@@ -3,7 +3,8 @@ import { UsersService } from './users.service';
 import { UsersController } from './users.controller';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { CacheService } from '../../common/cache/cache.service';
-import { NotFoundException, BadRequestException } from '@nestjs/common';
+import { NotFoundException, BadRequestException, UnauthorizedException } from '@nestjs/common';
+import * as bcrypt from 'bcryptjs';
 import { UpdateUserDto } from './dtos/update-user.dto';
 import { UpdateProfileDto } from './dtos/update-profile.dto';
 import { MediaService } from '@modules/media/media.service';
@@ -68,6 +69,9 @@ describe('UsersService', () => {
             like: {
               count: jest.fn(),
             },
+            refreshToken: {
+              deleteMany: jest.fn(),
+            },
           },
         },
         {
@@ -79,6 +83,10 @@ describe('UsersService', () => {
 
     service = module.get<UsersService>(UsersService);
     prismaService = module.get<PrismaService>(PrismaService);
+  });
+
+  afterEach(() => {
+    jest.restoreAllMocks();
   });
 
   describe('findById', () => {
@@ -197,15 +205,38 @@ describe('UsersService', () => {
 
   describe('softDelete', () => {
     it('should soft delete user', async () => {
+      const password = 'ValidPassword123!';
+      jest.spyOn(prismaService.user, 'findUnique').mockResolvedValue({
+        ...mockUser,
+        password: await bcrypt.hash(password, 10),
+      });
       jest.spyOn(prismaService.user, 'update').mockResolvedValue({
         ...mockUser,
         deletedAt: new Date(),
       });
 
-      const result = await service.softDelete('test-id');
+      const result = await service.softDelete('test-id', password);
 
       expect(result.message).toBe('User account deleted successfully');
       expect(result.deletedAt).toBeDefined();
+      expect(prismaService.user.findUnique).toHaveBeenCalledWith({
+        where: { id: 'test-id' },
+      });
+      expect(prismaService.refreshToken.deleteMany).toHaveBeenCalledWith({
+        where: { userId: 'test-id' },
+      });
+    });
+
+    it('should reject soft delete when password is invalid', async () => {
+      jest.spyOn(prismaService.user, 'findUnique').mockResolvedValue({
+        ...mockUser,
+        password: await bcrypt.hash('ValidPassword123!', 10),
+      });
+
+      await expect(service.softDelete('test-id', 'WrongPassword123!')).rejects.toThrow(
+        UnauthorizedException
+      );
+      expect(prismaService.user.update).not.toHaveBeenCalled();
     });
   });
 

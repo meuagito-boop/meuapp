@@ -49,7 +49,7 @@ export interface UserStore {
   getFollowers: (userId: string, page?: number, limit?: number) => Promise<void>;
   getFollowing: (userId: string, page?: number, limit?: number) => Promise<void>;
   searchUsers: (query: string, page?: number, limit?: number) => Promise<void>;
-  deleteAccount: () => Promise<void>;
+  deleteAccount: (password: string) => Promise<void>;
   clearError: () => void;
   isFollowingUser: (userId: string) => boolean;
 }
@@ -195,10 +195,10 @@ export const userStore = create<UserStore>((set, get) => ({
     }
   },
 
-  deleteAccount: async () => {
+  deleteAccount: async (password) => {
     set({ isLoading: true, error: null });
     try {
-      await userService.deleteAccount();
+      await userService.deleteAccount(password);
       set({ profile: null, isLoading: false });
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Erro ao deletar conta';

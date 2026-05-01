@@ -50,7 +50,7 @@ export default function SettingsDeleteAccountScreen() {
     setRequestError(null);
 
     try {
-      await deleteAccount();
+      await deleteAccount(password);
       await logout();
 
       Alert.alert('Conta excluida', 'Sua conta foi excluida permanentemente.', [

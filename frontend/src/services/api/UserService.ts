@@ -90,9 +90,10 @@ class UserService {
     });
   }
 
-  async deleteAccount(): Promise<{ message: string }> {
-    const currentUser = await this.getProfile();
-    return this.apiClient.delete(`/users/${currentUser.id}`);
+  async deleteAccount(password: string): Promise<{ message: string }> {
+    return this.apiClient.delete('/users/me', {
+      data: { password },
+    });
   }
 
   async searchUsers(query: string, page = 1, limit = 20): Promise<PaginatedResponse<UserProfile>> {

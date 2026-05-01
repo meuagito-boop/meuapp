@@ -29,6 +29,7 @@ import { UsersService } from './users.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { UpdateUserDto } from './dtos/update-user.dto';
 import { UpdateProfileDto } from './dtos/update-profile.dto';
+import { DeleteAccountDto } from './dtos/delete-account.dto';
 import { PaginationDto } from '../../common/dtos/pagination.dto';
 import { MediaService } from '@modules/media/media.service';
 import { CurrentUserId } from '@modules/auth/decorators/current-user.decorator';
@@ -266,6 +267,21 @@ export class UsersController {
     });
   }
 
+  @Delete('me')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Delete current authenticated user after password confirmation' })
+  @ApiResponse({ status: 200, description: 'User deleted' })
+  @ApiResponse({ status: 401, description: 'Invalid credentials' })
+  @ApiResponse({ status: 404, description: 'User not found' })
+  async deleteCurrentUser(
+    @CurrentUserId() userId: string,
+    @Body() deleteAccountDto: DeleteAccountDto
+  ) {
+    return this.usersService.softDelete(userId, deleteAccountDto.password);
+  }
+
   @Delete(':id')
   @UseGuards(JwtAuthGuard, ResourceOwnerGuard)
   @AuthorizeUserSelf('id', 'You can only delete your own profile.')
@@ -275,9 +291,10 @@ export class UsersController {
   @ApiParam({ name: 'id', description: 'User ID' })
   @ApiResponse({ status: 200, description: 'User deleted' })
   @ApiResponse({ status: 403, description: 'Forbidden' })
+  @ApiResponse({ status: 401, description: 'Invalid credentials' })
   @ApiResponse({ status: 404, description: 'User not found' })
-  async deleteUser(@Param('id') id: string) {
-    return this.usersService.softDelete(id);
+  async deleteUser(@Param('id') id: string, @Body() deleteAccountDto: DeleteAccountDto) {
+    return this.usersService.softDelete(id, deleteAccountDto.password);
   }
 
   @Post(':id/follow')

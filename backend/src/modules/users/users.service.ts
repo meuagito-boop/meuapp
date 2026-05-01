@@ -3,8 +3,10 @@ import {
   NotFoundException,
   BadRequestException,
   InternalServerErrorException,
+  UnauthorizedException,
   Optional,
 } from '@nestjs/common';
+import * as bcrypt from 'bcryptjs';
 import { AuditLogService } from '@common/audit/audit-log.service';
 import { AccountType } from '@common/enums/account-type.enum';
 import { PrismaService } from '../../common/prisma/prisma.service';
@@ -220,11 +222,32 @@ export class UsersService {
     }
   }
 
-  async softDelete(id: string) {
+  async softDelete(id: string, password: string) {
     try {
+      const existingUser = await this.prisma.user.findUnique({
+        where: { id },
+      });
+
+      if (!existingUser || existingUser.deletedAt) {
+        throw new NotFoundException('User not found');
+      }
+
+      const isPasswordValid = await bcrypt.compare(password, existingUser.password);
+
+      if (!isPasswordValid) {
+        throw new UnauthorizedException('Invalid credentials');
+      }
+
       const user = await this.prisma.user.update({
         where: { id },
         data: { deletedAt: new Date() },
+      });
+
+      await this.cacheService.del(`user:${id}:profile`);
+      await this.cacheService.del(`user:${id}:stats`);
+
+      await this.prisma.refreshToken.deleteMany({
+        where: { userId: id },
       });
 
       await this.auditLogService?.record({
@@ -239,6 +262,9 @@ export class UsersService {
         deletedAt: user.deletedAt,
       };
     } catch (error) {
+      if (error instanceof NotFoundException || error instanceof UnauthorizedException) {
+        throw error;
+      }
       if ((error as any).code === 'P2025') {
         throw new NotFoundException('User not found');
       }

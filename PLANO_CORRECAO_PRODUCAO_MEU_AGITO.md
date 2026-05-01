@@ -193,6 +193,16 @@ Evidencias:
 - `frontend/src/services/api/UserService.ts:93-95` deleta conta buscando o usuario atual e chamando `DELETE /users/:id`.
 - `backend/src/modules/users/users.controller.ts:269-280` expoe `DELETE /users/:id` protegido por dono do recurso, mas sem receber senha.
 
+Status atualizado em 2026-05-01:
+
+- RESOLVIDO no codigo local pela EXECUCAO-003.
+- `frontend/src/screens/main/SettingsDeleteAccountScreen.tsx` envia a senha digitada para `userStore.deleteAccount(password)`.
+- `frontend/src/services/api/UserService.ts` passou a chamar `DELETE /users/me` com body `{ password }`.
+- `backend/src/modules/users/dtos/delete-account.dto.ts` exige senha no contrato.
+- `backend/src/modules/users/users.controller.ts` expoe `DELETE /users/me` autenticado e manteve `DELETE /users/:id` sem bypass, ambos chamando `usersService.softDelete(id, password)`.
+- `backend/src/modules/users/users.service.ts` valida `bcrypt.compare`, bloqueia senha invalida e revoga refresh tokens antes de concluir a exclusao.
+- Pendente: smoke mobile/staging com senha correta, senha incorreta e sessao/token apos exclusao.
+
 Impacto:
 
 - A UI pode sugerir uma garantia de seguranca que o backend nao executa.
@@ -436,8 +446,8 @@ Criterio de aceite:
 | `frontend/src/screens/main/SettingsAuxScreens.tsx:102-112` | Contas vinculadas existe e esta registrada, mas nao tem entrada acessivel no menu de Settings | Adicionar item de menu real ou remover rota |
 | `frontend/src/screens/main/FeedSocialScreen.tsx:242-245` + `frontend/src/screens/main/ProfileScreen.tsx:148-192` | Avatar do autor no feed envia `userId`, mas `ProfileScreen` nao carrega perfil publico por `userId` e estabelecimento exige `establishmentId` | Passar `establishmentId` quando autor for estabelecimento e implementar perfil publico de usuario por `userId` |
 | `frontend/src/screens/main/NotificationsScreen.tsx:233-249` | Clique em notificacao perde parametros de usuario/conversa/entidade e navega so para tabs genericas | Roteamento por `entityType`, `entityId`, `relatedUserId` e `conversationId` |
-| `frontend/src/services/api/UserService.ts:93-95` | Delete account nao envia senha | Enviar senha |
-| `backend/src/modules/users/users.controller.ts:269-280` | Backend deleta sem validar senha | Validar senha antes de soft delete |
+| `frontend/src/services/api/UserService.ts` | RESOLVIDO no codigo local: Delete account envia senha para `DELETE /users/me` | Validar smoke mobile/staging |
+| `backend/src/modules/users/users.controller.ts` + `backend/src/modules/users/users.service.ts` | RESOLVIDO no codigo local: backend valida senha e revoga refresh tokens antes do soft delete | Validar senha correta/incorreta e tokens |
 | `frontend/src/screens/main/NotificationsScreen.tsx:49-69` | Placeholders `??` | Trocar por icones/textos reais |
 | `backend/src/modules/products/products.controller.ts:56-112` | Gestao de produtos existe no backend sem UI owner pronta | Criar tela owner ou remover do release |
 | `frontend/src/utils/runtimeApiUrl.ts:4-43` | Producao cai para `https://api.meuagito.com` se `EXPO_PUBLIC_API_URL` nao existir | Validar DNS/ALB ou exigir `EXPO_PUBLIC_API_URL` no build |
@@ -470,7 +480,7 @@ Criterio de aceite:
 - [ ] Settings persistindo dados reais ou ocultando itens fora do release.
 - [ ] Favoritos/historico implementados ou removidos.
 - [x] Catalogo e Item sem fallback fake no codigo local; smoke mobile/staging pendente.
-- [ ] Delete account validando senha no backend.
+- [x] Delete account validando senha no backend no codigo local; smoke mobile/staging pendente.
 - [ ] Endpoints de gestao de catalogo com UI owner ou fora do release.
 - [ ] Env de producao criado e revisado.
 - [ ] RDS PostgreSQL criado e migrations aplicadas.
@@ -623,7 +633,7 @@ Tabela de problemas exigida pelo prompt:
 | `frontend/src/screens/main/ActivityHistoryScreen.tsx` | Tela declara falta de contrato canonico de historico | Criado parcialmente | Historico nao e funcional | `frontend/src/screens/main/ActivityHistoryScreen.tsx:27-39` | Criar contrato ou remover tela | P1 |
 | `frontend/src/screens/main/CatalogScreen.tsx` | RESOLVIDO no codigo local: `MOCK_CATALOGS` removido e rota sem `establishmentId` nao renderiza catalogo fake | Pendente smoke | Evita produtos/servicos fake no caminho publico | `frontend/src/screens/main/CatalogScreen.tsx` | Validar com estabelecimento real e banco vazio em staging | P0 ate smoke |
 | `frontend/src/screens/main/ItemScreen.tsx` | RESOLVIDO no codigo local: `item-fallback` e CTA generico removidos | Pendente smoke | Evita CTA de pedido/reserva/agenda sem backend | `frontend/src/screens/main/ItemScreen.tsx` | Validar produto/evento real e rota invalida em device/staging | P0 ate smoke |
-| `frontend/src/services/api/UserService.ts` + `backend/src/modules/users/users.controller.ts` | UI de delete account pode pedir senha, mas service/backend deletam sem senha | Quebrado ou sem ligacao | Garantia de seguranca inconsistente | `frontend/src/services/api/UserService.ts:93-95`; `backend/src/modules/users/users.controller.ts:269-280` | Validar senha no backend antes de soft delete | P0 |
+| `frontend/src/services/api/UserService.ts` + `backend/src/modules/users/users.controller.ts` + `backend/src/modules/users/users.service.ts` | RESOLVIDO no codigo local: exclusao envia senha, valida `bcrypt.compare` e revoga refresh tokens | Pendente smoke | Garantia de seguranca passa a existir no backend | `frontend/src/services/api/UserService.ts`; `backend/src/modules/users/users.controller.ts`; `backend/src/modules/users/users.service.ts`; `delete-account.dto.ts` | Validar senha correta/incorreta, logout e refresh apos delete em staging/device | P0 ate smoke |
 | `frontend/src/screens/main/NotificationsScreen.tsx` | Tela tem placeholders `??` e `?` visiveis | Mockado/estatico/fake | UI final fica quebrada | `frontend/src/screens/main/NotificationsScreen.tsx:49-69`, `306-335` | Trocar por icones/textos reais | P1 |
 | `frontend/src/screens/main/SettingsMyAccountScreen.tsx` e telas Settings | Textos mojibake visiveis | Quebrado ou sem ligacao | Release visualmente quebrado | `frontend/src/screens/main/SettingsMyAccountScreen.tsx:41-44`; `SettingsScreen.tsx:89-90`; `SettingsPrivacyScreen.tsx:88-115` | Normalizar encoding e revisar strings | P1 |
 | `backend/src/modules/products/products.controller.ts` | Endpoints de gestao de produtos existem, mas frontend atual so le catalogo/produto | Criado parcialmente | Owner nao consegue gerir catalogo completo pelo app | `backend/src/modules/products/products.controller.ts:56-112`; `frontend/src/services/api/CatalogService.ts:22-27` | Criar UI owner ou remover escopo do release | P1 |
@@ -686,7 +696,7 @@ Matriz de telas:
 | Cidade | Sim | Sim | Sim, via Settings | Fake/local | Nao | Lista de cidades e recentes fixos | Nao | `RootNavigator.tsx:85`, `SettingsScreen.tsx:78`, `SettingsCityScreen.tsx:22-52` |
 | Privacidade | Sim | Sim | Sim, via Settings | Local-only | Nao | `Load privacy settings` sem implementacao | Nao | `RootNavigator.tsx:89`, `SettingsScreen.tsx:113`, `SettingsPrivacyScreen.tsx:31-34`, `68-118` |
 | Seguranca | Sim | Sim | Sim, via Settings | Parcial | Parcial via sub-tela 2FA | `Load security settings` sem implementacao | Nao | `RootNavigator.tsx:91`, `SettingsScreen.tsx:120`, `SettingsSecurityScreen.tsx:26-29`, `37-80` |
-| Excluir conta | Sim | Sim | Sim, via Settings | Real parcial | Sim, mas sem senha | UI pede senha, backend nao valida | Nao | `RootNavigator.tsx:98`, `SettingsScreen.tsx:176`, `SettingsDeleteAccountScreen.tsx:45-54`, `UserService.ts:93-95`, `users.controller.ts:269-280` |
+| Excluir conta | Sim | Sim | Sim, via Settings | Real no codigo local | Sim | Nao encontrado no codigo local apos EXECUCAO-003 | Sim em codigo; depende smoke | `RootNavigator.tsx:98`, `SettingsScreen.tsx:176`, `SettingsDeleteAccountScreen.tsx`, `UserService.ts`, `users.controller.ts`, `users.service.ts`; validar staging/device |
 | Contas vinculadas | Sim | Sim | Nao encontrado no fluxo de usuario | Fake/estatico | Nao | Google/Apple fixos | Nao | `RootNavigator.tsx:86`, `SettingsAuxScreens.tsx:102-112`; adicionar link real ou remover rota |
 | Raio de busca | Sim | Sim | Sim, via Settings | Fake/estatico | Nao | Valores fixos | Nao | `RootNavigator.tsx:87`, `SettingsScreen.tsx:85`, `SettingsAuxScreens.tsx:115-126` |
 | Preferencias de notificacoes | Sim | Sim | Sim, via Settings | Fake/estatico | Nao | Switches fixos | Nao | `RootNavigator.tsx:88`, `SettingsScreen.tsx:106`, `SettingsAuxScreens.tsx:129-140` |
@@ -703,7 +713,7 @@ Resumo do mapeamento:
 - Telas esperadas pelo README: encontradas.
 - Telas esperadas registradas no navigator: encontradas.
 - Telas esperadas realmente prontas em codigo, dependendo apenas de smoke/deploy: Login, SignUp, TwoFactorLogin, BusinessSetup, Home, Feed, Chat, Perfil, 2FA.
-- Telas com service real mas ainda nao prontas por placeholder/fallback/acao parcial: Buscar, Mapa, Notificacoes, Catalogo, Item, Excluir conta.
+- Telas com service real mas ainda nao prontas por placeholder/fallback/acao parcial: Buscar, Mapa, Notificacoes.
 - Telas criadas visualmente mas sem backend real suficiente: PersonalSetup, Atividade, Favoritos, Historico, Minha conta, Cidade, Privacidade, Seguranca, Raio de busca, Preferencias de notificacoes, Bloqueados, Alterar senha, Dispositivos, Historico de acessos, Idioma.
 - Tela registrada mas sem acesso de usuario encontrado: Contas vinculadas.
 
@@ -755,7 +765,7 @@ Tabela de navegacao:
 | `frontend/src/screens/main/ProfileScreen.tsx:233-256` | Tocar vitrine/produto no perfil | Abrir `Catalog`/`Item` do estabelecimento | Navega com `establishmentId`, `establishmentName` e `productId` | Sem problema de nome/parametro encontrado | Manter; validar em smoke |
 | `frontend/src/screens/main/ItemScreen.tsx:255-266` | Tocar estabelecimento no item de produto | Voltar/abrir perfil do estabelecimento | Navega `MainTabs -> Profile` com `establishmentId` se existir; senao `goBack()` | Se produto vier sem estabelecimento, acao nao abre destino real | Garantir backend retorna `product.establishment.id` ou desabilitar CTA quando ausente |
 | `frontend/src/screens/main/ChatScreen.tsx:129-136` | Tocar conversa | Abrir detalhe da conversa | Navega `ChatDetail` com `conversationId` e `recipientName` | Rota existe no stack interno do chat | Manter; validar em smoke 2 usuarios |
-| `frontend/src/screens/main/SettingsDeleteAccountScreen.tsx:52-64` | Confirmar exclusao de conta | Logout e retorno ao login | `CommonActions.reset` para `Login` | Nome de rota existe, mas a exclusao nao valida senha no backend | Corrigir contrato de delete account; navegacao final esta coerente |
+| `frontend/src/screens/main/SettingsDeleteAccountScreen.tsx:52-64` | Confirmar exclusao de conta | Logout e retorno ao login | `CommonActions.reset` para `Login` | Nome de rota existe; senha validada no backend apos EXECUCAO-003 | Validar smoke mobile/staging com senha correta/incorreta |
 
 Achados negativos da auditoria:
 
@@ -798,7 +808,7 @@ Classificacao por grupos:
 | Funcional real | Feed: curtir, comentar, enviar comentario, compartilhar, refresh e limpar erro | `frontend/src/screens/main/FeedSocialScreen.tsx:134-169`, `279-287`, `407-414` | Like/comment usam store/service real; share usa `Share.share` nativo |
 | Funcional real | Home: busca, cards de evento, places e ranking | `frontend/src/screens/main/HomeScreen.tsx:262-275`, `318-388` | Navega para `Search`, `Item` ou `Profile` com dados carregados por services reais |
 | Funcional real | 2FA em Settings | `frontend/src/screens/main/SettingsAuxScreens.tsx:249-363` | Usa `setup2FA`, `verify2FA`, `disable2FA` e `userService.getProfile` |
-| Funcional real com ressalva | Excluir conta | `frontend/src/screens/main/SettingsDeleteAccountScreen.tsx:48-54`, `198-204` | Front chama service real, mas a senha digitada nao e validada pelo backend; manter como bloqueio B7 |
+| Funcional real em codigo; smoke pendente | Excluir conta | `frontend/src/screens/main/SettingsDeleteAccountScreen.tsx`, `frontend/src/services/api/UserService.ts`, `backend/src/modules/users/users.service.ts` | Front envia senha; backend valida `bcrypt.compare` e revoga refresh tokens; validar em device/staging |
 | Parcial | Busca rapida | `frontend/src/screens/main/SearchScreen.tsx:52`, `295-299` | Chips executam busca real, mas a origem `RECENT_SEARCHES` e estatica |
 | Parcial | Notificacoes | `frontend/src/screens/main/NotificationsScreen.tsx:222-249`, `274-278` | Marca como lida/deleta via service real, mas roteia para tabs genericas e perde parametros |
 | Parcial | Perfil publico a partir do feed | `frontend/src/screens/main/FeedSocialScreen.tsx:239-245` | `onPress` existe, mas envia params que `ProfileScreen` nao consome corretamente |
@@ -886,8 +896,8 @@ Tabela service/endpoints:
 | `UserService.ts:45-50` | `GET /users/me`, `GET /users/:userId` | `UsersController` `@Get('me')` e `@Get(':id')` em `users.controller.ts:48-69`, `171-185` | OK estatico | `getUserProfile` usa rota generica, nao `public-profile` | Decidir se perfil publico deve usar `GET /users/:id/public-profile` |
 | `UserService.ts:53-55` | `PUT /users/me` com `{ name?, bio?, location?, website? }` | `UsersController` `@Put('me')` usa `UpdateUserDto`; `@Put('me/profile')` usa `UpdateProfileDto` em `users.controller.ts:187-233` | Quebrado | `UpdateUserDto` permite `email`, `name`, `profileType`; `bio`, `location`, `website` pertencem a `UpdateProfileDto`. Com `forbidNonWhitelisted`, payload com esses campos falha | Dividir em `updateAccount` para `/users/me` e `updateProfile` para `/users/me/profile` |
 | `UserService.ts:57-70` | Multipart `POST /users/me/avatar` campo `file` | `UsersController` `@Post('me/avatar')` + `FileInterceptor('file')` em `users.controller.ts:236-267` | OK estatico | Depende de storage real para producao | Validar S3/CloudFront e smoke de upload |
-| `UserService.ts:73-101` | follow/unfollow, followers/following, search `GET /users`, delete `DELETE /users/:id` | Endpoints equivalentes em `users.controller.ts:121-169`, `269-324` | Parcial | Delete account nao envia senha; backend deleta com `ResourceOwnerGuard`, sem validar senha digitada pela UI | Adicionar DTO/senha no backend ou remover pedido de senha da UI |
-| `CatalogService.ts:22-28` | `GET /establishments/:id/products`, `GET /products/:id` | `ProductsController` `@Get('establishments/:id/products')`, `@Get('products/:id')` em `products.controller.ts:42-54` | OK estatico | Leitura existe, mas UI ainda pode cair em mock quando nao ha `establishmentId` | Bloquear fallback fake e exigir contexto real |
+| `UserService.ts:73-101` | follow/unfollow, followers/following, search `GET /users`, delete `DELETE /users/me` | Endpoints equivalentes em `users.controller.ts:121-169`, `267-309` | OK no codigo local; smoke pendente | Delete account envia senha e backend valida antes do soft delete | Validar em device/staging com senha correta/incorreta e refresh token revogado |
+| `CatalogService.ts:22-28` | `GET /establishments/:id/products`, `GET /products/:id` | `ProductsController` `@Get('establishments/:id/products')`, `@Get('products/:id')` em `products.controller.ts:42-54` | OK no codigo local; smoke pendente | Leitura existe e EXECUCAO-002 removeu fallback fake de Catalog/Item | Validar Catalog/Item com estabelecimento/produto real em staging/device |
 | `Sem service frontend` | Criar/editar/arquivar/upload de produto | `ProductsController` `POST/PUT/DELETE /establishments/:id/products...` e `POST .../media` em `products.controller.ts:56-145` | Endpoint existente nao usado | Owner nao consegue gerir catalogo completo pelo service mobile atual | Criar metodos no `CatalogService` e telas owner, ou retirar gestao de produtos do release |
 | `ChatService.ts:72-181` | Conversas, mensagens, editar/deletar, marcar lida, busca, unread, arquivar | `ChatController` endpoints equivalentes em `chat.controller.ts:44-205` | OK estatico | JSON `{ recipientId }`, `{ content }` e multipart `content` + `file` batem com controller/DTO | Validar anexos reais e push/chat realtime no smoke |
 | `FeedService.ts:149-155` | `POST /posts` com `content`, `imageUrls`, `video` | `FeedController` `@Post()` em `feed.controller.ts:51-73`; `CreatePostDto` em `create-post.dto.ts:12-56` | Quebrado quando `video` vem preenchido | `CreatePostDto` nao define `video`; backend rejeita campo extra | Remover `video` do payload ou adicionar suporte backend/testes |
@@ -1074,7 +1084,7 @@ Checklist por area:
 | Secrets fortes | Pendente ambiente real | Revisar Secrets Manager/SSM/env | Checagem manual/IaC | Sem secrets default/local em ECS ou app build | Sim |
 | JWT/refresh | Implementado com gap no refresh mobile PROMPT-005 | Testar login/refresh expiracao | Smoke auth + teste 401 refresh | Refresh usa refresh token correto e nao derruba sessao indevidamente | Sim |
 | Ownership guards | Implementado | Testar acesso cruzado | e2e de owner/non-owner | Usuario nao altera recurso de outro | Sim |
-| Delete account com senha | Pendente PROMPT-005 | Testar exclusao | Smoke settings | Backend valida senha ou UI nao promete isso | Sim |
+| Delete account com senha | OK no codigo local; pendente smoke | Testar exclusao | Smoke settings + teste backend | Backend valida senha, bloqueia senha incorreta e revoga refresh tokens | Sim ate smoke |
 | Privacidade/settings | Pendente PROMPT-006 | Smoke settings | Testar switches/telas | Tela nao promete privacidade nao aplicada | Sim se telas ficarem no release |
 | Swagger/public docs | Parcial | Verificar prod | `curl /api/docs` | Desabilitado/protegido em prod publica | Nao, mas recomendado |
 | Logs sensiveis | Parcial | Revisar logs em auth/email/push | Teste com falha auth/email | Tokens/senhas nao aparecem em logs | Sim |
@@ -1207,7 +1217,7 @@ Correcao necessaria quando falhar: remover dependencia de seed do fluxo, criar e
 |---|---|---|---|---|
 | Politica de privacidade | Parcial | Backend legal existe em `backend/src/modules/legal`; validar link/tela mobile e conteudo final juridico | Parcial | Sim |
 | Termos de uso | Parcial | Backend legal existe; validar aceite no cadastro/onboarding e versao exibida | Parcial | Sim |
-| Exclusao de conta | Parcial | Tela existe, mas plano ja registra gap de senha/backend; validar exclusao real e revogacao de tokens | Parcial | Sim |
+| Exclusao de conta | OK no codigo local; pendente smoke/LGPD final | Tela envia senha; backend valida senha e revoga refresh tokens; falta validar device/staging e politica de retencao/anonimizacao | Parcial ate smoke/legal final | Sim |
 | Suporte/contato | Pendente | Definir email/canal real, tela/link de contato e monitoramento de caixa | Pendente | Sim |
 | Consentimento de localizacao | Parcial | App pede permissao nativa; validar texto, negacao de permissao e uso sem crash | Parcial | Sim |
 | Consentimento de push | Pendente/parcial | Definir push sem Firebase, pedir permissao no momento correto e registrar token real se push entrar no release | Pendente | Sim se push no release |
@@ -1297,7 +1307,7 @@ Regra absoluta de release: nunca deixar em producao mock, botao sem acao, alerta
 | `frontend/src/screens/main/SearchScreen.tsx` | `RECENT_SEARCHES` | Reusar buscas recentes reais | Nao comprovado | Pode ser local storage aceitavel se declarado; backend nao obrigatorio | Sim se exibido | Corrigir contrato ou persistir local sem fingir backend | Declarar local-only honesto ou criar endpoint/preferencia; nao exibir sugestoes fake como reais | P1; P0 se parece dado real |
 | `frontend/src/screens/main/MapScreen.tsx` | Item clicavel no mapa/lista | Abrir perfil/item do lugar/evento | Endpoint de origem parcial; destino existe parcialmente | Sim para establishment/event/product | Sim | Conectar ao backend existente/corrigir navegacao | Adicionar `onPress` real para Perfil/Item ou trocar por View nao clicavel | P0 se clicavel sem acao |
 | `frontend/src/screens/main/NotificationsScreen.tsx` | Roteamento ao tocar notificacao | Abrir conversa, perfil, item ou entidade relacionada | Parcial via notifications/chat/profile | Sim parcial | Sim se notificacoes visiveis | Corrigir contrato frontend/backend | Usar payload real, nested route com params e fallback honesto | P1; P0 se push/notificacoes no release |
-| `frontend/src/screens/main/SettingsDeleteAccountScreen.tsx` | Excluir conta com senha | Apagar conta real com confirmacao segura | Parcial; plano registra backend sem validar senha | Sim User/Auth | Sim | Corrigir contrato frontend/backend | Backend validar senha/reauth, revogar tokens, apagar/anonimizar dados conforme LGPD | P0 |
+| `frontend/src/screens/main/SettingsDeleteAccountScreen.tsx` | Excluir conta com senha | Apagar conta real com confirmacao segura | OK no codigo local; smoke/LGPD final pendente | Sim User/Auth | Sim | Contrato corrigido no codigo local | Backend valida senha e revoga refresh tokens; ainda validar device/staging e retencao/anonimizacao LGPD | P0 ate smoke/legal final |
 | `SettingsLinkedAccounts` / `frontend/src/screens/main/SettingsAuxScreens.tsx` | Contas vinculadas | Conectar/desconectar provedores externos | Nao comprovado | Nao comprovado | Nao para MVP se login social nao existir | Manter fora do release por escopo ou ocultar temporariamente | Ocultar ate existir produto/backend real; nao mostrar tela fake | P1 se visivel; P2 se oculto |
 
 #### Checklist adicional de go/no-go
@@ -1451,11 +1461,11 @@ A matriz do PROMPT-008 continua valida. Complemento obrigatorio: antes de oculta
 | AWS staging real antes de producao | Docs AWS exigem ECS/ECR/RDS/Redis/S3/CloudFront/ALB/ACM/SES/SNS/Secrets/CloudWatch | Subir staging e aprovar smoke completo antes de prod |
 | Health check expandido | Implementado no codigo: DB + Redis obrigatorio + storage local/S3 configuravel | Validar no ALB/ECS staging com RDS, ElastiCache e S3 reais |
 | Catalog/Item sem fallback fake | RESOLVIDO no codigo local pela EXECUCAO-002; smoke mobile/staging pendente | Validar estabelecimento real, produto real, evento real e rotas sem contexto |
-| Settings criticas com estado local/fake | Plano ja lista MyAccount/Privacy/Security/Delete | Conectar backend ou ocultar itens nao prontos |
+| Settings criticas com estado local/fake | MyAccount/Privacy/Security ainda parciais; Delete resolvido no codigo local pela EXECUCAO-003 | Conectar backend ou ocultar itens nao prontos; validar Delete em smoke |
 | Build mobile release real | Ainda pendente EAS/processo equivalente/device real | Gerar APK/AAB, validar env e smoke em device |
 | SES/SNS/S3/Redis reais | Codigo existe, ambiente real nao validado | Validar providers em staging AWS |
 | E2E e smoke com banco vazio | e2e depende postgres-test; banco zerado precisa smoke | Subir DB teste/staging limpo e validar estados vazios |
-| Seguranca/LGPD minima | Delete, termos, privacidade, logs sensiveis ainda parciais | Fechar legal/suporte/delete/log redaction |
+| Seguranca/LGPD minima | Delete com senha resolvido no codigo local; termos, privacidade, suporte, retencao LGPD e logs sensiveis ainda parciais | Fechar legal/suporte/retencao/log redaction e smoke de delete |
 
 ##### P1 - NECESSARIO PARA RELEASE PROFISSIONAL
 
@@ -1559,6 +1569,50 @@ Status:
 
 - RESOLVIDO no codigo local.
 - Pendente para producao: smoke mobile/staging abrindo Catalogo por perfil de estabelecimento real, produto real, evento real e banco vazio sem seed.
+
+### EXECUCAO-003 - Delete account com senha validada - 2026-05-01
+
+Objetivo executado:
+
+- Fechar o P0 local em que a UI pedia senha para excluir conta, mas o backend nao validava essa senha.
+- Evitar bypass pelo endpoint antigo `DELETE /users/:id`.
+- Revogar refresh tokens apos exclusao para impedir renovacao de sessao.
+
+Arquivos alterados:
+
+- `backend/src/modules/users/dtos/delete-account.dto.ts`
+- `backend/src/modules/users/users.controller.ts`
+- `backend/src/modules/users/users.service.ts`
+- `backend/src/modules/users/users.spec.ts`
+- `frontend/src/screens/main/SettingsDeleteAccountScreen.tsx`
+- `frontend/src/services/api/UserService.ts`
+- `frontend/src/stores/userStore.ts`
+
+Implementacao:
+
+- Criado `DeleteAccountDto` com `password` obrigatoria.
+- `SettingsDeleteAccountScreen` agora envia a senha digitada para o store.
+- `UserService.deleteAccount(password)` chama `DELETE /users/me` com body `{ password }`.
+- `UsersController` ganhou `DELETE /users/me` autenticado.
+- `DELETE /users/:id` tambem exige `DeleteAccountDto`, evitando bypass sem senha.
+- `UsersService.softDelete(id, password)` busca o usuario, valida `bcrypt.compare`, bloqueia senha invalida com `UnauthorizedException`, faz soft delete e revoga refresh tokens do usuario.
+- Cache de perfil/stats do usuario e invalidado apos exclusao.
+
+Validacao executada:
+
+- `cd backend && npx jest src/modules/users/users.spec.ts --runInBand`: OK.
+- `cd backend && npm test -- --runInBand`: OK, 15 suites e 162 testes.
+- `cd backend && npm run build`: OK.
+- `cd backend && npm run lint`: OK com `NODE_OPTIONS=--max-old-space-size=8192`.
+- `cd frontend && npm run lint`: OK.
+- `cd frontend && npx tsc --noEmit`: OK.
+- Varredura de chamadas frontend: apenas `SettingsDeleteAccountScreen`, `userStore` e `UserService` chamam `deleteAccount`, todos com senha.
+
+Status:
+
+- RESOLVIDO no codigo local.
+- Pendente para producao: smoke mobile/staging com senha correta, senha incorreta, logout apos exclusao e tentativa de refresh token apos soft delete.
+- Pendente LGPD/produto: definir politica final de retencao/anonimizacao e suporte ao titular.
 
 Resumo de bloqueadores absolutos antes de deploy publico real:
 
