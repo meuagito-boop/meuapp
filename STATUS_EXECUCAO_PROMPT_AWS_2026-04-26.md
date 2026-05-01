@@ -680,3 +680,23 @@ Status da validacao ponta a ponta:
 
 - o P0 local "SignUp sem profileType em loading infinito" fica RESOLVIDO no codigo.
 - continua pendente de ambiente: smoke mobile abrindo cadastro pelo fluxo normal e abrindo `SignUp` diretamente sem parametros.
+
+## Atualizacao complementar - 2026-05-01 (America/Sao_Paulo) - MapScreen com navegacao real
+
+### Correcao aplicada
+
+- `MapScreen` passou a usar `useNavigation`.
+- Item de lista deixou de ser `TouchableOpacity` sem acao e agora chama `handleOpenItem`.
+- Evento navega para `Item` com `template: 'evento'` e id real do evento.
+- Estabelecimento navega para `Profile` com `type: 'establishment'` e `establishmentId` real.
+- Markers tambem ganharam `onCalloutPress` com o mesmo roteamento.
+
+### Validacao executada
+
+- `cd frontend && npx tsc --noEmit`: OK.
+- `cd frontend && npm run lint`: OK.
+
+### Leitura correta apos esta rodada
+
+- o P0 local "MapScreen com item clicavel sem onPress" fica RESOLVIDO no codigo.
+- continua pendente de ambiente: smoke mobile/staging alternando mapa/lista, abrindo evento real, abrindo estabelecimento real, testando lista vazia e permissao/localizacao.

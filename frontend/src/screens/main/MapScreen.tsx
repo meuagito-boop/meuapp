@@ -1,5 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, FlatList, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ParamListBase, useNavigation } from '@react-navigation/native';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import MapView, { Marker } from 'react-native-maps';
 
 import { colors } from '@constants/colors';
@@ -21,6 +23,7 @@ type MapListItem = {
 };
 
 export default function MapScreen() {
+  const navigation = useNavigation<NativeStackNavigationProp<ParamListBase>>();
   const {
     userLocation,
     events,
@@ -52,6 +55,36 @@ export default function MapScreen() {
 
   const isLoading = mapType === 'events' ? isLoadingEvents : isLoadingEstablishments;
   const items = (mapType === 'events' ? events : establishments) as MapListItem[];
+
+  const getItemTitle = useCallback(
+    (item: MapListItem, type: MapType = mapType) =>
+      item.title || item.name || (type === 'events' ? 'Evento' : 'Estabelecimento'),
+    [mapType],
+  );
+
+  const handleOpenItem = useCallback(
+    (item: MapListItem, type: MapType = mapType) => {
+      if (type === 'events') {
+        navigation.navigate('Item', {
+          template: 'evento',
+          item: {
+            id: item.id,
+            name: getItemTitle(item, type),
+            description: item.address || '',
+            category: 'Evento',
+            price: '',
+          },
+        });
+        return;
+      }
+
+      navigation.navigate('Profile', {
+        type: 'establishment',
+        establishmentId: item.id,
+      });
+    },
+    [getItemTitle, mapType, navigation],
+  );
 
   const renderMapView = () => (
     <MapView
@@ -86,9 +119,10 @@ export default function MapScreen() {
               latitude: event.latitude,
               longitude: event.longitude,
             }}
-            title={event.title || event.name}
+            title={getItemTitle(event, 'events')}
             description={event.address}
             pinColor="#4285F4"
+            onCalloutPress={() => handleOpenItem(event, 'events')}
           />
         ))}
 
@@ -100,19 +134,20 @@ export default function MapScreen() {
               latitude: est.latitude,
               longitude: est.longitude,
             }}
-            title={est.name}
+            title={getItemTitle(est, 'establishments')}
             description={est.address}
             pinColor="#34A853"
+            onCalloutPress={() => handleOpenItem(est, 'establishments')}
           />
         ))}
     </MapView>
   );
 
   const renderListItem = (item: MapListItem) => (
-    <TouchableOpacity style={styles.listItem}>
+    <TouchableOpacity style={styles.listItem} onPress={() => handleOpenItem(item)}>
       <View style={styles.itemContent}>
         <Text style={styles.itemTitle} numberOfLines={1}>
-          {item.title || item.name}
+          {getItemTitle(item)}
         </Text>
         <Text style={styles.itemSubtitle} numberOfLines={1}>
           {item.address}

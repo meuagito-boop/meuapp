@@ -453,7 +453,7 @@ Criterio de aceite:
 | `backend/src/modules/products/products.controller.ts:56-112` | Gestao de produtos existe no backend sem UI owner pronta | Criar tela owner ou remover do release |
 | `frontend/src/utils/runtimeApiUrl.ts:4-43` | Producao cai para `https://api.meuagito.com` se `EXPO_PUBLIC_API_URL` nao existir | Validar DNS/ALB ou exigir `EXPO_PUBLIC_API_URL` no build |
 | `frontend/app.json:17-44` | Push mobile nao deve depender de Firebase/google-services; Android e iOS precisam de estrategia final sem Firebase | Definir push via SNS/APNs e alternativa Android compativel com a decisao de nao usar Firebase, ou retirar push real do primeiro release |
-| `frontend/src/screens/main/MapScreen.tsx:111-131` | Item da lista do mapa e `TouchableOpacity` sem `onPress` | Conectar item a Perfil/Item ou trocar por `View` nao clicavel |
+| `frontend/src/screens/main/MapScreen.tsx` | RESOLVIDO no codigo local pela EXECUCAO-008: item da lista e callout de marker navegam para `Item`/`Profile` | Validar smoke de mapa/lista com evento e estabelecimento reais |
 | `frontend/src/App.tsx:70-76` | `NavigationContainer` nao recebe config `linking` | Implementar deep links se push/e-mail/link externo precisarem abrir telas internas |
 | `frontend/src/screens/auth/SignUpScreen.tsx` | RESOLVIDO no codigo local pela EXECUCAO-007: `SignUp` sem `profileType` mostra estado acionavel para escolher tipo de conta | Validar smoke abrindo `SignUp` direto e fluxo normal por `ProfileSelection` |
 | `frontend/src/screens/auth/PersonalSetupScreen.tsx:104-106` | Botao "Usar minha localizacao atual" define `Sao Paulo, SP` fixo | Usar geolocalizacao real ou remover acao |
@@ -664,7 +664,7 @@ Validacoes executadas nesta rodada:
 - Todos os nomes de tela esperados pelo README existem como arquivo ou componente exportado.
 - Todas as telas esperadas estao registradas no navigator.
 - `SettingsLinkedAccounts` esta registrada, mas nao foi encontrado caminho de usuario para abrir esta tela fora de `WebPreviewNavigator`.
-- `MapScreen` usa dados reais, mas tem item de lista como `TouchableOpacity` sem `onPress`.
+- `MapScreen` usa dados reais; o item de lista como `TouchableOpacity` sem `onPress` foi RESOLVIDO no codigo local pela EXECUCAO-008.
 
 Matriz de telas:
 
@@ -684,7 +684,7 @@ Matriz de telas:
 | Feed | Sim | Sim | Sim, tab | Real | Sim | Nao encontrado | Sim em codigo; depende smoke | `RootNavigator.tsx:143-150`, `FeedSocialScreen.tsx:84-90`, `feedStore.ts:164` |
 | Buscar | Sim | Sim | Sim, tab | Real nos resultados | Sim | `RECENT_SEARCHES` estatico | Parcial para criterio 100% sem mock | `RootNavigator.tsx:151-158`, `SearchScreen.tsx:36-52`, `127`, `293-319`; trocar historico fake por historico real ou renomear como sugestoes fixas |
 | Atividade | Sim | Sim | Sim, tab | Parcial | Nao para cards principais | Cards `coming_soon` | Nao | `RootNavigator.tsx:159-172`, `ActivityScreen.tsx:26-76`; implementar/remover cards |
-| Mapa | Sim | Sim | Sim, tab | Real | Sim | Item touchable sem acao | Parcial | `RootNavigator.tsx:173-180`, `MapScreen.tsx:38-47`, `111-131`; conectar item a Perfil/Item ou trocar para `View` |
+| Mapa | Sim | Sim | Sim, tab | Real | Sim | Nao encontrado no codigo local apos EXECUCAO-008; smoke pendente | Sim em codigo; depende smoke | `RootNavigator.tsx:173-180`, `MapScreen.tsx`; lista e marker abrem `Item`/`Profile` |
 | Chat | Sim | Sim | Sim, tab | Real | Sim | Nao encontrado | Sim em codigo; depende smoke 2 usuarios/Redis | `RootNavigator.tsx:181-188`, `ChatScreen.tsx:87-100`, `chatStore.ts:261-352` |
 | Perfil | Sim | Sim | Sim, tab e navegacao por busca/feed/home | Real para estabelecimento | Sim | Fallback visual de avatar/produto | Sim em codigo; depende smoke | `RootNavigator.tsx:189-197`, `ProfileScreen.tsx:191-193`, `233-256` |
 | Configuracoes | Sim | Sim | Sim, tab | Parcial/local | Parcial | Varios itens estaticos/local-only | Nao | `RootNavigator.tsx:198-211`, `SettingsScreen.tsx:55-176`; conectar ou remover itens |
@@ -714,7 +714,7 @@ Resumo do mapeamento:
 - Telas esperadas pelo README: encontradas.
 - Telas esperadas registradas no navigator: encontradas.
 - Telas esperadas realmente prontas em codigo, dependendo apenas de smoke/deploy: Login, SignUp, TwoFactorLogin, BusinessSetup, Home, Feed, Chat, Perfil, 2FA.
-- Telas com service real mas ainda nao prontas por placeholder/fallback/acao parcial: Buscar, Mapa, Notificacoes.
+- Telas com service real mas ainda nao prontas por placeholder/fallback/acao parcial: Buscar e Notificacoes. `Mapa` saiu desta lista no codigo local pela EXECUCAO-008, pendente de smoke.
 - Telas criadas visualmente mas sem backend real suficiente: PersonalSetup, Atividade, Favoritos, Historico, Cidade, Privacidade, Seguranca, Raio de busca, Preferencias de notificacoes, Bloqueados, Alterar senha, Dispositivos, Historico de acessos, Idioma. `Minha conta` saiu desta lista no codigo local pela EXECUCAO-004, pendente apenas de smoke/staging e storage real.
 - Tela registrada mas sem acesso de usuario encontrado: Contas vinculadas.
 
@@ -722,7 +722,7 @@ Correcoes derivadas:
 
 1. Remover ou conectar todas as telas marcadas como "Nao" antes de release.
 2. Decidir se `SettingsLinkedAccounts` entra no produto; se entrar, adicionar item no menu e backend real; se nao entrar, remover rota.
-3. Conectar `MapScreen` list item a Perfil/Item ou trocar `TouchableOpacity` por componente nao interativo.
+3. RESOLVIDO no codigo local pela EXECUCAO-008: conectar `MapScreen` list item a Perfil/Item.
 4. Trocar `SearchScreen` `RECENT_SEARCHES` por historico real ou renomear para sugestoes fixas de categoria.
 5. Reclassificar tela como pronta somente depois de consumir backend real ou ser declarada como tela puramente local por definicao de produto.
 
@@ -756,7 +756,7 @@ Tabela de navegacao:
 | `frontend/src/screens/main/NotificationsScreen.tsx:238-240` | Tocar notificacao de conversa | Abrir conversa especifica | Navega apenas para tab `Chat` | `conversationId` do payload e ignorado | Navegar para `Chat` com nested route `ChatDetail` e `conversationId`, ou expor helper no ChatStack |
 | `frontend/src/screens/main/NotificationsScreen.tsx:243-245` | Tocar notificacao com `relatedUserId` | Abrir perfil do usuario relacionado | Navega `MainTabs -> Profile` sem params | `relatedUserId` e descartado; abre perfil padrao/conta atual | Passar `{ screen: 'Profile', params: { type: 'user', userId } }` e implementar destino |
 | `frontend/src/screens/main/NotificationsScreen.tsx:233-249` | Tocar notificacao com `entityType/entityId` | Abrir entidade relacionada | Codigo so trata post, conversa, related user e system | `entityType/entityId` mapeados na notificacao nao entram no roteamento | Criar roteador por entidade: post/feed, conversation/chat detail, establishment/profile, product/item, event/item |
-| `frontend/src/screens/main/MapScreen.tsx:111-131` | Tocar item na lista do mapa | Abrir perfil do estabelecimento ou item do evento | `TouchableOpacity` nao tem `onPress` | Lista tem aparencia clicavel sem acao | Adicionar navegacao por `mapType` ou trocar para `View` sem comportamento clicavel |
+| `frontend/src/screens/main/MapScreen.tsx` | Tocar item na lista do mapa ou callout do marker | Abrir perfil do estabelecimento ou item do evento | Apos EXECUCAO-008, navega para `Profile` com `establishmentId` ou `Item` com `template: evento` | Sem problema de `onPress` morto no codigo local; smoke pendente | Validar dados reais em mapa/lista no device |
 | `frontend/src/screens/main/ActivityScreen.tsx:36-55` | Tocar Pedidos, Agendamentos ou Reservas | Abrir fluxo/tela do recurso | Alerta `Em breve` em `ActivityScreen.tsx:70-71` | Cards nao navegam para tela real | Remover cards do release ou implementar telas/rotas reais |
 | `frontend/src/screens/main/ActivityScreen.tsx:27-63` | Tocar Favoritos/Historico | `ActivityFavorites`/`ActivityHistory` | `navigation.push(card.route)` para rotas registradas | Nome de rota correto, mas telas destino nao consomem backend real | Manter rota somente se contrato real for implementado; caso contrario ocultar |
 | `frontend/src/screens/main/SettingsScreen.tsx:55-140` | Tocar itens principais de Settings | Abrir subtelas registradas | Rotas dinamicas de `item.route` apontam para telas registradas | Sem nome inexistente encontrado | Manter, mas conectar conteudo das subtelas |
@@ -781,7 +781,7 @@ Correcoes derivadas:
 2. Corrigir roteamento de notificacoes para preservar `conversationId`, `relatedUserId`, `entityType` e `entityId`.
 3. Decidir e implementar deep links nativos se o release precisar abrir telas por e-mail/push/link externo.
 4. RESOLVIDO no codigo local pela EXECUCAO-007: remover loading infinito de `SignUp` sem `profileType`.
-5. Conectar `MapScreen` list item ou remover comportamento clicavel.
+5. RESOLVIDO no codigo local pela EXECUCAO-008: conectar `MapScreen` list item e markers.
 6. Remover/implementar cards de Activity que terminam em `Em breve`.
 7. Dar caminho real para `SettingsLinkedAccounts` ou remover a rota.
 
@@ -795,7 +795,7 @@ Validacoes executadas nesta rodada:
 
 - Varredura em `frontend/src` para `<Button`, `<TouchableOpacity`, `<Pressable`, `onPress`, `TODO`, `FIXME`, `console.log`, `Alert.alert`, `coming_soon`, `Em breve`, `mock`, `MOCK`, `fake`, `dummy`, `sample` e `placeholder`.
 - `Pressable` nao apareceu nos resultados; a superficie clicavel encontrada usa `TouchableOpacity`, `Button`, `Switch`, radios locais e itens de menu.
-- `frontend/src/screens/main/MapScreen.tsx:111-131` foi o caso confirmado de componente clicavel sem `onPress`.
+- `frontend/src/screens/main/MapScreen.tsx:111-131` foi o caso historico confirmado de componente clicavel sem `onPress`; RESOLVIDO no codigo local pela EXECUCAO-008.
 - `frontend/src/screens/main/SettingsMyAccountScreen.tsx:63-66` foi o caso historico confirmado de botoes de alerta com `onPress: () => {}`; RESOLVIDO no codigo local pela EXECUCAO-004 com `expo-image-picker` e `uploadAvatar`.
 - `frontend/src/screens/main/ActivityScreen.tsx:40-71`, `CatalogScreen.tsx:57-175`, `ItemScreen.tsx:49-73` e `ItemScreen.tsx:270-276` concentram os marcadores de recurso futuro/mock/CTA sem fluxo real.
 - `frontend/src/utils/logger.ts:8` contem `console.log(...args)`, mas e utilitario central de logger; nao foi classificado como botao/link quebrado nesta auditoria.
@@ -818,7 +818,7 @@ Classificacao por grupos:
 | Mock/fake | Cidade | `frontend/src/screens/main/SettingsCityScreen.tsx:22-52`, `71-143` | GPS escolhe `Sao Paulo, SP`, lista e historico sao locais |
 | Mock/fake | Catalogo sem `establishmentId` | `frontend/src/screens/main/CatalogScreen.tsx:57-175`, `324-334` | Card clicavel pode abrir `Item` com item de `MOCK_CATALOGS` |
 | Mock/fake | Telas auxiliares de Settings | `frontend/src/screens/main/SettingsAuxScreens.tsx:102-154`, `188-210`, `375-398` | Linhas estaticas, switches disabled ou scaffold sem service real |
-| Quebrado | Lista do mapa | `frontend/src/screens/main/MapScreen.tsx:111-131` | `TouchableOpacity` sem `onPress`; aparencia clicavel sem efeito |
+| Funcional real em codigo; smoke pendente | Lista do mapa | `frontend/src/screens/main/MapScreen.tsx` | Lista e marker abrem `Item` para evento e `Profile` para estabelecimento |
 | Funcional real em codigo; smoke pendente | Alterar foto em Minha conta | `frontend/src/screens/main/SettingsMyAccountScreen.tsx`, `UserService.uploadAvatar()` | Usa galeria nativa e `POST /users/me/avatar`; validar S3/CloudFront em staging |
 | Nao implementado | Pedidos, Agendamentos e Reservas em Activity | `frontend/src/screens/main/ActivityScreen.tsx:36-55`, `69-71` | Cards terminam em alerta `Em breve` |
 | Nao implementado | CTAs genericos de Item | `frontend/src/screens/main/ItemScreen.tsx:49-73`, `270-276`, `600-603` | `Agendar`, `Reservar`, `Assinar` e similares apenas exibem alerta |
@@ -828,7 +828,7 @@ Tabela de acoes com problema:
 
 | Arquivo | Componente | Acao | Classificacao | Problema | Evidencia no codigo | Correcao |
 |---|---|---|---|---|---|---|
-| `frontend/src/screens/main/MapScreen.tsx` | `TouchableOpacity` de item da lista | Tocar evento/estabelecimento no mapa | Quebrado | Nao existe `onPress`; item parece clicavel e nao faz nada | `MapScreen.tsx:111-131` | Adicionar navegacao por `mapType` para `Item`/`Profile` ou trocar para `View` |
+| `frontend/src/screens/main/MapScreen.tsx` | Item da lista e marker/callout | Tocar evento/estabelecimento no mapa | Funcional real em codigo; smoke pendente | Navega para `Item` com evento ou `Profile` com estabelecimento | `MapScreen.tsx` | Validar em device/staging com dados reais |
 | `frontend/src/screens/main/SettingsMyAccountScreen.tsx` | Alterar foto | Selecionar imagem e atualizar avatar | Funcional real em codigo; smoke pendente | Usa `expo-image-picker` e `userStore.uploadAvatar`; storage real ainda depende S3/CloudFront | `SettingsMyAccountScreen.tsx`; `UserService.uploadAvatar()` | Validar upload em device/staging com S3/CloudFront |
 | `frontend/src/screens/main/SettingsMyAccountScreen.tsx` | Botao `Salvar` | Salvar dados de conta | Funcional real em codigo; smoke pendente | Salva conta via `updateAccount` e bio via `updateProfile`; falta smoke final | `SettingsMyAccountScreen.tsx`; `UserService.updateAccount()`; `UserService.updateProfile()` | Validar sucesso, erro de duplicidade, token expirado e alteracao de e-mail |
 | `frontend/src/screens/main/SettingsScreen.tsx` | Toggle GPS | Alternar permissao/localizacao | Parcial | Altera somente estado local `gpsEnabled` | `SettingsScreen.tsx:88-93`, `196-198` | Persistir preferencia/permissionamento real ou remover toggle |
@@ -960,7 +960,7 @@ Resultado priorizado por gravidade:
 | P2 | `frontend/src/screens/main/ActivityHistoryScreen.tsx:24-48` | Tela informa que historico consolidado nao existe | Parcialmente aceitavel como transparencia; nao e funcionalidade pronta | Historico real de buscas, perfis vistos, check-ins e atividades | Criar modelo/endpoint de historico com retencao definida | Feature aparece sem dado real; baixa maturidade de produto |
 | P2 | `frontend/src/screens/main/HomeScreen.tsx:73-76` | Evento sem data retorna badge `EM BREVE` | Aceitavel como fallback visual se evento sem data for permitido; revisar contrato | Data real do evento ou estado `sem data publicada` | `searchService.searchEvents()`; backend `GET /search/events` deve retornar `date` confiavel | Pode mascarar evento cadastrado incorretamente sem data |
 | P2 | `backend/src/modules/auth/auth.service.ts:596-599` | Comentario diz `placeholder` em verificacao 2FA, mas codigo usa `user.twoFactorSecret` persistido | Aceitavel como comentario desatualizado? Nao para qualidade de producao | Comentario correto refletindo fluxo real ou ajuste se houver gap real | `authService.setupTwoFactorAuth()` e `verifyTwoFactorAuth()` | Comentario engana auditoria e manutencao; risco de alterar fluxo correto por leitura errada |
-| P3 | `frontend/src/screens/main/MapScreen.tsx:111-131` | Item da lista e `TouchableOpacity` sem acao; nao e mock, mas simula card clicavel | Nao | Navegacao real para evento/estabelecimento | `locationService.getEvent()`/`getEstablishment()` e rotas `Item`/`Profile` | Usuario toca em item e nada acontece |
+| P0 ate smoke | `frontend/src/screens/main/MapScreen.tsx` | RESOLVIDO no codigo local pela EXECUCAO-008: item da lista e marker/callout navegam para evento/estabelecimento | Nao aplicavel ao codigo local atual; ainda nao aprovado para producao sem smoke | Navegacao real para evento/estabelecimento | Rotas `Item`/`Profile` com dados carregados por `locationService`/perfil | Risco remanescente fica no smoke de dados reais e permissao/localizacao |
 | P3 | `frontend/src/screens/main/CatalogScreen.tsx:125-132` | Categorias por template sao arrays fixos | Aceitavel se forem taxonomia de produto; nao aceitavel se substituirem categorias reais | Categorias derivadas dos produtos reais quando remoto | Ja existe `dynamicCategories` em `CatalogScreen.tsx:220`; manter para `remoteMode` | Baixo risco se usado so como taxonomia visual; risco medio se filtrar catalogo fake |
 | Aceitavel | `frontend/src/components/Input.tsx:16-67` e varios inputs em telas auth/settings/search/chat | `placeholder` de campo de formulario | Sim | Nao precisa substituir; e texto auxiliar de input | Nao aplicavel | Sem risco de dado fake; manter |
 | Aceitavel | `backend/src/**/*.spec.ts`, `backend/test/**/*.ts` | `mockResolvedValue`, `mockUser`, `Test User`, `test-token` | Sim, em testes | Nao substituir no runtime | Jest/test doubles | Sem risco de producao se specs nao entram no build/runtime |
@@ -1306,7 +1306,7 @@ Regra absoluta de release: nunca deixar em producao mock, botao sem acao, alerta
 | `frontend/src/screens/main/CatalogScreen.tsx` | Catalogo | Ver produtos reais de estabelecimento | Sim via `GET /establishments/:id/products`; eventos entram por Home/Item | Sim products/events | Sim | Conectado ao backend existente no codigo local | `MOCK_CATALOGS` removido; rota sem `establishmentId` mostra estado honesto; validar smoke | P0 ate smoke |
 | `frontend/src/screens/main/ItemScreen.tsx` | Detalhe de item | Ver produto/evento real e agir | Sim via `GET /products/:id` e `GET /events/:id`; acoes de presenca usam backend | Sim products/events | Sim se catalogo/home abrem item | Conectado ao backend existente no codigo local | `item-fallback` e CTA generico removidos; validar 404/empty e device real | P0 ate smoke |
 | `frontend/src/screens/main/SearchScreen.tsx` | `RECENT_SEARCHES` | Reusar buscas recentes reais | Nao comprovado | Pode ser local storage aceitavel se declarado; backend nao obrigatorio | Sim se exibido | Corrigir contrato ou persistir local sem fingir backend | Declarar local-only honesto ou criar endpoint/preferencia; nao exibir sugestoes fake como reais | P1; P0 se parece dado real |
-| `frontend/src/screens/main/MapScreen.tsx` | Item clicavel no mapa/lista | Abrir perfil/item do lugar/evento | Endpoint de origem parcial; destino existe parcialmente | Sim para establishment/event/product | Sim | Conectar ao backend existente/corrigir navegacao | Adicionar `onPress` real para Perfil/Item ou trocar por View nao clicavel | P0 se clicavel sem acao |
+| `frontend/src/screens/main/MapScreen.tsx` | Item clicavel no mapa/lista | Abrir perfil/item do lugar/evento | Sim via eventos/estabelecimentos e rotas `Item`/`Profile` | Sim para establishment/event/product | Sim | Conectado ao backend existente no codigo local pela EXECUCAO-008 | Validar evento, estabelecimento, mapa e lista em smoke mobile/staging | P0 ate smoke |
 | `frontend/src/screens/main/NotificationsScreen.tsx` | Roteamento ao tocar notificacao | Abrir conversa, perfil, item ou entidade relacionada | Parcial via notifications/chat/profile | Sim parcial | Sim se notificacoes visiveis | Corrigir contrato frontend/backend | Usar payload real, nested route com params e fallback honesto | P1; P0 se push/notificacoes no release |
 | `frontend/src/screens/main/SettingsDeleteAccountScreen.tsx` | Excluir conta com senha | Apagar conta real com confirmacao segura | OK no codigo local; smoke/LGPD final pendente | Sim User/Auth | Sim | Contrato corrigido no codigo local | Backend valida senha e revoga refresh tokens; ainda validar device/staging e retencao/anonimizacao LGPD | P0 ate smoke/legal final |
 | `SettingsLinkedAccounts` / `frontend/src/screens/main/SettingsAuxScreens.tsx` | Contas vinculadas | Conectar/desconectar provedores externos | Nao comprovado | Nao comprovado | Nao para MVP se login social nao existir | Manter fora do release por escopo ou ocultar temporariamente | Ocultar ate existir produto/backend real; nao mostrar tela fake | P1 se visivel; P2 se oculto |
@@ -1442,7 +1442,7 @@ Base: `.codex/PROJECT_CONTEXT.md` define MVP funcional, coeso, enxuto, com nucle
 | Busca | Sim | Encontrar locais/eventos | Backend real; `RECENT_SEARCHES` local fake | Entra apos corrigir recentes/empty state | P1/P0 se visivel fake |
 | Perfil usuario/estabelecimento | Sim | Identidade e vitrine | Parcial para perfil publico usuario | Entra com escopo claro | Bloquear rotas que fingem perfil publico inexistente |
 | Catalogo/item | Sim para estabelecimento/produto/evento | Vitrine publica | Backend existe; frontend sem fallback mock no codigo local | Entra apos smoke mobile/staging confirmar produto/evento reais e banco vazio | P0 ate smoke |
-| Mapa | Sim se discovery usa mapa | Localizar itens | Parcial; item clicavel sem acao no plano | Entra se navegacao real/empty state ok | P0 se item clicavel morto |
+| Mapa | Sim se discovery usa mapa | Localizar itens | Conectado no codigo local; smoke pendente | Entra se smoke aprovar mapa/lista e empty state | P0 ate smoke |
 | Chat | Sim se interacao entre usuarios/estabelecimentos | Conversa real | Backend confirmado; smoke multi-device pendente | Entra se smoke realtime passar | P0 se exposto |
 | Notificacoes in-app | Sim | Alertas internos | Backend/service existem; roteamento parcial | Entra com roteamento honesto | Push pode ser fora do MVP se documentado |
 | Push | Opcional para primeiro MVP | Retencao/alertas | Backend SNS existe; plataforma mobile pendente | Entra somente se device real passar; senao sai do release | Sem Firebase como backend |
@@ -1745,6 +1745,36 @@ Status:
 
 - RESOLVIDO no codigo local.
 - Pendente para producao: smoke mobile abrindo cadastro pelo fluxo normal e abrindo `SignUp` diretamente sem parametros.
+
+### EXECUCAO-008 - MapScreen com navegacao real na lista e markers - 2026-05-01
+
+Objetivo executado:
+
+- Fechar o P0 local em que `MapScreen` exibia item de lista como `TouchableOpacity` sem `onPress`.
+- Conectar evento e estabelecimento a destinos reais ja registrados no navigator.
+
+Arquivos alterados:
+
+- `frontend/src/screens/main/MapScreen.tsx`
+
+Implementacao:
+
+- `MapScreen` passou a usar `useNavigation`.
+- Item de lista agora executa `handleOpenItem`.
+- Evento navega para `Item` com `template: 'evento'` e id real do evento, deixando `ItemScreen` carregar o evento por `locationService.getEvent`.
+- Estabelecimento navega para `Profile` com `type: 'establishment'` e `establishmentId` real.
+- Markers tambem ganharam `onCalloutPress` com o mesmo roteamento.
+- Titulos de item/marker passam por fallback honesto (`Evento`/`Estabelecimento`) quando o backend nao retorna `title`/`name`.
+
+Validacao executada:
+
+- `cd frontend && npx tsc --noEmit`: OK.
+- `cd frontend && npm run lint`: OK.
+
+Status:
+
+- RESOLVIDO no codigo local.
+- Pendente para producao: smoke mobile/staging alternando mapa/lista, abrindo evento real, abrindo estabelecimento real, testando lista vazia e permissao/localizacao.
 
 Resumo de bloqueadores absolutos antes de deploy publico real:
 
