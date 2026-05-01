@@ -463,7 +463,7 @@ Criterio de aceite:
 | `frontend/src/screens/main/SettingsAuxScreens.tsx:129-154` | Preferencias de notificacao e idioma sao estaticas/sem persistencia | Criar contratos reais ou ocultar do release |
 | `frontend/src/screens/main/SettingsAuxScreens.tsx:188-210` | Bloqueados e alterar senha sao scaffolds sem lista/formulario real | Implementar lista real e formulario de senha ou remover entradas |
 | `frontend/src/screens/main/SettingsScreen.tsx:196-198` | Render de toggle aceita fallback vazio `(() => {})` | Remover fallback vazio e exigir handler real por item |
-| `frontend/src/services/api/AuthService.ts:94-103` + `frontend/src/services/api/ApiClient.ts:51-59` | Refresh token chamado pelo store passa pelo interceptor que pode sobrescrever o header `Authorization` com access token | Fazer refresh por cliente sem interceptor ou preservar header explicito em `/auth/refresh` |
+| `frontend/src/services/api/AuthService.ts:94-103` + `frontend/src/services/api/ApiClient.ts` | RESOLVIDO no codigo local pela EXECUCAO-005: refresh manual preserva `Authorization` explicito e `/auth/refresh` nao dispara retry automatico | Validar smoke de expiracao/refresh em device/staging |
 | `frontend/src/services/api/UserService.ts` + `backend/src/modules/users/users.controller.ts:187-233` | RESOLVIDO no codigo local pela EXECUCAO-004: `updateAccount` usa `PUT /users/me` e `updateProfile` usa `PUT /users/me/profile` | Validar smoke autenticado e erro de e-mail/username duplicado |
 | `frontend/src/services/api/FeedService.ts:149-155` + `frontend/src/services/api/FeedService.ts:211-216` | Front envia `video`, mas `CreatePostDto` e `UpdatePostDto` nao aceitam esse campo | Remover `video` do payload ou implementar suporte backend antes do release |
 | `backend/src/modules/feed/feed.controller.ts:380-403` + `backend/src/modules/feed/feed.controller.ts:488-519` | Endpoints de liked/likes e edicao de comentario existem, mas nao ha chamada correspondente no `FeedService` | Criar metodos e UI ou remover escopo do release |
@@ -880,7 +880,7 @@ Validacoes executadas nesta rodada:
 Resumo da comparacao:
 
 - Endpoint chamado mas inexistente: nenhum confirmado na leitura estatica dos services. O caso `FeedService.ts:166-168` monta `/posts/media${query}`, mas o caminho base corresponde a `POST /posts/media`; `postId` e query opcional.
-- Quebrado por contrato: `AuthService.refreshToken` e `FeedService.createPost/updatePost` com campo `video`. `UserService.updateProfile` foi RESOLVIDO no codigo local pela EXECUCAO-004.
+- Quebrado por contrato: `FeedService.createPost/updatePost` com campo `video`. `UserService.updateProfile` foi RESOLVIDO no codigo local pela EXECUCAO-004 e `AuthService.refreshToken` foi RESOLVIDO no codigo local pela EXECUCAO-005.
 - Parcial para producao: tratamento de erro e generico no `ApiClient`; alguns fluxos dependem de SES/SNS/S3/CloudFront reais e smoke mobile.
 - Endpoint backend existente mas sem consumo mobile confirmado: gestao owner de produtos, media generica, liked/likes de post, edicao de comentario, public-profile/stats/is-following de usuario, legal JSON e health. `PUT /users/me/profile` passou a ser consumido pelo mobile na EXECUCAO-004.
 
@@ -890,7 +890,7 @@ Tabela service/endpoints:
 |---|---|---|---|---|---|
 | `AuthService.ts:69-77` | `POST /auth/signup`, `POST /auth/login` | `AuthController` `@Post('signup')` e `@Post('login')` em `backend/src/modules/auth/auth.controller.ts:28-68` | OK estatico | Payloads batem com `SignUpDto` e `LoginDto`; rota publica | Manter e validar em smoke mobile |
 | `AuthService.ts:83-88` | `POST /auth/verify-2fa-login` com `userId`, `code`, `tempToken` | `AuthController` `@Post('verify-2fa-login')` em `auth.controller.ts:299` | OK estatico | Nenhuma incompatibilidade confirmada | Validar fluxo com usuario 2FA real |
-| `AuthService.ts:94-103` | `POST /auth/refresh` com `Authorization: Bearer <refreshToken>` | `AuthController` `@Post('refresh')` + `RefreshTokenGuard` em `auth.controller.ts:93-116`; strategy le bearer em `refresh-token.strategy.ts:11-16` | Quebrado | A chamada usa `apiClient.post`; interceptor em `ApiClient.ts:51-59` pode sobrescrever o header explicito com access token. O store chama esse metodo em `authStore.ts:356-380` | Fazer `AuthService.refreshToken` usar axios cru/cliente sem interceptor ou alterar interceptor para preservar `Authorization` explicito em `/auth/refresh` |
+| `AuthService.ts:94-103` + `ApiClient.ts` | `POST /auth/refresh` com `Authorization: Bearer <refreshToken>` | `AuthController` `@Post('refresh')` + `RefreshTokenGuard` em `auth.controller.ts:93-116`; strategy le bearer em `refresh-token.strategy.ts:11-16` | OK no codigo local; smoke pendente | EXECUCAO-005 preservou `Authorization` explicito no request interceptor e bloqueou retry automatico em `/auth/refresh` quando o refresh falha | Validar expiracao/refresh/logout em smoke mobile/staging |
 | `ApiClient.ts:231-270` | Refresh automatico em 401 via axios cru `POST /auth/refresh` | Mesmo endpoint `POST /auth/refresh` | OK estatico | Esse caminho nao passa pelo interceptor e envia bearer de refresh corretamente | Reaproveitar esse caminho tambem no `AuthService.refreshToken` |
 | `AuthService.ts:109-129` | `POST /auth/logout`, `POST /auth/enable-2fa`, `POST /auth/verify-2fa`, `POST /auth/disable-2fa` | `AuthController` `@Post('logout')`, `enable-2fa`, `verify-2fa`, `disable-2fa` em `auth.controller.ts:118-287` | OK estatico | Rotas protegidas dependem do bearer injetado pelo `ApiClient` | Smoke autenticado |
 | `AuthService.ts:135-172` | `POST /auth/request-password-reset`, `reset-password`, `change-password`, `verify-email`, `resend-verification-email` | Endpoints equivalentes em `auth.controller.ts:129-216` | OK estatico | Payloads batem com DTOs; e-mail real depende de SES | Fechar SES e smoke de e-mail |
@@ -918,7 +918,7 @@ Tabela service/endpoints:
 
 Ordem exata de correcao desta auditoria:
 
-1. Corrigir `AuthService.refreshToken` para nao passar pelo interceptor que injeta access token.
+1. RESOLVIDO no codigo local pela EXECUCAO-005: `AuthService.refreshToken` preserva o bearer de refresh e nao e sobrescrito pelo interceptor de access token.
 2. RESOLVIDO no codigo local pela EXECUCAO-004: `UserService.updateProfile` usa `PUT /users/me/profile` e dados de conta foram separados em `updateAccount`.
 3. Alinhar contrato de post com `video`: remover do frontend ou implementar DTO/backend/storage para video.
 4. Remover fallback fake do catalogo quando nao houver `establishmentId`, porque os endpoints reais de leitura existem.
@@ -1659,6 +1659,33 @@ Status:
 
 - RESOLVIDO no codigo local.
 - Pendente para producao: smoke mobile/staging salvando conta, bio e avatar em usuario real; S3/CloudFront real para avatar; validacao de erro para e-mail/username duplicado; decisao de fluxo de verificacao quando e-mail for alterado.
+
+### EXECUCAO-005 - Refresh token sem sobrescrever Authorization - 2026-05-01
+
+Objetivo executado:
+
+- Fechar o P0 local em que `AuthService.refreshToken` enviava `Authorization: Bearer <refreshToken>`, mas o request interceptor do `ApiClient` podia sobrescrever esse header com o access token.
+- Evitar que uma falha em `/auth/refresh` dispare nova tentativa automatica de refresh com o mesmo fluxo.
+
+Arquivos alterados:
+
+- `frontend/src/services/api/ApiClient.ts`
+
+Implementacao:
+
+- O request interceptor agora detecta `Authorization` explicito e so injeta o access token quando a chamada nao trouxe header proprio.
+- O response interceptor nao tenta renovar token automaticamente quando a propria chamada com 401 e `/auth/refresh`.
+- `AuthService.refreshToken` continua usando `apiClient.post('/auth/refresh', undefined, { headers: { Authorization: Bearer refreshToken } })`, mas o bearer explicito passa a ser preservado.
+
+Validacao executada:
+
+- `cd frontend && npx tsc --noEmit`: OK.
+- `cd frontend && npm run lint`: OK.
+
+Status:
+
+- RESOLVIDO no codigo local.
+- Pendente para producao: smoke mobile/staging com access token expirado, refresh token valido, refresh token invalido, logout apos falha de refresh e reinicio do app com tokens persistidos.
 
 Resumo de bloqueadores absolutos antes de deploy publico real:
 

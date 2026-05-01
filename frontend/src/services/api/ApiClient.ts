@@ -53,8 +53,9 @@ class ApiClient {
     this.client.interceptors.request.use(
       async (config: InternalAxiosRequestConfig) => {
         const token = await this.getAccessToken();
+        const hasExplicitAuthorization = this.hasAuthorizationHeader(config);
 
-        if (token) {
+        if (token && !hasExplicitAuthorization) {
           config.headers.Authorization = `Bearer ${token}`;
         }
 
@@ -71,7 +72,11 @@ class ApiClient {
           _retry?: boolean;
         };
 
-        if (error.response?.status === 401 && !originalRequest._retry) {
+        if (
+          error.response?.status === 401 &&
+          !originalRequest._retry &&
+          !this.isAuthRefreshRequest(originalRequest)
+        ) {
           originalRequest._retry = true;
 
           if (!this.isRefreshing) {
@@ -127,6 +132,22 @@ class ApiClient {
   private onRefreshed(token: string) {
     this.refreshSubscribers.forEach((callback) => callback(token));
     this.refreshSubscribers = [];
+  }
+
+  private hasAuthorizationHeader(config: InternalAxiosRequestConfig) {
+    const headers = config.headers as Record<string, unknown> & {
+      get?: (headerName: string) => unknown;
+    };
+
+    return Boolean(
+      headers.Authorization ??
+      headers.authorization ??
+      headers.get?.('Authorization'),
+    );
+  }
+
+  private isAuthRefreshRequest(config?: AxiosRequestConfig) {
+    return Boolean(config?.url?.includes('/auth/refresh'));
   }
 
   /**

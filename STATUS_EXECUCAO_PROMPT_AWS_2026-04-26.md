@@ -620,3 +620,22 @@ Status da validacao ponta a ponta:
 - continua pendente de ambiente: smoke mobile/staging salvando conta, bio e avatar em usuario real.
 - continua pendente de infraestrutura: S3/CloudFront real para avatar.
 - continua pendente de produto/seguranca: validar erro de e-mail/username duplicado e decidir fluxo final de verificacao quando e-mail for alterado.
+
+## Atualizacao complementar - 2026-05-01 (America/Sao_Paulo) - Refresh token sem sobrescrever Authorization
+
+### Correcao aplicada
+
+- `ApiClient` passou a preservar `Authorization` quando a chamada ja trouxe header explicito.
+- O request interceptor agora injeta o access token apenas quando nao existe `Authorization` explicito.
+- O response interceptor nao tenta fazer refresh automatico quando a propria chamada que retornou 401 e `/auth/refresh`.
+- `AuthService.refreshToken(refreshToken)` continua usando `apiClient.post('/auth/refresh')`, mas o bearer de refresh nao e mais sobrescrito pelo access token em memoria/secure store.
+
+### Validacao executada
+
+- `cd frontend && npx tsc --noEmit`: OK.
+- `cd frontend && npm run lint`: OK.
+
+### Leitura correta apos esta rodada
+
+- o P0 local "AuthService.refreshToken passando pelo interceptor que injeta access token" fica RESOLVIDO no codigo.
+- continua pendente de ambiente: smoke mobile/staging com access token expirado, refresh token valido, refresh token invalido, logout apos falha e app reiniciado com tokens persistidos.
