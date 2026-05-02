@@ -837,3 +837,23 @@ Status da validacao ponta a ponta:
 
 - o P1/P0 local "Activity com cards futuros/Em breve/textos de auditoria na UI" fica RESOLVIDO no codigo para o caminho visivel.
 - continua pendente de produto/backend futuro: favoritos, historico, pedidos, agendamentos e reservas so devem voltar ao hub com endpoints/telas reais.
+
+## Atualizacao complementar - 2026-05-02 (America/Sao_Paulo) - Search sem buscas recentes fixas
+
+### Correcao aplicada
+
+- Constante `RECENT_SEARCHES` removida de `SearchScreen`.
+- Handler `handleRecentPress` removido.
+- Secao `Buscas rapidas` removida.
+- Tela inicial de busca mostra categorias/taxonomia local e a busca continua consumindo `searchService.searchEstablishments()`.
+
+### Validacao executada
+
+- `cd frontend && npx tsc --noEmit`: OK.
+- `cd frontend && npm run lint`: OK.
+- Varredura em `SearchScreen.tsx` para `RECENT_SEARCHES`, `Buscas rapidas`, `recent`, `historico`, `mock`, `fake`, `dummy`, `sample`, `TODO`, `FIXME`, `console.log` e `onPress={() => {}}`: sem ocorrencias.
+
+### Leitura correta apos esta rodada
+
+- o P1 local "Search com buscas recentes fixas" fica RESOLVIDO no codigo.
+- continua pendente de produto/backend futuro: historico real de busca so deve voltar com storage/endpoint real ou sugestao editorial explicitamente definida.

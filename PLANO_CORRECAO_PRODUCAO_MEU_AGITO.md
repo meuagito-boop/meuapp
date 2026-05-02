@@ -471,7 +471,7 @@ Criterio de aceite:
 | `frontend/src/screens/auth/PersonalSetupScreen.tsx` | RESOLVIDO no codigo local pela EXECUCAO-009: GPS deixou de definir `Sao Paulo, SP` fixo e usa `GeolocationService` + reverse geocode | Validar permissao/localizacao em device real |
 | `frontend/src/screens/auth/PersonalSetupScreen.tsx` | RESOLVIDO no codigo local pela EXECUCAO-009: avatar do setup pessoal usa picker/upload real | Validar S3/CloudFront em staging |
 | `frontend/src/screens/auth/PersonalSetupScreen.tsx` | RESOLVIDO no codigo local pela EXECUCAO-009: finalizar setup persiste conta/perfil antes do onboarding completo | Validar usuario novo pessoal em DB vazio/staging |
-| `frontend/src/screens/main/SearchScreen.tsx:52` + `frontend/src/screens/main/SearchScreen.tsx:295-299` | `RECENT_SEARCHES` e estatico apesar de parecer historico/acao real | Persistir buscas recentes reais ou renomear como sugestoes fixas |
+| `frontend/src/screens/main/SearchScreen.tsx` | RESOLVIDO no codigo local pela EXECUCAO-015: `RECENT_SEARCHES` e secao `Buscas rapidas` estaticas foram removidas | Criar historico real somente se voltar ao escopo |
 | `frontend/src/screens/main/SettingsAuxScreens.tsx` | RESOLVIDO parcialmente pela EXECUCAO-013: contas vinculadas, raio, preferencias de notificacao e idioma nao exibem opcoes fixas nem ficam no menu visivel | Criar contratos reais antes de reexibir |
 | `frontend/src/screens/main/SettingsAuxScreens.tsx` | RESOLVIDO parcialmente no codigo local: alterar senha real na EXECUCAO-011; bloqueados sem lista fake e fora do caminho visivel na EXECUCAO-012 | Criar backend real de bloqueios antes de reexibir |
 | `frontend/src/screens/main/SettingsScreen.tsx:196-198` | Render de toggle aceita fallback vazio `(() => {})` | Remover fallback vazio e exigir handler real por item |
@@ -694,7 +694,7 @@ Matriz de telas:
 | BusinessSetup | Sim | Sim | Sim | Real | Sim | Nao encontrado | Sim em codigo; depende smoke | `RootNavigator.tsx:65`, `BusinessSetupScreen.tsx:219`, `278-358` |
 | Home | Sim | Sim | Sim, tab | Real | Sim | Apenas fallback visual de midia | Sim em codigo; depende smoke | `RootNavigator.tsx:135-142`, `HomeScreen.tsx:180-214` |
 | Feed | Sim | Sim | Sim, tab | Real | Sim | Nao encontrado | Sim em codigo; depende smoke | `RootNavigator.tsx:143-150`, `FeedSocialScreen.tsx:84-90`, `feedStore.ts:164` |
-| Buscar | Sim | Sim | Sim, tab | Real nos resultados | Sim | `RECENT_SEARCHES` estatico | Parcial para criterio 100% sem mock | `RootNavigator.tsx:151-158`, `SearchScreen.tsx:36-52`, `127`, `293-319`; trocar historico fake por historico real ou renomear como sugestoes fixas |
+| Buscar | Sim | Sim | Sim, tab | Real nos resultados | Sim | Nao encontrado no codigo local apos EXECUCAO-015 | Sim em codigo; depende smoke | `RootNavigator.tsx:151-158`, `SearchScreen.tsx`; `RECENT_SEARCHES` removido |
 | Atividade | Sim | Sim | Sim, tab | Estado vazio honesto no codigo local | Nao precisa para estado vazio | Nao encontrado no codigo local apos EXECUCAO-014 | Sim em codigo; depende decisao de produto | `RootNavigator.tsx:159-172`, `ActivityScreen.tsx`; criar cards reais antes de reexibir recursos |
 | Mapa | Sim | Sim | Sim, tab | Real | Sim | Nao encontrado no codigo local apos EXECUCAO-008; smoke pendente | Sim em codigo; depende smoke | `RootNavigator.tsx:173-180`, `MapScreen.tsx`; lista e marker abrem `Item`/`Profile` |
 | Chat | Sim | Sim | Sim, tab | Real | Sim | Nao encontrado | Sim em codigo; depende smoke 2 usuarios/Redis | `RootNavigator.tsx:181-188`, `ChatScreen.tsx:87-100`, `chatStore.ts:261-352` |
@@ -735,7 +735,7 @@ Correcoes derivadas:
 1. Remover ou conectar todas as telas marcadas como "Nao" antes de release.
 2. Decidir se `SettingsLinkedAccounts` entra no produto; se entrar, adicionar item no menu e backend real; se nao entrar, remover rota.
 3. RESOLVIDO no codigo local pela EXECUCAO-008: conectar `MapScreen` list item a Perfil/Item.
-4. Trocar `SearchScreen` `RECENT_SEARCHES` por historico real ou renomear para sugestoes fixas de categoria.
+4. RESOLVIDO no codigo local pela EXECUCAO-015: remover `RECENT_SEARCHES` e a secao `Buscas rapidas` estatica de `SearchScreen`.
 5. Reclassificar tela como pronta somente depois de consumir backend real ou ser declarada como tela puramente local por definicao de produto.
 
 ### PROMPT-003 - auditoria de navegacao React Native/Expo - 2026-04-30
@@ -821,7 +821,7 @@ Classificacao por grupos:
 | Funcional real | Home: busca, cards de evento, places e ranking | `frontend/src/screens/main/HomeScreen.tsx:262-275`, `318-388` | Navega para `Search`, `Item` ou `Profile` com dados carregados por services reais |
 | Funcional real | 2FA em Settings | `frontend/src/screens/main/SettingsAuxScreens.tsx:249-363` | Usa `setup2FA`, `verify2FA`, `disable2FA` e `userService.getProfile` |
 | Funcional real em codigo; smoke pendente | Excluir conta | `frontend/src/screens/main/SettingsDeleteAccountScreen.tsx`, `frontend/src/services/api/UserService.ts`, `backend/src/modules/users/users.service.ts` | Front envia senha; backend valida `bcrypt.compare` e revoga refresh tokens; validar em device/staging |
-| Parcial | Busca rapida | `frontend/src/screens/main/SearchScreen.tsx:52`, `295-299` | Chips executam busca real, mas a origem `RECENT_SEARCHES` e estatica |
+| Funcional real em codigo; smoke pendente | Busca | `frontend/src/screens/main/SearchScreen.tsx` | Busca usa service real e `RECENT_SEARCHES` foi removido pela EXECUCAO-015 |
 | Parcial | Notificacoes | `frontend/src/screens/main/NotificationsScreen.tsx:222-249`, `274-278` | Marca como lida/deleta via service real, mas roteia para tabs genericas e perde parametros |
 | Parcial | Perfil publico a partir do feed | `frontend/src/screens/main/FeedSocialScreen.tsx:239-245` | `onPress` existe, mas envia params que `ProfileScreen` nao consome corretamente |
 | Fora do caminho visivel; sem fake no codigo local | Configuracoes locais | `frontend/src/screens/main/SettingsScreen.tsx` | EXECUCAO-013 removeu toggle GPS local-only e fallback vazio para handler |
@@ -863,14 +863,14 @@ Tabela de acoes com problema:
 | `frontend/src/screens/auth/PersonalSetupScreen.tsx` | Avatar | Adicionar/trocar foto | Funcional real em codigo; smoke pendente | Usa `expo-image-picker` e `userStore.uploadAvatar()` | `PersonalSetupScreen.tsx`; `POST /users/me/avatar` | Validar upload com S3/CloudFront real |
 | `frontend/src/screens/auth/PersonalSetupScreen.tsx` | GPS | Usar localizacao atual | Funcional real em codigo; smoke pendente | Usa `GeolocationService.getCurrentLocation()` e reverse geocode, sem cidade fixa | `PersonalSetupScreen.tsx`; `GeolocationService` | Validar permissao concedida/negada e cidade resolvida em device |
 | `frontend/src/screens/auth/PersonalSetupScreen.tsx` | Finalizar | Completar setup pessoal | Funcional real em codigo; smoke pendente | Persiste `PUT /users/me`, `PUT /users/me/profile` e so depois chama `completeOnboarding()` | `PersonalSetupScreen.tsx`; `UserService.ts`; `userStore.ts` | Validar cadastro pessoal novo em DB vazio/staging |
-| `frontend/src/screens/main/SearchScreen.tsx` | Chips `Buscas rapidas` | Reexecutar busca | Parcial | Acao chama busca real, mas lista vem de constante estatica `RECENT_SEARCHES` | `SearchScreen.tsx:52`, `295-299` | Persistir historico real ou renomear para sugestoes fixas |
+| `frontend/src/screens/main/SearchScreen.tsx` | Chips `Buscas rapidas` | Reexecutar busca | RESOLVIDO no codigo local pela EXECUCAO-015 | Secao estatica e constante `RECENT_SEARCHES` removidas | `SearchScreen.tsx` | Criar historico real somente se voltar ao escopo |
 
 Correcoes derivadas:
 
 1. Tratar `TouchableOpacity` sem `onPress` como bloqueio visual de release.
 2. Proibir `onPress: () => {}` em codigo de producao; toda acao deve chamar service real, navegar para tela real ou ser removida.
 3. Remover do release qualquer card que termine em `Em breve`, `Fluxo fora do MVP atual` ou scaffold estatico.
-4. Separar buscas sugeridas de historico real em `SearchScreen`.
+4. RESOLVIDO no codigo local pela EXECUCAO-015: remover buscas fixas para nao parecer historico real.
 5. Persistir ou ocultar todas as configuracoes que hoje funcionam apenas em estado local.
 6. Validar no smoke mobile os grupos classificados como funcionais reais, porque a auditoria aqui foi estatica.
 
@@ -967,7 +967,7 @@ Resultado priorizado por gravidade:
 | P0 ate smoke | `frontend/src/screens/main/SettingsSecurityScreen.tsx`; `frontend/src/screens/main/SettingsAuxScreens.tsx` | RESOLVIDO parcialmente no codigo local pela EXECUCAO-011: comentario vazio/mojibake removido, senha/2FA ficam reais e sessoes saem do menu | Parcial; alerta de novo acesso fica informativo/obrigatorio | Preferencias/sessoes reais de seguranca se voltarem ao escopo | `POST /auth/change-password`; 2FA existente; criar endpoints de sessions/audit log antes de reexibir sessoes | Risco remanescente fica em smoke de senha/2FA e escopo futuro de sessoes |
 | P1 se reexibir | `frontend/src/screens/main/ActivityScreen.tsx` | RESOLVIDO no codigo local pela EXECUCAO-014: cards de pedidos/agendamentos/reservas com `coming_soon` e alerta `Em breve` foram removidos | Sim, se oculto do caminho de producao | Fluxos reais de pedidos, reservas e agendamentos antes de voltar ao hub | Criar endpoints/telas dedicadas antes de reexibir | Risco remanescente fica fora da UI visivel; se reexibir sem backend volta a bloquear release |
 | P1 | `frontend/src/screens/main/ItemScreen.tsx:49-73`, `270-276`, `600-603` | CTAs genericos (`Agendar`, `Reservar`, `Assinar`, carrinho) apenas exibem alerta de fluxo fora do MVP | Aceitavel somente se botao ficar claramente fora do MVP; melhor remover do release | Contratos reais de agendamento/reserva/assinatura/pedido, ou CTA oculto | Criar services/endpoints especificos ou remover templates genericos | Usuario tenta comprar/agendar e recebe bloqueio; impacto direto em conversao |
-| P1 | `frontend/src/screens/main/SearchScreen.tsx:52`, `290-300` | `RECENT_SEARCHES` fixo exibido como buscas rapidas | Parcial; aceitavel se renomeado como sugestoes fixas, nao como historico real | Historico real de busca do usuario ou sugestoes editoriais declaradas | Criar endpoint/storage de historico, ou usar `searchService.trending()`/`searchService.autocomplete()` | Usuario ve termos que nao sao recentes; personalizacao falsa |
+| P1 se reexibir | `frontend/src/screens/main/SearchScreen.tsx` | RESOLVIDO no codigo local pela EXECUCAO-015: `RECENT_SEARCHES` fixo exibido como buscas rapidas foi removido | Sim, se fora da UI visivel | Historico real de busca do usuario ou sugestoes editoriais declaradas antes de voltar | Criar endpoint/storage de historico, ou usar `searchService.trending()`/`searchService.autocomplete()` | Risco remanescente fica fora da UI visivel |
 | P1 se reexibir | `frontend/src/screens/main/ActivityFavoritesScreen.tsx` | RESOLVIDO no codigo local pela EXECUCAO-014: tela nao informa lacuna/backend nem simula favoritos | Sim, se fora do hub visivel | Lista real de favoritos do usuario antes de voltar ao hub | Criar endpoint de favoritos consolidados ou estender `establishments` para listar favoritos do usuario | Risco remanescente fica fora da UI visivel |
 | P1 se reexibir | `frontend/src/screens/main/ActivityHistoryScreen.tsx` | RESOLVIDO no codigo local pela EXECUCAO-014: tela nao informa lacuna/backend nem simula historico | Sim, se fora do hub visivel | Historico real de buscas, perfis vistos, check-ins e atividades antes de voltar ao hub | Criar modelo/endpoint de historico com retencao definida | Risco remanescente fica fora da UI visivel |
 | P2 | `frontend/src/screens/main/HomeScreen.tsx:73-76` | Evento sem data retorna badge `EM BREVE` | Aceitavel como fallback visual se evento sem data for permitido; revisar contrato | Data real do evento ou estado `sem data publicada` | `searchService.searchEvents()`; backend `GET /search/events` deve retornar `date` confiavel | Pode mascarar evento cadastrado incorretamente sem data |
@@ -996,7 +996,7 @@ Ordem de correcao desta auditoria:
 4. RESOLVIDO no codigo local pela EXECUCAO-010: `SettingsCityScreen` usa geolocalizacao real e persiste cidade em `PUT /users/me/profile`; smoke mobile/staging pendente.
 5. RESOLVIDO parcialmente no codigo local pela EXECUCAO-011 e EXECUCAO-012: alterar senha foi implementado; dispositivos/historico, privacidade e bloqueados foram retirados do caminho visivel ou deixaram de exibir dados inventados. Ainda falta ocultar ou implementar notificacoes, idioma e raio sem contrato real.
 6. RESOLVIDO parcialmente no codigo local pela EXECUCAO-014: cards de pedidos/agendamentos/reservas sairam de Activity; CTAs de assinaturas/carrinho fora de Activity continuam dependentes de escopo/backend real.
-7. Trocar `RECENT_SEARCHES` por historico real ou renomear explicitamente para sugestoes fixas.
+7. RESOLVIDO no codigo local pela EXECUCAO-015: `RECENT_SEARCHES` foi removido da UI.
 8. Corrigir comentario `placeholder` no 2FA backend para refletir que o secret vem de `user.twoFactorSecret`.
 
 ### PROMPT-007 - checklist objetivo para producao e deploy - 2026-04-30
@@ -1317,7 +1317,7 @@ Regra absoluta de release: nunca deixar em producao mock, botao sem acao, alerta
 | `frontend/src/screens/main/ActivityHistoryScreen.tsx` | Historico | Ver itens visitados/acoes recentes | Nao comprovado | Nao comprovado | Nao necessariamente | Fora do hub visivel - RESOLVIDO no codigo local pela EXECUCAO-014 | Se mantido, implementar tracking real; se nao, manter fora da UI de producao | P1 se visivel; P2 se oculto |
 | `frontend/src/screens/main/CatalogScreen.tsx` | Catalogo | Ver produtos reais de estabelecimento | Sim via `GET /establishments/:id/products`; eventos entram por Home/Item | Sim products/events | Sim | Conectado ao backend existente no codigo local | `MOCK_CATALOGS` removido; rota sem `establishmentId` mostra estado honesto; validar smoke | P0 ate smoke |
 | `frontend/src/screens/main/ItemScreen.tsx` | Detalhe de item | Ver produto/evento real e agir | Sim via `GET /products/:id` e `GET /events/:id`; acoes de presenca usam backend | Sim products/events | Sim se catalogo/home abrem item | Conectado ao backend existente no codigo local | `item-fallback` e CTA generico removidos; validar 404/empty e device real | P0 ate smoke |
-| `frontend/src/screens/main/SearchScreen.tsx` | `RECENT_SEARCHES` | Reusar buscas recentes reais | Nao comprovado | Pode ser local storage aceitavel se declarado; backend nao obrigatorio | Sim se exibido | Corrigir contrato ou persistir local sem fingir backend | Declarar local-only honesto ou criar endpoint/preferencia; nao exibir sugestoes fake como reais | P1; P0 se parece dado real |
+| `frontend/src/screens/main/SearchScreen.tsx` | Historico/buscas recentes | Reusar buscas recentes reais | Nao existe no codigo local apos EXECUCAO-015 | Pode ser local storage aceitavel se declarado; backend nao obrigatorio | Sim se exibido | Manter fora da UI ate haver historico real | Criar endpoint/storage real antes de reexibir | P1 se voltar ao escopo; P0 se parece dado real |
 | `frontend/src/screens/main/MapScreen.tsx` | Item clicavel no mapa/lista | Abrir perfil/item do lugar/evento | Sim via eventos/estabelecimentos e rotas `Item`/`Profile` | Sim para establishment/event/product | Sim | Conectado ao backend existente no codigo local pela EXECUCAO-008 | Validar evento, estabelecimento, mapa e lista em smoke mobile/staging | P0 ate smoke |
 | `frontend/src/screens/main/NotificationsScreen.tsx` | Roteamento ao tocar notificacao | Abrir conversa, perfil, item ou entidade relacionada | Parcial via notifications/chat/profile | Sim parcial | Sim se notificacoes visiveis | Corrigir contrato frontend/backend | Usar payload real, nested route com params e fallback honesto | P1; P0 se push/notificacoes no release |
 | `frontend/src/screens/main/SettingsDeleteAccountScreen.tsx` | Excluir conta com senha | Apagar conta real com confirmacao segura | OK no codigo local; smoke/LGPD final pendente | Sim User/Auth | Sim | Contrato corrigido no codigo local | Backend valida senha e revoga refresh tokens; ainda validar device/staging e retencao/anonimizacao LGPD | P0 ate smoke/legal final |
@@ -1451,7 +1451,7 @@ Base: `.codex/PROJECT_CONTEXT.md` define MVP funcional, coeso, enxuto, com nucle
 | Onboarding empresarial | Sim | Criar estabelecimento real | Backend/tela existem; smoke pendente | Entra no release | Validar criacao com midia/geocode/horarios |
 | Feed social T_AGITO | Sim | Conteudo social real | Confirmado no codigo | Entra no release | Nao reabrir como mock |
 | Home/discovery | Sim | Descoberta de eventos/locais | Parcial; depende dados reais e empty states | Entra com backend real e banco vazio correto | Sem cards fake |
-| Busca | Sim | Encontrar locais/eventos | Backend real; `RECENT_SEARCHES` local fake | Entra apos corrigir recentes/empty state | P1/P0 se visivel fake |
+| Busca | Sim | Encontrar locais/eventos | Backend real; `RECENT_SEARCHES` removido no codigo local | Entra apos smoke mobile/staging | Pendente apenas validacao real de busca/localizacao |
 | Perfil usuario/estabelecimento | Sim | Identidade e vitrine | Parcial para perfil publico usuario | Entra com escopo claro | Bloquear rotas que fingem perfil publico inexistente |
 | Catalogo/item | Sim para estabelecimento/produto/evento | Vitrine publica | Backend existe; frontend sem fallback mock no codigo local | Entra apos smoke mobile/staging confirmar produto/evento reais e banco vazio | P0 ate smoke |
 | Mapa | Sim se discovery usa mapa | Localizar itens | Conectado no codigo local; smoke pendente | Entra se smoke aprovar mapa/lista e empty state | P0 ate smoke |
@@ -1485,7 +1485,7 @@ A matriz do PROMPT-008 continua valida. Complemento obrigatorio: antes de oculta
 
 | Item | Evidencia | Acao |
 |---|---|---|
-| Search `RECENT_SEARCHES` | `SearchScreen.tsx` contem lista fixa | Persistir local honesto ou backend; nao parecer dado real |
+| Search `RECENT_SEARCHES` | RESOLVIDO no codigo local pela EXECUCAO-015 | Validar busca real e estado vazio no smoke |
 | Notifications routing | Plano registra payload/roteamento parcial | Passar params corretos para chat/perfil/item |
 | Activity/Favorites/History | Telas existem com backend nao comprovado | Criar backend ou tirar do release conscientemente |
 | Observabilidade operacional | Codigo estruturado existe, CloudWatch/CloudTrail nao aplicado | Criar log groups, alarmes, retention e runbook |
@@ -2001,6 +2001,37 @@ Status:
 
 - RESOLVIDO no codigo local para o caminho visivel de producao.
 - Pendente de produto/backend futuro: favoritos, historico, pedidos, agendamentos e reservas so devem voltar ao hub com endpoints/telas reais.
+
+### EXECUCAO-015 - Search sem buscas recentes fixas - 2026-05-02
+
+Objetivo executado:
+
+- Fechar o P1 local em que `SearchScreen` exibia `RECENT_SEARCHES` fixo como `Buscas rapidas`.
+- Manter busca usando dados reais de backend, sem historico/sugestao fixa que possa parecer personalizacao real.
+
+Arquivos alterados:
+
+- `frontend/src/screens/main/SearchScreen.tsx`
+- `PLANO_CORRECAO_PRODUCAO_MEU_AGITO.md`
+- `STATUS_EXECUCAO_PROMPT_AWS_2026-04-26.md`
+
+Implementacao:
+
+- Constante `RECENT_SEARCHES` removida.
+- Handler `handleRecentPress` removido.
+- Secao `Buscas rapidas` removida.
+- Tela inicial de busca mostra apenas categorias/taxonomia local e, ao pesquisar, chama `searchService.searchEstablishments()`.
+
+Validacao executada:
+
+- `cd frontend && npx tsc --noEmit`: OK.
+- `cd frontend && npm run lint`: OK.
+- Varredura em `SearchScreen.tsx` para `RECENT_SEARCHES`, `Buscas rapidas`, `recent`, `historico`, `mock`, `fake`, `dummy`, `sample`, `TODO`, `FIXME`, `console.log` e `onPress={() => {}}`: sem ocorrencias.
+
+Status:
+
+- RESOLVIDO no codigo local.
+- Pendente de produto/backend futuro: historico real de busca so deve voltar com storage/endpoint real ou sugestao editorial explicitamente definida.
 
 Resumo de bloqueadores absolutos antes de deploy publico real:
 

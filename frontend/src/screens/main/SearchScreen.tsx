@@ -49,8 +49,6 @@ const ORDER_OPTIONS: Array<{ id: string; label: string; value: OrderBy }> = [
   { id: 'popularity', label: 'Mais avaliado', value: 'popularity' },
 ];
 
-const RECENT_SEARCHES = ['bar', 'restaurant', 'cafe', 'nightclub'];
-
 function formatDistance(distanceKm: number | null) {
   if (distanceKm == null) {
     return 'Sem distancia';
@@ -207,12 +205,6 @@ export default function SearchScreen() {
     setIsSearching(true);
   }, []);
 
-  const handleRecentPress = useCallback((term: string) => {
-    setSelectedCategory(null);
-    setSearchQuery(term);
-    setIsSearching(term.trim().length >= 2);
-  }, []);
-
   const handleClear = useCallback(() => {
     setSearchQuery('');
     setSelectedCategory(null);
@@ -290,18 +282,7 @@ export default function SearchScreen() {
       {!isSearching ? (
         <ScrollView contentContainerStyle={styles.discoveryContent} showsVerticalScrollIndicator={false}>
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Buscas rapidas</Text>
-            <View style={styles.chipsWrap}>
-              {RECENT_SEARCHES.map((term) => (
-                <TouchableOpacity key={term} style={styles.chip} onPress={() => handleRecentPress(term)}>
-                  <Text style={styles.chipText}>{term}</Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-          </View>
-
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Categorias reais</Text>
+            <Text style={styles.sectionTitle}>Categorias</Text>
             <View style={styles.chipsWrap}>
               {ESTABLISHMENT_CATEGORIES.map((category) => {
                 const active = selectedCategory === category.value;
