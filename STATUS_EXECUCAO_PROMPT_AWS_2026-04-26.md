@@ -906,3 +906,22 @@ Status da validacao ponta a ponta:
 - o P1 local "perfil publico por userId ignorado pelo destino" fica RESOLVIDO no codigo.
 - o `relatedUserId` de notificacoes passa a ter destino real.
 - continua pendente: smoke com autor usuario, autor estabelecimento, usuario inexistente e notificacao real.
+
+## Atualizacao complementar - 2026-05-02 (America/Sao_Paulo) - Rotas auxiliares de Settings fora do release
+
+### Correcao aplicada
+
+- `RootNavigator.tsx` deixou de registrar `SettingsLinkedAccounts`, `SettingsSearchRadius`, `SettingsNotifications`, `SettingsPrivacy`, `SettingsBlockedUsers`, `SettingsDevices`, `SettingsAccessHistory` e `SettingsLanguage`.
+- Permanecem no `SettingsStack` somente os fluxos de release atual: minha conta, cidade, seguranca, alterar senha, 2FA, sobre e excluir conta.
+- Os arquivos das telas auxiliares foram mantidos como backlog documentado; elas so devem voltar com backend/escopo real.
+
+### Validacao executada
+
+- `cd frontend && npx tsc --noEmit`: OK.
+- `cd frontend && npm run lint`: OK.
+- Varredura em `RootNavigator.tsx` para as rotas removidas: sem ocorrencias.
+
+### Leitura correta apos esta rodada
+
+- o P1 local "Settings auxiliares sem backend ainda registradas no navigator" fica RESOLVIDO no codigo.
+- continua pendente: criar contratos reais antes de reexibir privacidade, bloqueios, dispositivos, historico de acessos, contas vinculadas, raio, preferencias de notificacao e idioma.

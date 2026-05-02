@@ -26,7 +26,6 @@ import ActivityFavoritesScreen from '@screens/main/ActivityFavoritesScreen';
 import ActivityHistoryScreen from '@screens/main/ActivityHistoryScreen';
 import SettingsScreen from '@screens/main/SettingsScreen';
 import SettingsMyAccountScreen from '@screens/main/SettingsMyAccountScreen';
-import SettingsPrivacyScreen from '@screens/main/SettingsPrivacyScreen';
 import SettingsSecurityScreen from '@screens/main/SettingsSecurityScreen';
 import SettingsDeleteAccountScreen from '@screens/main/SettingsDeleteAccountScreen';
 import SettingsCityScreen from '@screens/main/SettingsCityScreen';
@@ -36,14 +35,7 @@ import ItemScreen from '@screens/main/ItemScreen';
 import {
   Settings2FAScreen,
   SettingsAboutScreen,
-  SettingsAccessHistoryScreen,
-  SettingsBlockedUsersScreen,
   SettingsChangePasswordScreen,
-  SettingsDevicesScreen,
-  SettingsLanguageScreen,
-  SettingsLinkedAccountsScreen,
-  SettingsNotificationsPrefsScreen,
-  SettingsSearchRadiusScreen,
 } from '@screens/main/SettingsAuxScreens';
 
 const Stack = createNativeStackNavigator();
@@ -83,17 +75,9 @@ function SettingsStack() {
       <Stack.Screen name="SettingsMain" component={SettingsScreen} />
       <Stack.Screen name="SettingsMyAccount" component={SettingsMyAccountScreen} />
       <Stack.Screen name="SettingsCity" component={SettingsCityScreen} />
-      <Stack.Screen name="SettingsLinkedAccounts" component={SettingsLinkedAccountsScreen} />
-      <Stack.Screen name="SettingsSearchRadius" component={SettingsSearchRadiusScreen} />
-      <Stack.Screen name="SettingsNotifications" component={SettingsNotificationsPrefsScreen} />
-      <Stack.Screen name="SettingsPrivacy" component={SettingsPrivacyScreen} />
-      <Stack.Screen name="SettingsBlockedUsers" component={SettingsBlockedUsersScreen} />
       <Stack.Screen name="SettingsSecurity" component={SettingsSecurityScreen} />
       <Stack.Screen name="SettingsChangePassword" component={SettingsChangePasswordScreen} />
       <Stack.Screen name="Settings2FA" component={Settings2FAScreen} />
-      <Stack.Screen name="SettingsDevices" component={SettingsDevicesScreen} />
-      <Stack.Screen name="SettingsAccessHistory" component={SettingsAccessHistoryScreen} />
-      <Stack.Screen name="SettingsLanguage" component={SettingsLanguageScreen} />
       <Stack.Screen name="SettingsAbout" component={SettingsAboutScreen} />
       <Stack.Screen name="SettingsDeleteAccount" component={SettingsDeleteAccountScreen} />
     </Stack.Navigator>
