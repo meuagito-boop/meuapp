@@ -974,7 +974,7 @@ Resultado priorizado por gravidade:
 | P1 se reexibir | `frontend/src/screens/main/ActivityFavoritesScreen.tsx` | RESOLVIDO no codigo local pela EXECUCAO-014: tela nao informa lacuna/backend nem simula favoritos | Sim, se fora do hub visivel | Lista real de favoritos do usuario antes de voltar ao hub | Criar endpoint de favoritos consolidados ou estender `establishments` para listar favoritos do usuario | Risco remanescente fica fora da UI visivel |
 | P1 se reexibir | `frontend/src/screens/main/ActivityHistoryScreen.tsx` | RESOLVIDO no codigo local pela EXECUCAO-014: tela nao informa lacuna/backend nem simula historico | Sim, se fora do hub visivel | Historico real de buscas, perfis vistos, check-ins e atividades antes de voltar ao hub | Criar modelo/endpoint de historico com retencao definida | Risco remanescente fica fora da UI visivel |
 | P2 | `frontend/src/screens/main/HomeScreen.tsx` | RESOLVIDO no codigo local pela EXECUCAO-020: evento sem data retorna badge `SEM DATA`, nao `EM BREVE` | Aceitavel como estado honesto; smoke pendente | Data real do evento quando disponivel | `searchService.searchEvents()`; backend `GET /search/events` deve retornar `date` confiavel | Risco remanescente: evento cadastrado sem data precisa ser tratado no backend/admin |
-| P2 | `backend/src/modules/auth/auth.service.ts:596-599` | Comentario diz `placeholder` em verificacao 2FA, mas codigo usa `user.twoFactorSecret` persistido | Aceitavel como comentario desatualizado? Nao para qualidade de producao | Comentario correto refletindo fluxo real ou ajuste se houver gap real | `authService.setupTwoFactorAuth()` e `verifyTwoFactorAuth()` | Comentario engana auditoria e manutencao; risco de alterar fluxo correto por leitura errada |
+| P2 | `backend/src/modules/auth/auth.service.ts` | RESOLVIDO no codigo local pela EXECUCAO-022: comentario `placeholder` da verificacao 2FA foi substituido por descricao do fluxo real | Sim | `setupTwoFactorAuth()` gera secret real, persiste `twoFactorSecret` e `verifyTwoFactorAuth()` valida TOTP com esse valor | `authService.setupTwoFactorAuth()` e `verifyTwoFactorAuth()` | Risco remanescente fica apenas em smoke de 2FA em staging/device |
 | P0 ate smoke | `frontend/src/screens/main/MapScreen.tsx` | RESOLVIDO no codigo local pela EXECUCAO-008: item da lista e marker/callout navegam para evento/estabelecimento | Nao aplicavel ao codigo local atual; ainda nao aprovado para producao sem smoke | Navegacao real para evento/estabelecimento | Rotas `Item`/`Profile` com dados carregados por `locationService`/perfil | Risco remanescente fica no smoke de dados reais e permissao/localizacao |
 | P3 | `frontend/src/screens/main/CatalogScreen.tsx:125-132` | Categorias por template sao arrays fixos | Aceitavel se forem taxonomia de produto; nao aceitavel se substituirem categorias reais | Categorias derivadas dos produtos reais quando remoto | Ja existe `dynamicCategories` em `CatalogScreen.tsx:220`; manter para `remoteMode` | Baixo risco se usado so como taxonomia visual; risco medio se filtrar catalogo fake |
 | Aceitavel | `frontend/src/components/Input.tsx:16-67` e varios inputs em telas auth/settings/search/chat | `placeholder` de campo de formulario | Sim | Nao precisa substituir; e texto auxiliar de input | Nao aplicavel | Sem risco de dado fake; manter |
@@ -1001,7 +1001,7 @@ Ordem de correcao desta auditoria:
 6. RESOLVIDO parcialmente no codigo local pela EXECUCAO-014: cards de pedidos/agendamentos/reservas sairam de Activity; CTAs de assinaturas/carrinho fora de Activity continuam dependentes de escopo/backend real.
 7. RESOLVIDO no codigo local pela EXECUCAO-015: `RECENT_SEARCHES` foi removido da UI.
 8. RESOLVIDO no codigo local pela EXECUCAO-016/017: `NotificationsScreen` nao exibe placeholders visuais e nao perde params de conversa/usuario/entidade.
-9. Corrigir comentario `placeholder` no 2FA backend para refletir que o secret vem de `user.twoFactorSecret`.
+9. RESOLVIDO no codigo local pela EXECUCAO-022: comentario `placeholder` no 2FA backend foi corrigido para refletir que o secret vem de `user.twoFactorSecret`.
 
 ### PROMPT-007 - checklist objetivo para producao e deploy - 2026-04-30
 
@@ -1416,7 +1416,7 @@ Dependencia principal: mobile release -> ALB/HTTPS -> ECS Fargate -> RDS/Redis/S
 
 | Item | Status | Evidencia no codigo | Acao necessaria | Bloqueador |
 |---|---|---|---|---|
-| Base64 em midia | OK/parcial | `feed.service.ts` rejeita data URI/base64; auth 2FA ainda retorna placeholder `data:image/png;base64,...` em stub | Manter proibicao em midia real; substituir placeholder 2FA por QR real ou ocultar 2FA | Sim se 2FA aparecer no release |
+| Base64 em midia | OK/parcial | `feed.service.ts` rejeita data URI/base64; auth 2FA gera QR real com `QRCode.toDataURL(secret.otpauth_url)` e nao usa stub runtime | Manter proibicao em midia real; validar 2FA em staging/device | Sim ate smoke se 2FA aparecer no release |
 | MediaService + S3 | OK | `MediaService` + `StorageService` + S3 client existem | Validar S3/CloudFront real em staging | Sim |
 | JWT e claims | OK | `JwtPayload`, `jwtid: randomUUID()`, `USER/ESTABLISHMENT` | Smoke auth/refresh/2FA em staging | Sim |
 | Logica morta/nao usada | Parcial | Existem telas/services parciais no mobile; backend core principal em uso | Fazer varredura por modulo antes de release e remover/ocultar apenas com decisao de escopo | Nao por si; Sim se visivel fake |
@@ -2239,6 +2239,36 @@ Status:
 
 - RESOLVIDO no codigo local: backend nao inicia mais em producao publica com S3/CloudFront/SES/SNS desligados.
 - Pendente de infra: criar secrets reais, aplicar env em staging AWS, validar healthcheck, upload S3/CloudFront, e-mail SES e push SNS em dispositivo real.
+
+### EXECUCAO-022 - 2FA sem comentario incorreto de placeholder - 2026-05-02
+
+Objetivo executado:
+
+- Revisar a pendencia do plano sobre `placeholder` no backend 2FA.
+- Corrigir comentario divergente sem reabrir um fluxo que ja usa secret persistido e QR real.
+
+Arquivos alterados:
+
+- `backend/src/modules/auth/auth.service.ts`
+- `PLANO_CORRECAO_PRODUCAO_MEU_AGITO.md`
+- `STATUS_EXECUCAO_PROMPT_AWS_2026-04-26.md`
+
+Implementacao:
+
+- Removido o comentario que dizia que a verificacao 2FA usava placeholder.
+- O comentario agora registra o comportamento real: `setupTwoFactorAuth()` gera e persiste `twoFactorSecret`, e `verifyTwoFactorAuth()` valida o TOTP usando esse segredo persistido.
+- O plano foi ajustado para nao tratar o 2FA como stub runtime; a pendencia restante e smoke em staging/device.
+
+Validacao executada:
+
+- `cd backend && npx jest src/modules/auth/auth.spec.ts --runInBand`: OK, 12 testes.
+- `cd backend && npm run build`: OK.
+- `cd backend && npm run lint`: OK.
+
+Status:
+
+- RESOLVIDO no codigo local: nao ha mais comentario interno indicando placeholder no runtime 2FA.
+- Pendente de smoke: ativar, validar login com 2FA e desativar 2FA em staging/device.
 
 Resumo de bloqueadores absolutos antes de deploy publico real:
 

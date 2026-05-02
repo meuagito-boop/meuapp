@@ -983,3 +983,22 @@ Status da validacao ponta a ponta:
 
 - o P0 local "backend permite producao com S3/CloudFront/SES/SNS desligados" fica RESOLVIDO no codigo.
 - continua pendente: criar staging AWS real, secrets reais, healthcheck expandido em ambiente real, smoke de upload S3/CloudFront, envio SES e push SNS em dispositivo real.
+
+## Atualizacao complementar - 2026-05-02 (America/Sao_Paulo) - 2FA sem comentario incorreto de placeholder
+
+### Correcao aplicada
+
+- `backend/src/modules/auth/auth.service.ts` nao diz mais que a verificacao 2FA usa placeholder.
+- O comentario agora reflete o codigo real: `setupTwoFactorAuth()` gera secret real, persiste `twoFactorSecret` e `verifyTwoFactorAuth()` valida TOTP com esse segredo.
+- O plano foi atualizado para nao tratar o 2FA como stub runtime; a pendencia restante e smoke real.
+
+### Validacao executada
+
+- `cd backend && npx jest src/modules/auth/auth.spec.ts --runInBand`: OK, 12 testes.
+- `cd backend && npm run build`: OK.
+- `cd backend && npm run lint`: OK.
+
+### Leitura correta apos esta rodada
+
+- o P2 local "comentario 2FA diz placeholder apesar do codigo usar secret persistido" fica RESOLVIDO no codigo.
+- continua pendente: smoke de ativar 2FA, login com 2FA e desativar 2FA em staging/device.

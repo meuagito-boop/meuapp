@@ -593,8 +593,7 @@ export class AuthService {
         throw new NotFoundException('User not found');
       }
 
-      // This is simplified - in production, you'd store the secret first
-      // For now, using a placeholder
+      // The secret is generated during setupTwoFactorAuth and persisted before verification.
       const verified = speakeasy.totp.verify({
         secret: user.twoFactorSecret || '',
         encoding: 'base32',
