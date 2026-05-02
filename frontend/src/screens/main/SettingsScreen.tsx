@@ -106,13 +106,6 @@ export default function SettingsScreen() {
           route: 'SettingsNotifications',
         },
         {
-          id: 'privacy',
-          label: 'Privacidade',
-          subtitle: 'Conta pÃºblica, mensagens, check-ins',
-          type: 'link',
-          route: 'SettingsPrivacy',
-        },
-        {
           id: 'security',
           label: 'SeguranÃ§a',
           subtitle: 'Senha, 2FA, dispositivos',

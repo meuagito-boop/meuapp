@@ -192,10 +192,13 @@ export function SettingsBlockedUsersScreen() {
     <SettingsScaffold
       title="Usuarios bloqueados"
       description="Gerencie quem nao pode interagir com voce."
-      lines={[
-        { title: 'Nenhum usuario bloqueado', subtitle: 'Lista vazia no momento' },
-      ]}
-    />
+      lines={[]}
+    >
+      <View style={styles.inlineCard}>
+        <Text style={styles.lineTitle}>Lista indisponivel.</Text>
+        <Text style={styles.lineSubtitle}>Nao ha usuarios para exibir.</Text>
+      </View>
+    </SettingsScaffold>
   );
 }
 

@@ -776,3 +776,23 @@ Status da validacao ponta a ponta:
 - o P1/P0 local "Dispositivos/historico com dados inventados visiveis pelo menu de seguranca" fica RESOLVIDO no codigo local para o caminho visivel.
 - continua pendente de ambiente: smoke mobile/staging com senha atual correta, senha atual incorreta, confirmacao divergente, token expirado e 2FA.
 - continua pendente de produto/backend futuro: sessoes/dispositivos/historico de acesso so devem voltar ao menu com endpoint real de sessoes/audit log.
+
+## Atualizacao complementar - 2026-05-02 (America/Sao_Paulo) - Privacidade fora do caminho visivel
+
+### Correcao aplicada
+
+- A entrada `Privacidade` saiu do menu principal de Settings.
+- `SettingsPrivacyScreen` deixou de usar `useFocusEffect`, `Switch`, radios locais, `publicAccount`, `messages`, `checkins` e `blockedCount`.
+- A tela nao altera mais preferencias apenas em estado local.
+- `SettingsBlockedUsersScreen` deixou de exibir lista vazia como se fosse dado real de bloqueios.
+
+### Validacao executada
+
+- `cd frontend && npx tsc --noEmit`: OK.
+- `cd frontend && npm run lint`: OK.
+- Varredura em `SettingsPrivacyScreen.tsx`, `SettingsScreen.tsx` e `SettingsAuxScreens.tsx` para `Load privacy settings`, `publicAccount`, `setPublicAccount`, `messages`, `setMessages`, `checkins`, `setCheckins`, `SettingsPrivacy`, `mock`, `fake`, `dummy`, `sample`, `TODO`, `FIXME`, `console.log`, `onPress={() => {}}`, `Em breve` e `coming_soon`: sem ocorrencias relevantes, exceto a exportacao da tela registrada para rota interna.
+
+### Leitura correta apos esta rodada
+
+- o P0 local "Privacidade com switches/radios local-only" fica RESOLVIDO no codigo para o caminho visivel.
+- continua pendente de produto/backend futuro: privacidade, mensagens, check-ins e bloqueios so devem voltar ao menu com model/migration/DTO/controller/service reais.
