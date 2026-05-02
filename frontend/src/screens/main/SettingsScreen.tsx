@@ -1,6 +1,6 @@
-import { useFocusEffect, useNavigation, ParamListBase } from '@react-navigation/native';
+import { useNavigation, ParamListBase } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import React, { useState, useCallback } from 'react';
+import React from 'react';
 import {
   StyleSheet,
   View,
@@ -8,20 +8,11 @@ import {
   ScrollView,
   TouchableOpacity,
   SafeAreaView,
-  Alert,
-  Switch,
 } from 'react-native';
 
 
 import { colors } from '@constants/colors';
 import { spacing, fontSize } from '@constants/design';
-
-/**
- * SettingsScreen - T_CONFIG Design Aprovado
- * Hub de controle do usuÃ¡rio com grupos de configuraÃ§Ã£o
- * 5 grupos: Conta, Localidade, PreferÃªncias, Sobre, Zona de perigo
- * 17 sub-telas documentadas
- */
 
 interface SettingGroup {
   id: string;
@@ -34,23 +25,14 @@ interface SettingItem {
   label: string;
   subtitle?: string;
   icon?: string;
-  type: 'link' | 'toggle' | 'action';
+  type: 'link' | 'action';
   route?: string;
   onPress?: () => void;
   isDanger?: boolean;
-  value?: boolean;
-  onValueChange?: (value: boolean) => void;
 }
 
 export default function SettingsScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<ParamListBase>>();
-  const [gpsEnabled, setGpsEnabled] = useState(true);
-
-  useFocusEffect(
-    useCallback(() => {
-      // Reset state when screen is focused
-    }, []),
-  );
 
   const SETTINGS_GROUPS: SettingGroup[] = [
     {
@@ -77,47 +59,18 @@ export default function SettingsScreen() {
           type: 'link',
           route: 'SettingsCity',
         },
-        {
-          id: 'search-radius',
-          label: 'Raio de Busca',
-          subtitle: '5km padrÃ£o',
-          type: 'link',
-          route: 'SettingsSearchRadius',
-        },
-        {
-          id: 'gps-permission',
-          label: 'PermissÃ£o de GPS',
-          subtitle: 'Usar localizaÃ§Ã£o ao buscar',
-          type: 'toggle',
-          value: gpsEnabled,
-          onValueChange: setGpsEnabled,
-        },
       ],
     },
     {
       id: 'preferences',
-      title: 'PreferÃªncias',
+      title: 'Preferencias',
       items: [
         {
-          id: 'notifications',
-          label: 'NotificaÃ§Ãµes',
-          subtitle: 'Controle tipos de notificaÃ§Ãµes',
-          type: 'link',
-          route: 'SettingsNotifications',
-        },
-        {
           id: 'security',
-          label: 'SeguranÃ§a',
-          subtitle: 'Senha, 2FA, dispositivos',
+          label: 'Seguranca',
+          subtitle: 'Senha e 2FA',
           type: 'link',
           route: 'SettingsSecurity',
-        },
-        {
-          id: 'language',
-          label: 'Idioma',
-          subtitle: 'PortuguÃªs (Brasil)',
-          type: 'link',
-          route: 'SettingsLanguage',
         },
       ],
     },
@@ -128,7 +81,7 @@ export default function SettingsScreen() {
         {
           id: 'about-app',
           label: 'Sobre o Meu Agito',
-          subtitle: 'VersÃ£o, legal e suporte',
+          subtitle: 'Versao, legal e suporte',
           type: 'link',
           route: 'SettingsAbout',
         },
@@ -139,30 +92,9 @@ export default function SettingsScreen() {
       title: 'Zona de Perigo',
       items: [
         {
-          id: 'deactivate',
-          label: 'Desativar Conta',
-          subtitle: 'Oculta perfil temporariamente',
-          type: 'action',
-          isDanger: true,
-          onPress: () => {
-            Alert.alert(
-              'Desativar Conta',
-              'Sua conta serÃ¡ oculta para outros usuÃ¡rios. VocÃª pode reativar ao fazer login novamente.',
-              [
-                { text: 'Cancelar', style: 'cancel' },
-                {
-                  text: 'Desativar',
-                  onPress: () => Alert.alert('Conta desativada com sucesso'),
-                  style: 'destructive',
-                },
-              ],
-            );
-          },
-        },
-        {
           id: 'delete',
           label: 'Excluir Conta',
-          subtitle: 'ExclusÃ£o permanente e irreversÃ­vel',
+          subtitle: 'Exclusao permanente e irreversivel',
           type: 'action',
           isDanger: true,
           onPress: () => {
@@ -174,29 +106,6 @@ export default function SettingsScreen() {
   ];
 
   const renderItem = (item: SettingItem) => {
-    if (item.type === 'toggle') {
-      return (
-        <View
-          key={item.id}
-          style={[styles.settingItem, item.isDanger && styles.settingItemDanger]}
-        >
-          <View style={styles.settingInfo}>
-            <Text style={styles.settingLabel}>{item.label}</Text>
-            {item.subtitle && (
-              <Text style={styles.settingSubtitle}>{item.subtitle}</Text>
-            )}
-          </View>
-          <Switch
-            value={item.value || false}
-            onValueChange={item.onValueChange || (() => {})}
-            trackColor={{ false: colors.border, true: colors.primary }}
-            thumbColor={colors.text}
-            style={styles.toggle}
-          />
-        </View>
-      );
-    }
-
     return (
       <TouchableOpacity
         key={item.id}
@@ -219,7 +128,7 @@ export default function SettingsScreen() {
           )}
         </View>
         {item.type === 'link' && (
-          <Text style={styles.chevron}>â€º</Text>
+          <Text style={styles.chevron}>{'>'}</Text>
         )}
       </TouchableOpacity>
     );
@@ -242,7 +151,7 @@ export default function SettingsScreen() {
         <View style={styles.logoBox}>
           <Text style={styles.logoText}>M</Text>
         </View>
-        <Text style={styles.title}>ConfiguraÃ§Ãµes</Text>
+        <Text style={styles.title}>Configuracoes</Text>
         <View style={styles.headerSpacer} />
       </View>
 
@@ -347,9 +256,6 @@ const styles = StyleSheet.create({
   settingSubtitle: {
     fontSize: fontSize.xs,
     color: colors.textSecondary,
-  },
-  toggle: {
-    marginLeft: spacing.md,
   },
   chevron: {
     fontSize: 16,

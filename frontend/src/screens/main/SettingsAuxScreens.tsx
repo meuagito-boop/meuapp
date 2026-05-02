@@ -106,11 +106,13 @@ export function SettingsLinkedAccountsScreen() {
     <SettingsScaffold
       title="Contas vinculadas"
       description="Gerencie provedores de login social."
-      lines={[
-        { title: 'Google', subtitle: 'Conectado' },
-        { title: 'Apple', subtitle: 'Nao conectado' },
-      ]}
-    />
+      lines={[]}
+    >
+      <View style={styles.inlineCard}>
+        <Text style={styles.lineTitle}>Contas indisponiveis.</Text>
+        <Text style={styles.lineSubtitle}>Nao ha provedores para exibir.</Text>
+      </View>
+    </SettingsScaffold>
   );
 }
 
@@ -119,12 +121,13 @@ export function SettingsSearchRadiusScreen() {
     <SettingsScaffold
       title="Raio de busca"
       description="Define a distancia padrao para recomendacoes."
-      lines={[
-        { title: '5 km (padrao)', subtitle: 'Ativo' },
-        { title: '10 km' },
-        { title: '25 km' },
-      ]}
-    />
+      lines={[]}
+    >
+      <View style={styles.inlineCard}>
+        <Text style={styles.lineTitle}>Ajuste indisponivel.</Text>
+        <Text style={styles.lineSubtitle}>Nao ha raio de busca para alterar.</Text>
+      </View>
+    </SettingsScaffold>
   );
 }
 
@@ -133,12 +136,13 @@ export function SettingsNotificationsPrefsScreen() {
     <SettingsScaffold
       title="Notificacoes"
       description="Controle o que voce recebe na central e push."
-      lines={[
-        { title: 'Novos momentos', type: 'switch', value: true },
-        { title: 'Promocoes da cidade', type: 'switch', value: true },
-        { title: 'Alertas de seguranca', type: 'switch', value: true },
-      ]}
-    />
+      lines={[]}
+    >
+      <View style={styles.inlineCard}>
+        <Text style={styles.lineTitle}>Preferencias indisponiveis.</Text>
+        <Text style={styles.lineSubtitle}>Nao ha opcoes de notificacao para alterar.</Text>
+      </View>
+    </SettingsScaffold>
   );
 }
 
@@ -147,12 +151,13 @@ export function SettingsLanguageScreen() {
     <SettingsScaffold
       title="Idioma"
       description="Mudancas de idioma podem exigir reinicio do app."
-      lines={[
-        { title: 'Portugues (Brasil)', subtitle: 'Ativo' },
-        { title: 'English (US)' },
-        { title: 'Espanol' },
-      ]}
-    />
+      lines={[]}
+    >
+      <View style={styles.inlineCard}>
+        <Text style={styles.lineTitle}>Idioma indisponivel.</Text>
+        <Text style={styles.lineSubtitle}>Nao ha idiomas para alterar.</Text>
+      </View>
+    </SettingsScaffold>
   );
 }
 

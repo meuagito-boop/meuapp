@@ -796,3 +796,24 @@ Status da validacao ponta a ponta:
 
 - o P0 local "Privacidade com switches/radios local-only" fica RESOLVIDO no codigo para o caminho visivel.
 - continua pendente de produto/backend futuro: privacidade, mensagens, check-ins e bloqueios so devem voltar ao menu com model/migration/DTO/controller/service reais.
+
+## Atualizacao complementar - 2026-05-02 (America/Sao_Paulo) - Settings sem preferencias auxiliares local-only
+
+### Correcao aplicada
+
+- `SettingsScreen` removeu `gpsEnabled`, `Switch`, fallback vazio de toggle e o item `Permissao de GPS`.
+- `SettingsScreen` removeu as entradas `Raio de Busca`, `Notificacoes`, `Idioma` e `Desativar Conta` do caminho visivel.
+- A zona de perigo manteve somente `Excluir Conta`, que ja usa backend real.
+- `SettingsLinkedAccountsScreen`, `SettingsSearchRadiusScreen`, `SettingsNotificationsPrefsScreen` e `SettingsLanguageScreen` deixaram de exibir provedores, raios, switches e idiomas fixos caso sejam abertas indiretamente.
+- Strings visiveis tocadas em `SettingsScreen` foram normalizadas para ASCII.
+
+### Validacao executada
+
+- `cd frontend && npx tsc --noEmit`: OK.
+- `cd frontend && npm run lint`: OK.
+- Varredura em `SettingsScreen.tsx` e `SettingsAuxScreens.tsx` para `gpsEnabled`, `setGpsEnabled`, `SettingsSearchRadius`, `SettingsNotifications`, `SettingsLanguage`, `Desativar Conta`, `Conta desativada`, valores fixos de raio, provedores fixos, idiomas fixos, `mock`, `fake`, `dummy`, `sample`, `TODO`, `FIXME`, `console.log`, `onPress={() => {}}`, `Em breve`, `coming_soon` e mojibake: sem ocorrencias relevantes, exceto exports de rotas auxiliares registradas.
+
+### Leitura correta apos esta rodada
+
+- o P0/P1 local "Settings com GPS/raio/notificacoes/idioma/desativar local-only" fica RESOLVIDO no codigo para o caminho visivel.
+- continua pendente de produto/backend futuro: GPS como preferencia persistida, raio de busca, preferencias de notificacao, idioma, contas vinculadas e desativacao temporaria so devem voltar ao menu com contratos reais.
