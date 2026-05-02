@@ -1,6 +1,6 @@
-import { useFocusEffect, useNavigation, ParamListBase } from '@react-navigation/native';
+import { useNavigation, ParamListBase } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import React, { useCallback } from 'react';
+import React from 'react';
 import {
   StyleSheet,
   View,
@@ -13,45 +13,21 @@ import {
 import { colors } from '@constants/colors';
 import { spacing, fontSize } from '@constants/design';
 
-/**
- * SettingsSecurity - Sub-tela de SeguranÃ§a
- * Tela 10 de T_CONFIG
- * Password, 2FA,Dispositivos, HistÃ³rico, Alertas
- */
-
 export default function SettingsSecurityScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<ParamListBase>>();
-
-  useFocusEffect(
-    useCallback(() => {
-      // Load security settings
-    }, []),
-  );
 
   const securityItems = [
     {
       id: 'password',
-      label: 'Alterar Senha',
+      label: 'Alterar senha',
       subtitle: 'Atualize sua senha regularmente',
       route: 'SettingsChangePassword',
     },
     {
       id: '2fa',
-      label: 'AutenticaÃ§Ã£o 2FA',
+      label: 'Autenticacao 2FA',
       subtitle: 'Aplicativo autenticador',
       route: 'Settings2FA',
-    },
-    {
-      id: 'devices',
-      label: 'Dispositivos',
-      subtitle: 'Gerenciar dispositivos conectados',
-      route: 'SettingsDevices',
-    },
-    {
-      id: 'access-history',
-      label: 'HistÃ³rico de Acessos',
-      subtitle: 'Acessos recentes Ã  sua conta',
-      route: 'SettingsAccessHistory',
     },
   ];
 
@@ -60,10 +36,10 @@ export default function SettingsSecurityScreen() {
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()}>
           <View style={styles.backButton}>
-            <Text style={styles.backIcon}>â†</Text>
+            <Text style={styles.backIcon}>{'<-'}</Text>
           </View>
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>SeguranÃ§a</Text>
+        <Text style={styles.headerTitle}>Seguranca</Text>
         <View style={styles.headerSpacer} />
       </View>
 
@@ -82,19 +58,18 @@ export default function SettingsSecurityScreen() {
               <Text style={styles.itemLabel}>{item.label}</Text>
               <Text style={styles.itemSubtitle}>{item.subtitle}</Text>
             </View>
-            <Text style={styles.chevron}>â€º</Text>
+            <Text style={styles.chevron}>{'>'}</Text>
           </TouchableOpacity>
         ))}
 
-        {/* Alert Toggle */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>NotificaÃ§Ãµes de SeguranÃ§a</Text>
+            <Text style={styles.sectionTitle}>Alertas de seguranca</Text>
           </View>
           <View style={styles.item}>
             <View style={styles.itemInfo}>
               <Text style={styles.itemLabel}>Alerta de novo acesso</Text>
-              <Text style={styles.itemSubtitle}>Notifique quando alguÃ©m acessar sua conta</Text>
+              <Text style={styles.itemSubtitle}>Notificacao obrigatoria para proteger sua conta</Text>
             </View>
             <View style={styles.toggleDisabled}>
               <View style={styles.toggleSwitch} />
@@ -102,7 +77,7 @@ export default function SettingsSecurityScreen() {
           </View>
           <View style={styles.warningText}>
             <Text style={styles.warningTextContent}>
-              NÃ£o pode ser desativado por policy de seguranÃ§a
+              Este alerta nao pode ser desativado pela politica de seguranca.
             </Text>
           </View>
         </View>

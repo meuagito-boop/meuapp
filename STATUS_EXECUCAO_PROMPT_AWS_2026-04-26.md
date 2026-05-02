@@ -752,3 +752,27 @@ Status da validacao ponta a ponta:
 
 - o P0 local "SettingsCity com cidade/GPS/recentes fake e confirmacao sem persistencia" fica RESOLVIDO no codigo.
 - continua pendente de ambiente: smoke mobile/staging com cidade manual, permissao de localizacao concedida/negada, perfil recarregado apos salvar e impacto da cidade nos fluxos de descoberta.
+
+## Atualizacao complementar - 2026-05-02 (America/Sao_Paulo) - Settings Security real parcial
+
+### Correcao aplicada
+
+- `useAuth` passou a expor `changePassword()`.
+- `SettingsChangePasswordScreen` deixou de ser scaffold visual e passou a ter formulario real.
+- A tela valida senha atual, nova senha, confirmacao e impede nova senha igual a atual antes de chamar backend.
+- O submit chama `authStore.changePassword()` -> `AuthService.changePassword()` -> `POST /auth/change-password`.
+- `SettingsSecurityScreen` removeu comentario vazio, texto mojibake e atalhos visiveis para dispositivos/historico sem backend.
+- `SettingsDevicesScreen` e `SettingsAccessHistoryScreen` deixaram de exibir `Windows Chrome`, `Android Pixel`, cidades e horarios fixos.
+
+### Validacao executada
+
+- `cd frontend && npx tsc --noEmit`: OK.
+- `cd frontend && npm run lint`: OK.
+- Varredura em `SettingsSecurityScreen.tsx` e `SettingsAuxScreens.tsx` para `Load security settings`, `Windows Chrome`, `Android Pixel`, `Sao Paulo, BR`, `Santos, BR`, `mock`, `fake`, `dummy`, `sample`, `TODO`, `FIXME`, `console.log`, `onPress={() => {}}`, `Em breve`, `coming_soon` e textos mojibake de seguranca: sem ocorrencias nos arquivos alterados.
+
+### Leitura correta apos esta rodada
+
+- o P0 local "SettingsChangePassword scaffold sem backend real" fica RESOLVIDO no codigo.
+- o P1/P0 local "Dispositivos/historico com dados inventados visiveis pelo menu de seguranca" fica RESOLVIDO no codigo local para o caminho visivel.
+- continua pendente de ambiente: smoke mobile/staging com senha atual correta, senha atual incorreta, confirmacao divergente, token expirado e 2FA.
+- continua pendente de produto/backend futuro: sessoes/dispositivos/historico de acesso so devem voltar ao menu com endpoint real de sessoes/audit log.

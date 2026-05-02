@@ -28,6 +28,8 @@ type SettingLine = {
   onPress?: () => void;
 };
 
+const PASSWORD_MIN_LENGTH = 8;
+
 function SettingsScaffold({
   title,
   description,
@@ -198,16 +200,122 @@ export function SettingsBlockedUsersScreen() {
 }
 
 export function SettingsChangePasswordScreen() {
+  const navigation = useNavigation<NativeStackNavigationProp<ParamListBase>>();
+  const { changePassword, isLoading } = useAuth();
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [formError, setFormError] = useState<string | null>(null);
+
+  const canSubmit =
+    currentPassword.length >= PASSWORD_MIN_LENGTH &&
+    newPassword.length >= PASSWORD_MIN_LENGTH &&
+    confirmPassword.length >= PASSWORD_MIN_LENGTH &&
+    !isLoading;
+
+  const handleSubmit = async () => {
+    setFormError(null);
+
+    if (currentPassword.length < PASSWORD_MIN_LENGTH) {
+      setFormError('Informe a senha atual com pelo menos 8 caracteres.');
+      return;
+    }
+
+    if (newPassword.length < PASSWORD_MIN_LENGTH) {
+      setFormError('A nova senha deve ter pelo menos 8 caracteres.');
+      return;
+    }
+
+    if (newPassword !== confirmPassword) {
+      setFormError('A confirmacao precisa ser igual a nova senha.');
+      return;
+    }
+
+    if (newPassword === currentPassword) {
+      setFormError('A nova senha precisa ser diferente da senha atual.');
+      return;
+    }
+
+    const result = await changePassword(currentPassword, newPassword);
+    if (!result.success) {
+      setFormError(result.error || 'Nao foi possivel alterar a senha.');
+      return;
+    }
+
+    setCurrentPassword('');
+    setNewPassword('');
+    setConfirmPassword('');
+
+    Alert.alert('Senha alterada', 'Sua senha foi atualizada com sucesso.', [
+      {
+        text: 'OK',
+        onPress: () => navigation.goBack(),
+      },
+    ]);
+  };
+
   return (
     <SettingsScaffold
       title="Alterar senha"
-      description="Recomendado trocar senha periodicamente."
-      lines={[
-        { title: 'Senha atual' },
-        { title: 'Nova senha' },
-        { title: 'Confirmar nova senha' },
-      ]}
-    />
+      description="Atualize sua senha usando sua senha atual."
+      lines={[]}
+    >
+      <View style={styles.formCard}>
+        <Input
+          label="Senha atual"
+          placeholder="Digite sua senha atual"
+          value={currentPassword}
+          onChangeText={(value) => {
+            setCurrentPassword(value);
+            setFormError(null);
+          }}
+          isPassword
+          autoCapitalize="none"
+          textContentType="password"
+          editable={!isLoading}
+        />
+        <Input
+          label="Nova senha"
+          placeholder="Digite a nova senha"
+          value={newPassword}
+          onChangeText={(value) => {
+            setNewPassword(value);
+            setFormError(null);
+          }}
+          isPassword
+          autoCapitalize="none"
+          textContentType="newPassword"
+          editable={!isLoading}
+        />
+        <Input
+          label="Confirmar nova senha"
+          placeholder="Repita a nova senha"
+          value={confirmPassword}
+          onChangeText={(value) => {
+            setConfirmPassword(value);
+            setFormError(null);
+          }}
+          isPassword
+          autoCapitalize="none"
+          textContentType="newPassword"
+          editable={!isLoading}
+        />
+
+        <Text style={styles.formHint}>Use pelo menos 8 caracteres.</Text>
+        {formError ? <Text style={styles.formError}>{formError}</Text> : null}
+
+        <Button
+          label="Alterar senha"
+          onPress={() => {
+            void handleSubmit();
+          }}
+          loading={isLoading}
+          disabled={!canSubmit}
+          fullWidth
+          style={styles.actionButton}
+        />
+      </View>
+    </SettingsScaffold>
   );
 }
 
@@ -376,12 +484,14 @@ export function SettingsDevicesScreen() {
   return (
     <SettingsScaffold
       title="Dispositivos"
-      description="Sessoes ativas com historico recente."
-      lines={[
-        { title: 'Windows Chrome', subtitle: 'Ativo agora' },
-        { title: 'Android Pixel', subtitle: 'Ontem, 21:13' },
-      ]}
-    />
+      description="Sessoes ativas da sua conta."
+      lines={[]}
+    >
+      <View style={styles.inlineCard}>
+        <Text style={styles.lineTitle}>Dados de sessoes indisponiveis.</Text>
+        <Text style={styles.lineSubtitle}>Nao ha dispositivos para exibir.</Text>
+      </View>
+    </SettingsScaffold>
   );
 }
 
@@ -389,12 +499,14 @@ export function SettingsAccessHistoryScreen() {
   return (
     <SettingsScaffold
       title="Historico de acessos"
-      description="Ultimos acessos da sua conta."
-      lines={[
-        { title: 'Sao Paulo, BR', subtitle: 'Hoje, 08:40' },
-        { title: 'Santos, BR', subtitle: 'Ontem, 22:11' },
-      ]}
-    />
+      description="Acessos recentes da sua conta."
+      lines={[]}
+    >
+      <View style={styles.inlineCard}>
+        <Text style={styles.lineTitle}>Historico indisponivel.</Text>
+        <Text style={styles.lineSubtitle}>Nao ha acessos para exibir.</Text>
+      </View>
+    </SettingsScaffold>
   );
 }
 
@@ -489,6 +601,25 @@ const styles = StyleSheet.create({
     gap: spacing.md,
   },
   actionButton: {
+    marginTop: spacing.sm,
+  },
+  formCard: {
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 12,
+    backgroundColor: colors.surface,
+    padding: spacing.md,
+  },
+  formHint: {
+    color: colors.textSecondary,
+    fontSize: fontSize.xs,
+    lineHeight: 18,
+  },
+  formError: {
+    color: colors.error,
+    fontSize: fontSize.sm,
+    fontWeight: '600',
+    lineHeight: 20,
     marginTop: spacing.sm,
   },
   qrHint: {

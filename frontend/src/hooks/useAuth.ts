@@ -57,6 +57,18 @@ export const useAuth = () => {
     [store]
   );
 
+  const changePassword = useCallback(
+    async (currentPassword: string, newPassword: string) => {
+      try {
+        await store.changePassword(currentPassword, newPassword);
+        return { success: true };
+      } catch (error) {
+        return { success: false, error: store.error || 'Change password failed' };
+      }
+    },
+    [store]
+  );
+
   const verifyEmail = useCallback(
     async (token: string) => {
       try {
@@ -102,6 +114,7 @@ export const useAuth = () => {
     signup,
     requestPasswordReset,
     resetPassword,
+    changePassword,
     verifyEmail,
     resendVerificationEmail,
     logout,
