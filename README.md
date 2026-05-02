@@ -274,8 +274,8 @@ Ja existe no codigo:
 - TanStack Query provider;
 - Zustand stores;
 - `ApiClient` com Axios, Bearer token, refresh automatico e SecureStore;
-- resolucao de API por `EXPO_PUBLIC_API_URL`, fallback local e fallback prod;
-- registro automatico de push token apos login/onboarding;
+- resolucao de API por `EXPO_PUBLIC_API_URL`; em dev ha fallback local, em release a env e obrigatoria;
+- registro de push token apos login/onboarding somente quando `EXPO_PUBLIC_ENABLE_PUSH_REGISTRATION=true`;
 - `WebPreviewNavigator` para preview web de telas.
 
 ### Telas de autenticacao
@@ -421,7 +421,7 @@ Tokens principais:
 
 ### Notificacoes e push
 
-1. App solicita permissao de notificacao apos login/onboarding.
+1. App solicita permissao de notificacao apos login/onboarding somente se `EXPO_PUBLIC_ENABLE_PUSH_REGISTRATION=true`.
 2. App captura token nativo via `expo-notifications`.
 3. App registra token em `POST /notifications/push-tokens`.
 4. Backend persiste `PushToken`.
@@ -541,6 +541,7 @@ Use `backend/.env.example` e `backend/.env.test.example` como base.
 | CloudFront | `USE_CLOUDFRONT`, `CLOUDFRONT_BASE_URL` |
 | SES | `ENABLE_EMAIL`, `EMAIL_PROVIDER=ses`, `AWS_SES_REGION`, `AWS_SES_FROM_EMAIL` |
 | SNS | `PUSH_PROVIDER=sns`, `AWS_SNS_REGION`, ARNs de platform application |
+| Mobile API/push | `EXPO_PUBLIC_API_URL`, `EXPO_PUBLIC_ENABLE_PUSH_REGISTRATION`, `EXPO_PUBLIC_AWS_SNS_PLATFORM_APPLICATION_ARN_ANDROID`, `EXPO_PUBLIC_AWS_SNS_PLATFORM_APPLICATION_ARN_IOS` |
 | Observabilidade | `APP_NAME`, `LOG_LEVEL`, `AWS_CLOUDWATCH_*`, `AWS_XRAY_*`, `SENTRY_*` |
 
 ## 13. Testes e validacao registrada

@@ -7,6 +7,7 @@ import type { PushPlatform } from '@services/api/NotificationsService';
 import { logger } from '@utils/logger';
 
 const PUSH_REGISTRATION_STORAGE_KEY = 'push-registration-v1';
+const PUSH_REGISTRATION_ENABLED_VALUES = new Set(['1', 'true', 'yes', 'on']);
 
 type StoredPushRegistration = {
   pushTokenId: string;
@@ -16,6 +17,11 @@ type StoredPushRegistration = {
 
 class PushRegistrationService {
   private notificationHandlerConfigured = false;
+
+  isRegistrationEnabled(): boolean {
+    const configuredValue = process.env.EXPO_PUBLIC_ENABLE_PUSH_REGISTRATION?.trim().toLowerCase();
+    return configuredValue ? PUSH_REGISTRATION_ENABLED_VALUES.has(configuredValue) : false;
+  }
 
   private configureNotificationHandling() {
     if (this.notificationHandlerConfigured || Platform.OS === 'web') {
@@ -35,6 +41,11 @@ class PushRegistrationService {
 
   async registerCurrentDevice(): Promise<StoredPushRegistration | null> {
     if (Platform.OS === 'web') {
+      return null;
+    }
+
+    if (!this.isRegistrationEnabled()) {
+      logger.info('Registro de push desabilitado por configuracao do build.');
       return null;
     }
 

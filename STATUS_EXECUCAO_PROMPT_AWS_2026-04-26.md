@@ -1060,3 +1060,22 @@ Status da validacao ponta a ponta:
 
 - o P0 local "build mobile pode apontar silenciosamente para API default sem `EXPO_PUBLIC_API_URL`" fica RESOLVIDO no codigo.
 - continua pendente: definir `EXPO_PUBLIC_API_URL` real no build staging/prod e validar chamadas em dispositivo real.
+
+## Atualizacao complementar - 2026-05-02 (America/Sao_Paulo) - Registro automatico de push protegido por feature flag
+
+### Correcao aplicada
+
+- `PushRegistrationService.registerCurrentDevice()` nao solicita permissao nem registra token se `EXPO_PUBLIC_ENABLE_PUSH_REGISTRATION` nao estiver habilitado.
+- A flag aceita `1`, `true`, `yes` ou `on`.
+- `README.md` foi atualizado para refletir que o registro de push token apos login/onboarding e opcional por flag.
+- O fluxo SNS/backend continua preparado, mas o app nao aciona push incompleto por default enquanto Android/iOS sem Firebase nao estiver validado.
+
+### Validacao executada
+
+- `cd frontend && npx tsc --noEmit`: OK.
+- `cd frontend && npm run lint`: OK.
+
+### Leitura correta apos esta rodada
+
+- o P1/P0 condicional "app solicita permissao/registra push automaticamente antes de validar estrategia sem Firebase" fica RESOLVIDO parcialmente no codigo.
+- continua pendente: decidir se push entra no primeiro release; se entrar, validar token nativo Android sem Firebase ou alternativa, APNs/iOS, SNS platform ARNs e smoke em dispositivo real.

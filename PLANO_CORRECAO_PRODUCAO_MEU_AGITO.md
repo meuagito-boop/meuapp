@@ -466,7 +466,7 @@ Criterio de aceite:
 | `frontend/src/screens/main/NotificationsScreen.tsx` | RESOLVIDO no codigo local pela EXECUCAO-016: placeholders `??`/`?` visiveis removidos | Validar smoke visual em device |
 | `backend/src/modules/products/products.controller.ts:56-112` | Gestao de produtos existe no backend sem UI owner pronta | Criar tela owner ou remover do release |
 | `frontend/src/utils/runtimeApiUrl.ts` | RESOLVIDO no codigo local pela EXECUCAO-025: release build nao cai mais para `https://api.meuagito.com` sem `EXPO_PUBLIC_API_URL` | Definir `EXPO_PUBLIC_API_URL` real no build staging/prod e validar chamadas |
-| `frontend/app.json:17-44` | Push mobile nao deve depender de Firebase/google-services; Android e iOS precisam de estrategia final sem Firebase | Definir push via SNS/APNs e alternativa Android compativel com a decisao de nao usar Firebase, ou retirar push real do primeiro release |
+| `frontend/app.json` + `frontend/src/services/push/PushRegistrationService.ts` | RESOLVIDO parcialmente no codigo local pela EXECUCAO-026: push nao usa Firebase/google-services e registro automatico fica desligado por default ate estrategia Android/iOS real | Definir push via SNS/APNs e alternativa Android compativel com a decisao de nao usar Firebase, ou manter `EXPO_PUBLIC_ENABLE_PUSH_REGISTRATION` desabilitado no primeiro release |
 | `frontend/src/screens/main/MapScreen.tsx` | RESOLVIDO no codigo local pela EXECUCAO-008: item da lista e callout de marker navegam para `Item`/`Profile` | Validar smoke de mapa/lista com evento e estabelecimento reais |
 | `frontend/src/App.tsx:70-76` | `NavigationContainer` nao recebe config `linking` | Implementar deep links se push/e-mail/link externo precisarem abrir telas internas |
 | `frontend/src/screens/auth/SignUpScreen.tsx` | RESOLVIDO no codigo local pela EXECUCAO-007: `SignUp` sem `profileType` mostra estado acionavel para escolher tipo de conta | Validar smoke abrindo `SignUp` direto e fluxo normal por `ProfileSelection` |
@@ -1042,7 +1042,7 @@ Checklist por area:
 | Lint mobile | Script existe | Rodar lint | `cd frontend && npm run lint` | Zero erro; warnings aceitaveis documentados | Sim |
 | API URL producao | Codigo OK pela EXECUCAO-025; valor real pendente | Conferir env do build | Build com `EXPO_PUBLIC_API_URL=https://...` e smoke release | Build nao aponta `localhost`; API resolve via HTTPS real; release falha cedo se env faltar | Sim |
 | Remocao de mocks bloqueantes | Parcial | Validar itens PROMPT-006 | Varredura + smoke das telas | Catalogo, minha conta, onboarding pessoal e cidade ja resolvidos no codigo local; settings restantes/activity ainda nao podem simular producao | Sim |
-| Config de push mobile | Parcial | Conferir estrategia sem Firebase, APNs e env SNS | Build/device com provider definido | Android/iOS geram token nativo sem Firebase ou push fica declarado fora do MVP | Sim para push no release |
+| Config de push mobile | Parcial; registro automatico protegido pela EXECUCAO-026 | Conferir estrategia sem Firebase, APNs e env SNS | Build/device com `EXPO_PUBLIC_ENABLE_PUSH_REGISTRATION=true` somente quando push real estiver validado | Android/iOS geram token nativo sem Firebase ou push fica declarado fora do MVP com flag desligada | Sim para push no release |
 | Deep links/notificacao para telas | Pendente/parcial | Abrir app por notificacao/link | Smoke manual com push real | Notificacao abre entidade correta ou comportamento fora do escopo declarado | Nao para MVP sem deep link; Sim se push exigir roteamento |
 
 #### 3. Banco de dados
@@ -1090,9 +1090,9 @@ Checklist por area:
 | Item | Status atual | Como validar | Comando ou teste necessario | Criterio para considerar pronto | Bloqueia deploy? |
 |---|---|---|---|---|---|
 | Backend SNS | Codigo OK pela EXECUCAO-021; device/push real pendente | Subir com `PUSH_PROVIDER=sns` | Start backend com `AWS_SNS_REGION` e ARN generico ou Android | Registro de token cria endpoint SNS | Sim para push real |
-| Push Android sem Firebase | Pendente: projeto decidiu nao usar Firebase/google-services | Validar alternativa tecnica e build Android | Build Android/device com provider definido | Device Android registra token real sem Firebase, ou push Android fica fora do MVP | Sim para Android push |
+| Push Android sem Firebase | Pendente; registro automatico desligado por default pela EXECUCAO-026 | Validar alternativa tecnica e build Android | Build Android/device com `EXPO_PUBLIC_ENABLE_PUSH_REGISTRATION=true` somente apos provider definido | Device Android registra token real sem Firebase, ou push Android fica fora do MVP com flag desligada | Sim se push Android entrar no release |
 | APNs iOS | Pendente | Validar credencial APNs/SNS iOS | Build iOS/device | Device iOS registra token e recebe push | Sim para iOS push |
-| Env mobile de platform ARN | Pendente | Conferir env build | `EXPO_PUBLIC_AWS_SNS_PLATFORM_APPLICATION_ARN_ANDROID/IOS` no build | App envia ARN correto ou backend resolve por env | Sim para push real |
+| Env mobile de platform ARN | Pendente para push real; nao usado se flag desligada | Conferir env build | `EXPO_PUBLIC_ENABLE_PUSH_REGISTRATION=true` + `EXPO_PUBLIC_AWS_SNS_PLATFORM_APPLICATION_ARN_ANDROID/IOS` se app enviar ARN | App envia ARN correto ou backend resolve por env | Sim para push real |
 | Test push | Endpoint existe | Chamar endpoint autenticado | `POST /notifications/push-test` via app/curl | Push chega no device e entrega fica registrada | Sim para release com push |
 
 #### 8. Seguranca
@@ -1253,7 +1253,7 @@ Correcao necessaria quando falhar: remover dependencia de seed do fluxo, criar e
 | Package/bundle | Parcial | Revisar `frontend/app.json` | `android.package` e `ios.bundleIdentifier` finais e sem conflito | Sim |
 | Icones/splash | Parcial | Instalar release em device e conferir assets | Icone/splash finais aparecem corretamente | Sim |
 | Permissoes Android | Parcial | Revisar manifesto/build e testar negacao/permissao | Somente permissoes necessarias e textos corretos | Sim |
-| Push Android | Pendente | Projeto decidiu nao usar Firebase; validar alternativa tecnica ou retirar push do release | Token/push real funciona sem Firebase, ou push fica fora do MVP | Sim se push no release |
+| Push Android | Pendente; registro automatico desligado por default pela EXECUCAO-026 | Projeto decidiu nao usar Firebase; validar alternativa tecnica ou retirar push do release | Token/push real funciona sem Firebase, ou push fica fora do MVP com `EXPO_PUBLIC_ENABLE_PUSH_REGISTRATION` desligado | Sim se push no release |
 | Estrategia iOS | Pendente | Implementar build iOS ou declarar Android-only no primeiro release | Decisao documentada; se iOS entrar, build/TestFlight passa | Sim se iOS no release |
 | Variaveis no build | Pendente | Conferir env embutida nos logs/build | Sem `localhost`; API URL e flags apontam para staging/producao corretos | Sim |
 | API URL real | Pendente | Abrir app release e interceptar/observar chamadas | App chama backend real/staging via HTTPS | Sim |
@@ -2363,6 +2363,37 @@ Status:
 
 - RESOLVIDO no codigo local: build nao-dev nao usa mais API URL default silenciosa.
 - Pendente de release: definir `EXPO_PUBLIC_API_URL` real no build staging/prod e validar chamadas em dispositivo real.
+
+### EXECUCAO-026 - Registro automatico de push protegido por feature flag - 2026-05-02
+
+Objetivo executado:
+
+- Impedir que o app solicite permissao de push e tente registrar token nativo enquanto a estrategia Android/iOS sem Firebase nao estiver validada.
+- Manter o codigo SNS/backend preparado, mas sem acionar fluxo incompleto automaticamente no release.
+
+Arquivos alterados:
+
+- `frontend/src/services/push/PushRegistrationService.ts`
+- `README.md`
+- `PLANO_CORRECAO_PRODUCAO_MEU_AGITO.md`
+- `STATUS_EXECUCAO_PROMPT_AWS_2026-04-26.md`
+
+Implementacao:
+
+- `PushRegistrationService.registerCurrentDevice()` agora retorna sem solicitar permissao nem registrar token quando `EXPO_PUBLIC_ENABLE_PUSH_REGISTRATION` nao esta habilitado.
+- Valores aceitos para habilitar: `1`, `true`, `yes` ou `on`.
+- `README.md` passou a registrar que push token apos login/onboarding e opcional por flag.
+- O plano passou a tratar push mobile como protegido por flag ate haver provider Android/iOS real validado.
+
+Validacao executada:
+
+- `cd frontend && npx tsc --noEmit`: OK.
+- `cd frontend && npm run lint`: OK.
+
+Status:
+
+- RESOLVIDO parcialmente no codigo local: push incompleto nao e mais acionado automaticamente por default.
+- Pendente de produto/infra: decidir se push entra no primeiro release; se entrar, validar token nativo Android sem Firebase ou declarar alternativa, APNs/iOS, SNS platform ARNs e smoke em dispositivo real.
 
 Resumo de bloqueadores absolutos antes de deploy publico real:
 
