@@ -43,6 +43,22 @@ function readFirstNonEmpty(env: NodeJS.ProcessEnv, keys: string[]): string | und
   return undefined;
 }
 
+function requireAnyWhen(
+  condition: boolean,
+  env: NodeJS.ProcessEnv,
+  keys: string[],
+  errors: string[],
+  message?: string
+) {
+  if (!condition) {
+    return;
+  }
+
+  if (!readFirstNonEmpty(env, keys)) {
+    errors.push(message ?? `${keys.join(' or ')} is required.`);
+  }
+}
+
 function validateUrlWhenProvided(value: string | undefined, key: string, errors: string[]) {
   if (!value || value.trim().length === 0) {
     return;
@@ -99,6 +115,10 @@ export function validateEnvironment(rawEnv: RawEnv): RawEnv {
     errors.push(`EMAIL_PROVIDER must be one of: none, ses (received: ${emailProvider}).`);
   }
 
+  if (isProduction && emailProvider !== 'ses') {
+    errors.push('EMAIL_PROVIDER=ses is required in production.');
+  }
+
   const emailEnabled = emailExplicitlyEnabled || emailProvider === 'ses';
   if (emailEnabled && emailProvider !== 'none') {
     requireWhen(
@@ -122,6 +142,10 @@ export function validateEnvironment(rawEnv: RawEnv): RawEnv {
     errors.push(`STORAGE_PROVIDER must be one of: none, s3 (received: ${storageProvider}).`);
   }
 
+  if (isProduction && storageProvider !== 's3') {
+    errors.push('STORAGE_PROVIDER=s3 is required in production.');
+  }
+
   if (storageProvider === 's3') {
     if (!readFirstNonEmpty(env, ['S3_BUCKET', 'AWS_S3_BUCKET'])) {
       errors.push('S3_BUCKET (or AWS_S3_BUCKET) is required for STORAGE_PROVIDER=s3.');
@@ -140,12 +164,15 @@ export function validateEnvironment(rawEnv: RawEnv): RawEnv {
 
     const useCloudFront = parseBoolean(env.USE_CLOUDFRONT, false);
     const cloudFrontBaseUrl = readFirstNonEmpty(env, ['CLOUDFRONT_BASE_URL', 'AWS_CLOUDFRONT_URL']);
-    requireWhen(
-      useCloudFront,
+    if (isProduction && !useCloudFront) {
+      errors.push('USE_CLOUDFRONT=true is required in production.');
+    }
+    requireAnyWhen(
+      useCloudFront || isProduction,
       env,
-      'CLOUDFRONT_BASE_URL',
+      ['CLOUDFRONT_BASE_URL', 'AWS_CLOUDFRONT_URL'],
       errors,
-      'CLOUDFRONT_BASE_URL (or AWS_CLOUDFRONT_URL) is required when USE_CLOUDFRONT is true.'
+      'CLOUDFRONT_BASE_URL (or AWS_CLOUDFRONT_URL) is required when USE_CLOUDFRONT is true or in production.'
     );
     validateUrlWhenProvided(cloudFrontBaseUrl, 'CLOUDFRONT_BASE_URL', errors);
   }
@@ -155,8 +182,22 @@ export function validateEnvironment(rawEnv: RawEnv): RawEnv {
     errors.push(`PUSH_PROVIDER must be one of: none, sns (received: ${pushProvider}).`);
   }
 
+  if (isProduction && pushProvider !== 'sns') {
+    errors.push('PUSH_PROVIDER=sns is required in production.');
+  }
+
   if (pushProvider === 'sns' && !readFirstNonEmpty(env, ['AWS_SNS_REGION', 'AWS_REGION'])) {
     errors.push('AWS_SNS_REGION (or AWS_REGION) is required when PUSH_PROVIDER=sns.');
+  }
+
+  if (pushProvider === 'sns' && isProduction) {
+    requireAnyWhen(
+      true,
+      env,
+      ['AWS_SNS_PLATFORM_APPLICATION_ARN', 'AWS_SNS_PLATFORM_APPLICATION_ARN_ANDROID'],
+      errors,
+      'AWS_SNS_PLATFORM_APPLICATION_ARN (or AWS_SNS_PLATFORM_APPLICATION_ARN_ANDROID) is required in production when PUSH_PROVIDER=sns.'
+    );
   }
 
   const sentryEnabled = parseBoolean(env.SENTRY_ENABLED, false) || Boolean(env.SENTRY_DSN);

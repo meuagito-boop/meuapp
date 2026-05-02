@@ -97,6 +97,7 @@ Correcao:
 
 - Criar e validar env de producao separado, com S3, CloudFront, SES, SNS, Redis externo e banco alvo reais.
 - Se o criterio for "100% real", endurecer `env.validation.ts` para exigir `STORAGE_PROVIDER=s3`, `EMAIL_PROVIDER=ses` e `PUSH_PROVIDER=sns` em `NODE_ENV=production`.
+- Status atualizado em 2026-05-02: a parte de codigo da validacao foi RESOLVIDA pela EXECUCAO-021. `backend/src/config/env.validation.ts` agora bloqueia `NODE_ENV=production` sem Redis, `STORAGE_PROVIDER=s3`, CloudFront ligado com URL, `EMAIL_PROVIDER=ses`, `PUSH_PROVIDER=sns` e ARN SNS generico ou Android. Ainda pendem ambiente staging/producao real, secrets AWS reais e smoke ponta a ponta.
 
 ### B3 - Settings tem varias telas parciais, fake ou apenas locais
 
@@ -438,10 +439,10 @@ Criterio de aceite:
 | `README.md:615` | README declara nao pronto para deploy publico real | Fechar pendencias de `README.md:619-625` |
 | `doc/00_GOVERNANCA/01_ESTADO_ATUAL_2026-04-23.md:61-70` | AWS/deploy/smoke pendentes | Executar validacao real |
 | `backend/.env.example:41-75` | S3, CloudFront, SES e SNS desligados/vazios | Criar env real de producao |
-| `backend/src/config/env.validation.ts:96-160` | Producao exige Redis, mas nao exige S3/SES/SNS reais | Endurecer validacao para release 100% real |
-| `backend/src/modules/media/storage.service.ts:92-101` | Provider diferente de `s3` cai para local | Impedir storage local em producao real |
-| `backend/src/common/email/email.service.ts:51-55` | E-mail pode ficar desabilitado | Exigir SES no ambiente final |
-| `backend/src/common/notification/notification.service.ts:48-52` | Push pode ficar desabilitado | Exigir SNS no ambiente final |
+| `backend/src/config/env.validation.ts` | RESOLVIDO no codigo local pela EXECUCAO-021: `NODE_ENV=production` agora exige Redis, S3, CloudFront, SES e SNS reais | Validar env staging/producao com secrets reais e smoke AWS |
+| `backend/src/modules/media/storage.service.ts:92-101` | Provider diferente de `s3` ainda cai para local fora de producao | Permitido em dev/test; em producao a EXECUCAO-021 bloqueia `STORAGE_PROVIDER` diferente de `s3` |
+| `backend/src/common/email/email.service.ts:51-55` | E-mail pode ficar desabilitado fora de producao | Permitido em dev/test; em producao a EXECUCAO-021 bloqueia `EMAIL_PROVIDER` diferente de `ses` |
+| `backend/src/common/notification/notification.service.ts:48-52` | Push pode ficar desabilitado fora de producao | Permitido em dev/test; em producao a EXECUCAO-021 bloqueia `PUSH_PROVIDER` diferente de `sns` |
 | `docker-compose.yml:79-82` | Storage/email/push desligados no runtime local | Nao usar compose local como prova de producao |
 | `frontend/src/screens/auth/PersonalSetupScreen.tsx` | RESOLVIDO no codigo local pela EXECUCAO-009: username, bio, cidade/localizacao e avatar deixaram de ser simulados | Validar smoke mobile/staging; manter interesses fora do release ate existir backend real |
 | `frontend/src/screens/main/ActivityScreen.tsx` | RESOLVIDO no codigo local pela EXECUCAO-014: cards `coming_soon`, alerta `Em breve` e cards comerciais sem backend removidos | Criar contratos reais antes de reexibir cards/rotas de atividade |
@@ -615,9 +616,9 @@ Classificacao por area:
 | Item produto/evento | Implementado no codigo local para produto/evento; smoke pendente | `frontend/src/screens/main/ItemScreen.tsx` | Produto/evento real; templates genericos sem backend nao exibem CTA fake |
 | Chat | Implementado e funcional em codigo | `frontend/src/screens/main/ChatScreen.tsx`, `backend/src/modules/chat/chat.gateway.ts` | Requer smoke 2 usuarios e Redis externo |
 | Notificacoes in-app | Implementado e funcional em codigo | `frontend/src/services/api/NotificationsService.ts:69-105`, `backend/src/modules/notifications/notifications.controller.ts:29-100` | Tela ainda tem placeholders visuais |
-| Push real | Pendente para producao/deploy | `backend/src/common/notification/notification.service.ts:48-52` | SNS pode ficar desabilitado |
-| E-mail real | Pendente para producao/deploy | `backend/src/common/email/email.service.ts:51-55` | SES pode ficar desabilitado |
-| Midia real | Pendente para producao/deploy | `backend/src/modules/media/storage.service.ts:92-101` | S3 existe, mas storage local ainda e fallback por config |
+| Push real | Codigo endurecido; runtime AWS pendente | `backend/src/config/env.validation.ts`; `backend/src/common/notification/notification.service.ts` | Producao exige SNS/ARN pela EXECUCAO-021; falta validar token/device/SNS real |
+| E-mail real | Codigo endurecido; runtime AWS pendente | `backend/src/config/env.validation.ts`; `backend/src/common/email/email.service.ts` | Producao exige SES pela EXECUCAO-021; falta validar identidade/envio real |
+| Midia real | Codigo endurecido; runtime AWS pendente | `backend/src/config/env.validation.ts`; `backend/src/modules/media/storage.service.ts` | Producao exige S3/CloudFront pela EXECUCAO-021; falta validar bucket/CDN real |
 | Redis real | Pendente para producao/deploy | `backend/src/config/env.validation.ts:84-94` | Producao exige Redis, mas falta validar Redis externo alvo |
 | Configuracoes | Criado parcialmente / mockado | `frontend/src/screens/main/Settings*.tsx` | Varias telas nao persistem |
 | AWS/deploy | Pendente para producao/deploy | `README.md:619-625` | Ambiente final ainda nao validado |
@@ -628,10 +629,10 @@ Tabela de problemas exigida pelo prompt:
 |---|---|---|---|---|---|---|
 | `README.md` | O projeto declara pendencias de AWS real, migrations, SES, SNS, Redis externo e smoke mobile | Pendente para producao/deploy | Nao pode ser considerado pronto para deploy real | `README.md:619-625` | Fechar checklist de ambiente real e registrar evidencias | P0 |
 | `doc/00_GOVERNANCA/01_ESTADO_ATUAL_2026-04-23.md` | Observabilidade AWS, deploy AWS e validacao mobile manual ainda pendentes | Pendente para producao/deploy | Sem prova de operacao real em AWS/mobile | `doc/00_GOVERNANCA/01_ESTADO_ATUAL_2026-04-23.md:61-70` | Executar AWS real e smoke mobile | P0 |
-| `backend/src/config/env.validation.ts` | Producao exige Redis, mas nao exige S3/SES/SNS reais | Pendente para producao/deploy | App pode subir em producao sem midia, email e push reais | `backend/src/config/env.validation.ts:96-160` | Exigir `STORAGE_PROVIDER=s3`, `EMAIL_PROVIDER=ses` e `PUSH_PROVIDER=sns` em producao real | P0 |
-| `backend/src/modules/media/storage.service.ts` | Provider diferente de `s3` cai para storage local | Pendente para producao/deploy | Upload pode gravar localmente em vez de S3 se env estiver incompleto | `backend/src/modules/media/storage.service.ts:92-101` | Bloquear provider local em `NODE_ENV=production` | P0 |
-| `backend/src/common/email/email.service.ts` | E-mail fica desabilitado quando provider nao e `ses` | Pendente para producao/deploy | Reset/verificacao por e-mail nao ficam reais | `backend/src/common/email/email.service.ts:51-55` | Exigir SES e validar envio real | P0 |
-| `backend/src/common/notification/notification.service.ts` | Push fica desabilitado quando provider nao e `sns` | Pendente para producao/deploy | Push real nao funciona sem erro de build/start | `backend/src/common/notification/notification.service.ts:48-52` | Exigir SNS e validar ARNs por plataforma | P0 |
+| `backend/src/config/env.validation.ts` | RESOLVIDO no codigo local pela EXECUCAO-021: producao agora exige Redis, S3, CloudFront, SES e SNS | Pendente runtime AWS | O app nao deve mais iniciar em producao com providers desligados; falta provar ambiente real | `backend/src/config/env.validation.ts`; `backend/src/config/env.validation.spec.ts` | Validar env ECS/Secrets, S3/CloudFront, SES e SNS em staging real | P0 ate staging/smoke |
+| `backend/src/modules/media/storage.service.ts` | Provider diferente de `s3` cai para storage local fora de producao | Permitido dev/test; runtime AWS pendente | Upload local nao deve ocorrer em `NODE_ENV=production` porque env validation bloqueia provider nao S3 | `backend/src/config/env.validation.ts`; `backend/src/modules/media/storage.service.ts` | Validar upload real em S3/CloudFront | P0 ate smoke |
+| `backend/src/common/email/email.service.ts` | E-mail fica desabilitado fora de producao quando provider nao e `ses` | Permitido dev/test; runtime AWS pendente | Em producao a env validation exige SES; falta provar envio real | `backend/src/config/env.validation.ts`; `backend/src/common/email/email.service.ts` | Validar identidade SES, sandbox e envio transacional | P0 ate smoke |
+| `backend/src/common/notification/notification.service.ts` | Push fica desabilitado fora de producao quando provider nao e `sns` | Permitido dev/test; runtime AWS pendente | Em producao a env validation exige SNS e ARN generico/Android; falta provar device/token | `backend/src/config/env.validation.ts`; `backend/src/common/notification/notification.service.ts` | Validar push SNS em dispositivo real e decidir iOS/APNs | P0 ate smoke se push entrar no release |
 | `frontend/src/utils/runtimeApiUrl.ts` | Build de producao cai para `https://api.meuagito.com` se `EXPO_PUBLIC_API_URL` nao existir | Pendente para producao/deploy | App pode apontar para dominio nao validado no release | `frontend/src/utils/runtimeApiUrl.ts:4-43` | Validar DNS/ALB ou exigir `EXPO_PUBLIC_API_URL` no build | P0 |
 | `frontend/app.json` | Estrategia de push mobile sem Firebase ainda precisa ser fechada para Android/iOS | Pendente para producao/deploy | Push real pode ficar fora do release ou sem token nativo em Android | `frontend/app.json:17-44`; decisao do projeto: sem Firebase/Render | Definir SNS/APNs e alternativa Android sem Firebase, ou declarar push fora do MVP | P1 |
 | `frontend/src/screens/auth/PersonalSetupScreen.tsx` + `backend/src/modules/users/users.controller.ts` | RESOLVIDO no codigo local pela EXECUCAO-009: disponibilidade de username e finalizacao de perfil usam backend real | Pendente smoke | Perfil pessoal persiste username, bio, cidade e avatar antes de completar onboarding; interesses nao ficam visiveis sem backend | `PersonalSetupScreen.tsx`; `UserService.checkUsernameAvailability()`; `GET /users/username/availability`; `PUT /users/me`; `PUT /users/me/profile`; `POST /users/me/avatar` | Validar usuario novo pessoal em staging/device, username duplicado, upload avatar e permissao de localizacao | P0 ate smoke |
@@ -1067,9 +1068,9 @@ Checklist por area:
 
 | Item | Status atual | Como validar | Comando ou teste necessario | Criterio para considerar pronto | Bloqueia deploy? |
 |---|---|---|---|---|---|
-| Provider S3 | Preparado; `.env.example` default `STORAGE_PROVIDER=none` | Subir prod com `STORAGE_PROVIDER=s3` | Start backend com env S3 real | Upload usa S3, nao storage local/none | Sim |
+| Provider S3 | Codigo OK pela EXECUCAO-021; `.env.example` segue dev/local | Subir prod com `STORAGE_PROVIDER=s3` | Start backend com env S3 real | Upload usa S3, nao storage local/none | Sim |
 | Credenciais e bucket | Pendente AWS real | Testar upload real | Smoke avatar/post/evento/estabelecimento/produto | Objeto aparece no bucket correto, com MIME/tamanho validado | Sim |
-| CloudFront | Pendente se `USE_CLOUDFRONT=true` | Abrir URL publica CDN | Upload + abrir `CLOUDFRONT_BASE_URL/...` | Midia publica carrega via CloudFront e nao expira indevidamente | Sim se CDN for requisito do release |
+| CloudFront | Codigo OK pela EXECUCAO-021; CDN real pendente | Abrir URL publica CDN | Upload + abrir `CLOUDFRONT_BASE_URL/...` | Midia publica carrega via CloudFront e nao expira indevidamente | Sim |
 | Multipart mobile | Implementado em services | Smoke mobile | Upload avatar, post media, estabelecimento media | Upload mostra progresso/resultado e persiste URL | Sim |
 | Permissoes mobile camera/galeria | Parcial | Testar em Android/iOS | Smoke em dispositivo | Permissoes solicitadas e negadas/tratadas corretamente | Sim para upload no release |
 
@@ -1077,7 +1078,7 @@ Checklist por area:
 
 | Item | Status atual | Como validar | Comando ou teste necessario | Criterio para considerar pronto | Bloqueia deploy? |
 |---|---|---|---|---|---|
-| Provider SES | Preparado; default desligado | Subir com `ENABLE_EMAIL=true EMAIL_PROVIDER=ses` | Start backend com `AWS_SES_REGION` e `AWS_SES_FROM_EMAIL` | App sobe e envia por SES | Sim para cadastro/verificacao/reset real |
+| Provider SES | Codigo OK pela EXECUCAO-021; identidade/envio real pendentes | Subir com `EMAIL_PROVIDER=ses` | Start backend com `AWS_SES_REGION` e `AWS_SES_FROM_EMAIL` | App sobe e envia por SES | Sim para cadastro/verificacao/reset real |
 | Identidade remetente | Pendente no README | Validar SES identity | Console/AWS CLI SES | Dominio/remetente verificado e fora de sandbox quando necessario | Sim |
 | Reset de senha | Implementado; precisa SES real | Solicitar reset no app | Smoke auth | E-mail chega, token funciona, senha altera | Sim |
 | Verificacao de e-mail | Implementado; precisa SES real | Cadastro + resend/verify | Smoke auth | Usuario recebe codigo/link e fica verificado | Sim se emailVerified for requisito |
@@ -1087,7 +1088,7 @@ Checklist por area:
 
 | Item | Status atual | Como validar | Comando ou teste necessario | Criterio para considerar pronto | Bloqueia deploy? |
 |---|---|---|---|---|---|
-| Backend SNS | Preparado; default `PUSH_PROVIDER=none` | Subir com `PUSH_PROVIDER=sns` | Start backend com `AWS_SNS_REGION` e ARNs | Registro de token cria endpoint SNS | Sim para push real |
+| Backend SNS | Codigo OK pela EXECUCAO-021; device/push real pendente | Subir com `PUSH_PROVIDER=sns` | Start backend com `AWS_SNS_REGION` e ARN generico ou Android | Registro de token cria endpoint SNS | Sim para push real |
 | Push Android sem Firebase | Pendente: projeto decidiu nao usar Firebase/google-services | Validar alternativa tecnica e build Android | Build Android/device com provider definido | Device Android registra token real sem Firebase, ou push Android fica fora do MVP | Sim para Android push |
 | APNs iOS | Pendente | Validar credencial APNs/SNS iOS | Build iOS/device | Device iOS registra token e recebe push | Sim para iOS push |
 | Env mobile de platform ARN | Pendente | Conferir env build | `EXPO_PUBLIC_AWS_SNS_PLATFORM_APPLICATION_ARN_ANDROID/IOS` no build | App envia ARN correto ou backend resolve por env | Sim para push real |
@@ -1421,7 +1422,7 @@ Dependencia principal: mobile release -> ALB/HTTPS -> ECS Fargate -> RDS/Redis/S
 | Logica morta/nao usada | Parcial | Existem telas/services parciais no mobile; backend core principal em uso | Fazer varredura por modulo antes de release e remover/ocultar apenas com decisao de escopo | Nao por si; Sim se visivel fake |
 | AuditLog | OK | `AuditLogService.record` usado nos modulos core | Garantir novos fluxos tambem auditam | Sim para fluxos sensiveis |
 | Tracking email/push | Parcial | Push tem `NotificationDelivery`; email retorna resultado mas nao ha tabela de delivery email dedicada | Criar tracking de email se verificacao/reset exigir auditoria operacional | P1; P0 se email critico sem diagnostico |
-| Env obrigatoria | OK/parcial | `env.validation.ts` valida providers e Redis em producao | Validar env real ECS/Secrets; sem localhost em prod | Sim |
+| Env obrigatoria | OK no codigo; runtime AWS pendente | `env.validation.ts` valida Redis, S3, CloudFront, SES e SNS em producao | Validar env real ECS/Secrets; sem localhost em prod | Sim |
 | Secrets hardcoded | OK no versionado principal | `backend/.env` fora do Git; docs exigem Secrets/SSM | Varredura final antes de release e rotacao se qualquer segredo apareceu localmente | Sim |
 | DTOs | OK/parcial | DTOs com class-validator existem em auth/feed/search/events/establishments/products/notifications | Validar contratos frontend/backend pendentes do plano | Sim para fluxos P0 |
 | Tratamento de erro | Parcial | `GlobalExceptionFilter` existe | Smoke erros reais sem 500 generico indevido e sem dados sensiveis | Sim |
@@ -2203,6 +2204,41 @@ Status:
 
 - RESOLVIDO no codigo local: Home nao usa badge de evento futuro como fallback para dado ausente.
 - Pendente de smoke: validar Home com eventos com data, sem data, vazio e erro de API.
+
+### EXECUCAO-021 - Validacao de ambiente bloqueia producao sem AWS real - 2026-05-02
+
+Objetivo executado:
+
+- Impedir que o backend suba em `NODE_ENV=production` com providers reais desligados.
+- Transformar S3, CloudFront, SES e SNS em requisitos de configuracao para producao.
+- Manter `development` e `test` livres para rodar com providers `none`.
+
+Arquivos alterados:
+
+- `backend/src/config/env.validation.ts`
+- `backend/src/config/env.validation.spec.ts`
+- `PLANO_CORRECAO_PRODUCAO_MEU_AGITO.md`
+- `STATUS_EXECUCAO_PROMPT_AWS_2026-04-26.md`
+
+Implementacao:
+
+- `validateEnvironment()` agora exige `STORAGE_PROVIDER=s3` em producao.
+- `validateEnvironment()` agora exige `USE_CLOUDFRONT=true` e `CLOUDFRONT_BASE_URL` ou `AWS_CLOUDFRONT_URL` em producao quando o storage e S3.
+- `validateEnvironment()` agora exige `EMAIL_PROVIDER=ses` em producao.
+- `validateEnvironment()` agora exige `PUSH_PROVIDER=sns` em producao.
+- `validateEnvironment()` agora exige `AWS_SNS_PLATFORM_APPLICATION_ARN` ou `AWS_SNS_PLATFORM_APPLICATION_ARN_ANDROID` em producao com SNS. Esta regra preserva a possibilidade de primeiro release Android-only sem exigir APNs/iOS antecipadamente.
+- Criado teste unitario cobrindo dev sem AWS, producao bloqueada sem providers, producao com lacunas de CloudFront/SNS e producao completa.
+
+Validacao executada:
+
+- `cd backend && npx jest src/config/env.validation.spec.ts --runInBand`: OK, 4 testes.
+- `cd backend && npm run build`: OK.
+- `cd backend && npm run lint`: OK.
+
+Status:
+
+- RESOLVIDO no codigo local: backend nao inicia mais em producao publica com S3/CloudFront/SES/SNS desligados.
+- Pendente de infra: criar secrets reais, aplicar env em staging AWS, validar healthcheck, upload S3/CloudFront, e-mail SES e push SNS em dispositivo real.
 
 Resumo de bloqueadores absolutos antes de deploy publico real:
 

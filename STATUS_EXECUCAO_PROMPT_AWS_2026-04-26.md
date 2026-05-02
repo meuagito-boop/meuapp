@@ -961,3 +961,25 @@ Status da validacao ponta a ponta:
 
 - o P2 local "Home com `EM BREVE` para evento sem data" fica RESOLVIDO no codigo.
 - continua pendente: smoke de Home com evento com data, evento sem data, resultado vazio e erro de API.
+
+## Atualizacao complementar - 2026-05-02 (America/Sao_Paulo) - Validacao de ambiente bloqueia producao sem AWS real
+
+### Correcao aplicada
+
+- `backend/src/config/env.validation.ts` passou a bloquear `NODE_ENV=production` sem `STORAGE_PROVIDER=s3`.
+- Producao com S3 agora exige `USE_CLOUDFRONT=true` e `CLOUDFRONT_BASE_URL` ou `AWS_CLOUDFRONT_URL`.
+- Producao agora exige `EMAIL_PROVIDER=ses`.
+- Producao agora exige `PUSH_PROVIDER=sns`.
+- Producao com SNS agora exige `AWS_SNS_PLATFORM_APPLICATION_ARN` ou `AWS_SNS_PLATFORM_APPLICATION_ARN_ANDROID`, preservando primeiro release Android-only sem exigir APNs/iOS antes da decisao de release.
+- Criado `backend/src/config/env.validation.spec.ts` para cobrir dev sem AWS, producao bloqueada sem providers, lacunas de CloudFront/SNS e producao completa.
+
+### Validacao executada
+
+- `cd backend && npx jest src/config/env.validation.spec.ts --runInBand`: OK, 4 testes.
+- `cd backend && npm run build`: OK.
+- `cd backend && npm run lint`: OK.
+
+### Leitura correta apos esta rodada
+
+- o P0 local "backend permite producao com S3/CloudFront/SES/SNS desligados" fica RESOLVIDO no codigo.
+- continua pendente: criar staging AWS real, secrets reais, healthcheck expandido em ambiente real, smoke de upload S3/CloudFront, envio SES e push SNS em dispositivo real.
