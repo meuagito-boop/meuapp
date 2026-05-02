@@ -925,3 +925,21 @@ Status da validacao ponta a ponta:
 
 - o P1 local "Settings auxiliares sem backend ainda registradas no navigator" fica RESOLVIDO no codigo.
 - continua pendente: criar contratos reais antes de reexibir privacidade, bloqueios, dispositivos, historico de acessos, contas vinculadas, raio, preferencias de notificacao e idioma.
+
+## Atualizacao complementar - 2026-05-02 (America/Sao_Paulo) - Item sem texto visivel de auditoria
+
+### Correcao aplicada
+
+- `ItemScreen` deixou de exibir cards "Escopo atual" em produto e evento.
+- Produto/evento continuam consumindo backend real; apenas saiu a explicacao tecnica visivel ao usuario final.
+
+### Validacao executada
+
+- `cd frontend && npx tsc --noEmit`: OK.
+- `cd frontend && npm run lint`: OK.
+- Varredura em `ItemScreen.tsx` para `Escopo atual`, `fora do escopo`, `backend`, `contrato`, `bloco`, `mock`, `fake`, `dummy`, `sample`, `TODO`, `FIXME`, `Em breve`, `coming soon` e `placeholder`: sem ocorrencias.
+
+### Leitura correta apos esta rodada
+
+- o P1 local "Item com texto de auditoria/escopo visivel" fica RESOLVIDO no codigo.
+- continua pendente: smoke de produto real, evento real, presenca, rota invalida e banco vazio em staging/device.

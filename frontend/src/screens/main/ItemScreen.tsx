@@ -368,14 +368,6 @@ export default function ItemScreen() {
             <Text style={styles.sectionText}>{productStatusText}</Text>
           </View>
 
-          <View style={styles.sectionCard}>
-            <Text style={styles.sectionLabel}>Escopo atual</Text>
-            <Text style={styles.sectionText}>
-              Este fluxo mostra o produto publico e o vinculo com a pagina do estabelecimento.
-              Pedido, carrinho e pagamento continuam fora do escopo deste bloco.
-            </Text>
-          </View>
-
           <View style={styles.bottomSpacer} />
         </ScrollView>
 
@@ -478,15 +470,6 @@ export default function ItemScreen() {
               {event.maxAttendees
                 ? `${event.attendeesCount} / ${event.maxAttendees} confirmados`
                 : `${event.attendeesCount} confirmados ate agora`}
-            </Text>
-          </View>
-
-          <View style={styles.sectionCard}>
-            <Text style={styles.sectionLabel}>Escopo atual</Text>
-            <Text style={styles.sectionText}>
-              Este fluxo usa a API real de eventos para detalhe e confirmacao de presenca. A
-              deteccao antecipada de presenca ja existente ainda depende de um endpoint autenticado
-              dedicado no backend.
             </Text>
           </View>
 

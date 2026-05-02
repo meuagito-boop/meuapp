@@ -645,7 +645,7 @@ Tabela de problemas exigida pelo prompt:
 | `frontend/src/screens/main/ActivityFavoritesScreen.tsx` | RESOLVIDO no codigo local pela EXECUCAO-014: tela mostra estado vazio simples sem texto de auditoria/backend | Fora do hub visivel | Favoritos nao sao prometidos no hub sem lista real | `ActivityFavoritesScreen.tsx` | Criar endpoint/lista real antes de reexibir | P1 se voltar ao escopo |
 | `frontend/src/screens/main/ActivityHistoryScreen.tsx` | RESOLVIDO no codigo local pela EXECUCAO-014: tela mostra estado vazio simples sem texto de auditoria/backend | Fora do hub visivel | Historico nao e prometido no hub sem contrato real | `ActivityHistoryScreen.tsx` | Criar contrato real antes de reexibir | P1 se voltar ao escopo |
 | `frontend/src/screens/main/CatalogScreen.tsx` | RESOLVIDO no codigo local: `MOCK_CATALOGS` removido e rota sem `establishmentId` nao renderiza catalogo fake | Pendente smoke | Evita produtos/servicos fake no caminho publico | `frontend/src/screens/main/CatalogScreen.tsx` | Validar com estabelecimento real e banco vazio em staging | P0 ate smoke |
-| `frontend/src/screens/main/ItemScreen.tsx` | RESOLVIDO no codigo local: `item-fallback` e CTA generico removidos | Pendente smoke | Evita CTA de pedido/reserva/agenda sem backend | `frontend/src/screens/main/ItemScreen.tsx` | Validar produto/evento real e rota invalida em device/staging | P0 ate smoke |
+| `frontend/src/screens/main/ItemScreen.tsx` | RESOLVIDO no codigo local: `item-fallback`, CTA generico e cards visiveis de "Escopo atual" removidos | Pendente smoke | Evita CTA/texto de auditoria de pedido/reserva/agenda sem backend | `frontend/src/screens/main/ItemScreen.tsx` | Validar produto/evento real e rota invalida em device/staging | P0 ate smoke |
 | `frontend/src/services/api/UserService.ts` + `backend/src/modules/users/users.controller.ts` + `backend/src/modules/users/users.service.ts` | RESOLVIDO no codigo local: exclusao envia senha, valida `bcrypt.compare` e revoga refresh tokens | Pendente smoke | Garantia de seguranca passa a existir no backend | `frontend/src/services/api/UserService.ts`; `backend/src/modules/users/users.controller.ts`; `backend/src/modules/users/users.service.ts`; `delete-account.dto.ts` | Validar senha correta/incorreta, logout e refresh apos delete em staging/device | P0 ate smoke |
 | `frontend/src/screens/main/NotificationsScreen.tsx` | RESOLVIDO no codigo local pela EXECUCAO-016: tela nao tem mais placeholders `??` e `?` visiveis | Resolvido; smoke pendente | UI final deixa de exibir marcador quebrado | `frontend/src/screens/main/NotificationsScreen.tsx`; varredura local encontrou apenas `??` de nullish coalescing | Validar smoke visual em device/staging | P1 ate smoke |
 | Telas Settings restantes | RESOLVIDO no codigo local ate o caminho visivel: textos tocados foram normalizados e rotas auxiliares sem backend sairam do `SettingsStack` pela EXECUCAO-018 | Resolvido; smoke pendente | Release nao deve expor telas auxiliares incompletas | `SettingsScreen.tsx`; `SettingsSecurityScreen.tsx`; `RootNavigator.tsx` | Validar smoke de Settings e reexibir auxiliares somente com backend real | P1 ate smoke |
@@ -857,7 +857,7 @@ Tabela de acoes com problema:
 | `frontend/src/screens/main/ActivityFavoritesScreen.tsx` | Botao/estado de Favoritos | Ver favoritos | Fora do hub visivel; sem fake no codigo local | EXECUCAO-014 removeu texto de auditoria/backend e deixa estado vazio simples | `ActivityFavoritesScreen.tsx` | Criar endpoint/lista real antes de reexibir |
 | `frontend/src/screens/main/ActivityHistoryScreen.tsx` | Botao/estado de Historico | Ver historico | Fora do hub visivel; sem fake no codigo local | EXECUCAO-014 removeu texto de auditoria/backend e deixa estado vazio simples | `ActivityHistoryScreen.tsx` | Criar contrato real antes de reexibir |
 | `frontend/src/screens/main/CatalogScreen.tsx` | Card de catalogo | Abrir item | RESOLVIDO no codigo local; smoke pendente | Apos EXECUCAO-002, sem `establishmentId` nao carrega `MOCK_CATALOGS` e mostra estado honesto | `CatalogScreen.tsx` | Validar smoke em perfil de estabelecimento real e rota sem contexto |
-| `frontend/src/screens/main/ItemScreen.tsx` | CTA generico | Agendar, reservar, assinar, adicionar ao carrinho | RESOLVIDO no codigo local; smoke pendente | Apos EXECUCAO-002, CTA generico fora do backend foi removido | `ItemScreen.tsx` | Validar produto/evento real em device/staging |
+| `frontend/src/screens/main/ItemScreen.tsx` | CTA/texto de escopo | Agendar, reservar, assinar, adicionar ao carrinho | RESOLVIDO no codigo local; smoke pendente | Apos EXECUCAO-002, CTA generico fora do backend foi removido; apos EXECUCAO-019, cards "Escopo atual" sairam da UI | `ItemScreen.tsx` | Validar produto/evento real em device/staging |
 | `frontend/src/screens/main/FeedSocialScreen.tsx` | Avatar do autor | Abrir perfil publico | Funcional real em codigo; smoke pendente | Apos EXECUCAO-017, navega para perfil publico de usuario via endpoint real | `FeedSocialScreen.tsx`; `ProfileScreen.tsx`; `UserService.ts` | Validar autor usuario/estabelecimento em device/staging |
 | `frontend/src/screens/main/NotificationsScreen.tsx` | Linha de notificacao | Abrir entidade relacionada | Funcional real em codigo; smoke pendente | Apos EXECUCAO-016/017, conversa/usuario/estabelecimento/produto/evento usam params reais | `NotificationsScreen.tsx`; `ProfileScreen.tsx` | Validar payloads reais em device/staging |
 | `frontend/src/screens/auth/PersonalSetupScreen.tsx` | Username | Verificar disponibilidade | Funcional real em codigo; smoke pendente | Chama `UserService.checkUsernameAvailability()` contra endpoint autenticado | `PersonalSetupScreen.tsx`; `UserService.ts`; `UsersController.checkUsernameAvailability()` | Validar username livre, duplicado e invalido em staging/device |
@@ -2146,6 +2146,35 @@ Status:
 
 - RESOLVIDO no codigo local: configuracoes auxiliares sem backend real nao ficam acessiveis pelo navigator de producao.
 - Pendente de produto/backend futuro: reexibir cada tela somente com model/DTO/controller/service/frontend reais ou decisao formal de escopo.
+
+### EXECUCAO-019 - Item sem texto visivel de auditoria/escopo - 2026-05-02
+
+Objetivo executado:
+
+- Remover cards visiveis "Escopo atual" de produto e evento.
+- Manter `ItemScreen` consumindo backend real sem explicar pendencias tecnicas para o usuario final.
+
+Arquivos alterados:
+
+- `frontend/src/screens/main/ItemScreen.tsx`
+- `PLANO_CORRECAO_PRODUCAO_MEU_AGITO.md`
+- `STATUS_EXECUCAO_PROMPT_AWS_2026-04-26.md`
+
+Implementacao:
+
+- Removido o card de produto que informava que pedido/carrinho/pagamento estavam fora do escopo.
+- Removido o card de evento que informava dependencia de endpoint dedicado para deteccao antecipada de presenca.
+
+Validacao executada:
+
+- `cd frontend && npx tsc --noEmit`: OK.
+- `cd frontend && npm run lint`: OK.
+- Varredura em `ItemScreen.tsx` para `Escopo atual`, `fora do escopo`, `backend`, `contrato`, `bloco`, `mock`, `fake`, `dummy`, `sample`, `TODO`, `FIXME`, `Em breve`, `coming soon` e `placeholder`: sem ocorrencias.
+
+Status:
+
+- RESOLVIDO no codigo local: `ItemScreen` nao exibe texto de auditoria/roadmap ao usuario final.
+- Pendente de smoke: validar produto real, evento real, presenca, rota invalida e banco vazio em staging/device.
 
 Resumo de bloqueadores absolutos antes de deploy publico real:
 
