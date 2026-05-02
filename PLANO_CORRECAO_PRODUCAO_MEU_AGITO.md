@@ -465,7 +465,7 @@ Criterio de aceite:
 | `backend/src/modules/users/users.controller.ts` + `backend/src/modules/users/users.service.ts` | RESOLVIDO no codigo local: backend valida senha e revoga refresh tokens antes do soft delete | Validar senha correta/incorreta e tokens |
 | `frontend/src/screens/main/NotificationsScreen.tsx` | RESOLVIDO no codigo local pela EXECUCAO-016: placeholders `??`/`?` visiveis removidos | Validar smoke visual em device |
 | `backend/src/modules/products/products.controller.ts:56-112` | Gestao de produtos existe no backend sem UI owner pronta | Criar tela owner ou remover do release |
-| `frontend/src/utils/runtimeApiUrl.ts:4-43` | Producao cai para `https://api.meuagito.com` se `EXPO_PUBLIC_API_URL` nao existir | Validar DNS/ALB ou exigir `EXPO_PUBLIC_API_URL` no build |
+| `frontend/src/utils/runtimeApiUrl.ts` | RESOLVIDO no codigo local pela EXECUCAO-025: release build nao cai mais para `https://api.meuagito.com` sem `EXPO_PUBLIC_API_URL` | Definir `EXPO_PUBLIC_API_URL` real no build staging/prod e validar chamadas |
 | `frontend/app.json:17-44` | Push mobile nao deve depender de Firebase/google-services; Android e iOS precisam de estrategia final sem Firebase | Definir push via SNS/APNs e alternativa Android compativel com a decisao de nao usar Firebase, ou retirar push real do primeiro release |
 | `frontend/src/screens/main/MapScreen.tsx` | RESOLVIDO no codigo local pela EXECUCAO-008: item da lista e callout de marker navegam para `Item`/`Profile` | Validar smoke de mapa/lista com evento e estabelecimento reais |
 | `frontend/src/App.tsx:70-76` | `NavigationContainer` nao recebe config `linking` | Implementar deep links se push/e-mail/link externo precisarem abrir telas internas |
@@ -634,7 +634,7 @@ Tabela de problemas exigida pelo prompt:
 | `backend/src/modules/media/storage.service.ts` | Provider diferente de `s3` cai para storage local fora de producao | Permitido dev/test; runtime AWS pendente | Upload local nao deve ocorrer em `NODE_ENV=production` porque env validation bloqueia provider nao S3 | `backend/src/config/env.validation.ts`; `backend/src/modules/media/storage.service.ts` | Validar upload real em S3/CloudFront | P0 ate smoke |
 | `backend/src/common/email/email.service.ts` | E-mail fica desabilitado fora de producao quando provider nao e `ses` | Permitido dev/test; runtime AWS pendente | Em producao a env validation exige SES; falta provar envio real | `backend/src/config/env.validation.ts`; `backend/src/common/email/email.service.ts` | Validar identidade SES, sandbox e envio transacional | P0 ate smoke |
 | `backend/src/common/notification/notification.service.ts` | Push fica desabilitado fora de producao quando provider nao e `sns` | Permitido dev/test; runtime AWS pendente | Em producao a env validation exige SNS e ARN generico/Android; falta provar device/token | `backend/src/config/env.validation.ts`; `backend/src/common/notification/notification.service.ts` | Validar push SNS em dispositivo real e decidir iOS/APNs | P0 ate smoke se push entrar no release |
-| `frontend/src/utils/runtimeApiUrl.ts` | Build de producao cai para `https://api.meuagito.com` se `EXPO_PUBLIC_API_URL` nao existir | Pendente para producao/deploy | App pode apontar para dominio nao validado no release | `frontend/src/utils/runtimeApiUrl.ts:4-43` | Validar DNS/ALB ou exigir `EXPO_PUBLIC_API_URL` no build | P0 |
+| `frontend/src/utils/runtimeApiUrl.ts` | RESOLVIDO no codigo local pela EXECUCAO-025: build nao-dev exige `EXPO_PUBLIC_API_URL` e bloqueia URL local | Pendente build real | App deve falhar cedo se o release nao tiver API URL real; falta provar env do build | `frontend/src/utils/runtimeApiUrl.ts`; `frontend/src/utils/runtimeApiUrl.test.ts` | Definir API URL staging/prod no build e validar chamadas reais em device | P0 ate build/smoke |
 | `frontend/app.json` | Estrategia de push mobile sem Firebase ainda precisa ser fechada para Android/iOS | Pendente para producao/deploy | Push real pode ficar fora do release ou sem token nativo em Android | `frontend/app.json:17-44`; decisao do projeto: sem Firebase/Render | Definir SNS/APNs e alternativa Android sem Firebase, ou declarar push fora do MVP | P1 |
 | `frontend/src/screens/auth/PersonalSetupScreen.tsx` + `backend/src/modules/users/users.controller.ts` | RESOLVIDO no codigo local pela EXECUCAO-009: disponibilidade de username e finalizacao de perfil usam backend real | Pendente smoke | Perfil pessoal persiste username, bio, cidade e avatar antes de completar onboarding; interesses nao ficam visiveis sem backend | `PersonalSetupScreen.tsx`; `UserService.checkUsernameAvailability()`; `GET /users/username/availability`; `PUT /users/me`; `PUT /users/me/profile`; `POST /users/me/avatar` | Validar usuario novo pessoal em staging/device, username duplicado, upload avatar e permissao de localizacao | P0 ate smoke |
 | `frontend/src/screens/main/SettingsMyAccountScreen.tsx` | RESOLVIDO no codigo local pela EXECUCAO-004: dados de conta, bio e avatar passaram a usar services reais | Pendente smoke | Usuario edita perfil usando backend real; producao ainda depende de smoke e S3/CloudFront | `SettingsMyAccountScreen.tsx`; `UserService.ts`; `userStore.ts`; `users.service.ts`; `update-user.dto.ts` | Validar device/staging, upload em S3/CloudFront e alteracao de e-mail/username duplicado | P0 ate smoke |
@@ -1040,7 +1040,7 @@ Checklist por area:
 |---|---|---|---|---|---|
 | TypeScript mobile | README registra OK anterior; script nao existe no package | Rodar tsc direto | `cd frontend && npx tsc --noEmit` | Zero erro de tipo | Sim |
 | Lint mobile | Script existe | Rodar lint | `cd frontend && npm run lint` | Zero erro; warnings aceitaveis documentados | Sim |
-| API URL producao | Pendente | Conferir env do build | `cd frontend && Get-Content .env` e build com `EXPO_PUBLIC_API_URL=https://api...` | Build nao aponta `localhost`; API resolve via HTTPS real | Sim |
+| API URL producao | Codigo OK pela EXECUCAO-025; valor real pendente | Conferir env do build | Build com `EXPO_PUBLIC_API_URL=https://...` e smoke release | Build nao aponta `localhost`; API resolve via HTTPS real; release falha cedo se env faltar | Sim |
 | Remocao de mocks bloqueantes | Parcial | Validar itens PROMPT-006 | Varredura + smoke das telas | Catalogo, minha conta, onboarding pessoal e cidade ja resolvidos no codigo local; settings restantes/activity ainda nao podem simular producao | Sim |
 | Config de push mobile | Parcial | Conferir estrategia sem Firebase, APNs e env SNS | Build/device com provider definido | Android/iOS geram token nativo sem Firebase ou push fica declarado fora do MVP | Sim para push no release |
 | Deep links/notificacao para telas | Pendente/parcial | Abrir app por notificacao/link | Smoke manual com push real | Notificacao abre entidade correta ou comportamento fora do escopo declarado | Nao para MVP sem deep link; Sim se push exigir roteamento |
@@ -2328,6 +2328,41 @@ Status:
 
 - RESOLVIDO no codigo local: catalogo nao usa dados fake no caminho de producao.
 - Pendente de smoke: perfil de estabelecimento real, vitrine vazia, vitrine com produtos e rota sem `establishmentId` em staging/device.
+
+### EXECUCAO-025 - API URL mobile obrigatoria em release build - 2026-05-02
+
+Objetivo executado:
+
+- Impedir fallback silencioso para dominio fixo quando `EXPO_PUBLIC_API_URL` nao estiver configurado.
+- Bloquear URL local em build nao-dev.
+- Manter fallback local apenas para desenvolvimento.
+
+Arquivos alterados:
+
+- `frontend/src/utils/runtimeApiUrl.ts`
+- `frontend/src/utils/runtimeApiUrl.test.ts`
+- `PLANO_CORRECAO_PRODUCAO_MEU_AGITO.md`
+- `STATUS_EXECUCAO_PROMPT_AWS_2026-04-26.md`
+
+Implementacao:
+
+- Removido fallback hardcoded para `https://api.meuagito.com`.
+- `resolveApiBaseUrl()` agora exige `EXPO_PUBLIC_API_URL` em runtime nao-dev.
+- `resolveApiBaseUrl()` normaliza barra final da URL e valida URL absoluta.
+- Release build com `localhost`, `127.0.0.1`, `0.0.0.0` ou `10.0.2.2` agora falha cedo.
+- Desenvolvimento continua usando host Expo Android quando disponivel ou `http://localhost:3001`.
+- Adicionado teste unitario para dev sem env, release sem env, release com URL local e release com URL real.
+
+Validacao executada:
+
+- `cd frontend && npx jest src/utils/runtimeApiUrl.test.ts --runInBand`: OK, 4 testes.
+- `cd frontend && npx tsc --noEmit`: OK.
+- `cd frontend && npm run lint`: OK.
+
+Status:
+
+- RESOLVIDO no codigo local: build nao-dev nao usa mais API URL default silenciosa.
+- Pendente de release: definir `EXPO_PUBLIC_API_URL` real no build staging/prod e validar chamadas em dispositivo real.
 
 Resumo de bloqueadores absolutos antes de deploy publico real:
 

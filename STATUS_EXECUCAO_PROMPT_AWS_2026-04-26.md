@@ -1039,3 +1039,24 @@ Status da validacao ponta a ponta:
 
 - o P0 local "CatalogScreen com MOCK_CATALOGS" fica RESOLVIDO no codigo.
 - continua pendente: smoke de perfil de estabelecimento real, vitrine vazia, vitrine com produtos e rota sem `establishmentId` em staging/device.
+
+## Atualizacao complementar - 2026-05-02 (America/Sao_Paulo) - API URL mobile obrigatoria em release build
+
+### Correcao aplicada
+
+- `frontend/src/utils/runtimeApiUrl.ts` deixou de usar fallback hardcoded para `https://api.meuagito.com`.
+- Runtime nao-dev agora exige `EXPO_PUBLIC_API_URL`.
+- Runtime nao-dev bloqueia API URL local (`localhost`, `127.0.0.1`, `0.0.0.0`, `10.0.2.2`).
+- Desenvolvimento continua com fallback local/host Expo.
+- Criado `frontend/src/utils/runtimeApiUrl.test.ts` cobrindo dev sem env, release sem env, release com URL local e release com URL real.
+
+### Validacao executada
+
+- `cd frontend && npx jest src/utils/runtimeApiUrl.test.ts --runInBand`: OK, 4 testes.
+- `cd frontend && npx tsc --noEmit`: OK.
+- `cd frontend && npm run lint`: OK.
+
+### Leitura correta apos esta rodada
+
+- o P0 local "build mobile pode apontar silenciosamente para API default sem `EXPO_PUBLIC_API_URL`" fica RESOLVIDO no codigo.
+- continua pendente: definir `EXPO_PUBLIC_API_URL` real no build staging/prod e validar chamadas em dispositivo real.
