@@ -1002,3 +1002,21 @@ Status da validacao ponta a ponta:
 
 - o P2 local "comentario 2FA diz placeholder apesar do codigo usar secret persistido" fica RESOLVIDO no codigo.
 - continua pendente: smoke de ativar 2FA, login com 2FA e desativar 2FA em staging/device.
+
+## Atualizacao complementar - 2026-05-02 (America/Sao_Paulo) - ItemScreen sem CTAs genericos sem backend
+
+### Correcao aplicada
+
+- Nao houve alteracao de runtime nesta rodada; a tarefa foi sincronizar o plano com o codigo atual.
+- `ItemScreen` foi revalidado e nao contem mais `Agendar`, `Reservar`, `Assinar`, carrinho ou alerta de fluxo fora do MVP.
+- Produto real abre estabelecimento e evento real confirma/cancela presenca via backend.
+- Templates sem backend real caem em estado `Item indisponivel`, sem CTA fake.
+
+### Validacao executada
+
+- Varredura em `frontend/src/screens/main/ItemScreen.tsx` para `Agendar`, `Reservar`, `Assinar`, `Carrinho`, `Comprar`, `pedido`, `MVP`, `fora do escopo`, `Fluxo fora`, `Em breve`, `coming soon`, `mock`, `fake`, `dummy`, `sample`, `TODO` e `FIXME`: sem ocorrencias.
+
+### Leitura correta apos esta rodada
+
+- o P1 local "CTAs genericos de Item sem backend" fica RESOLVIDO no codigo.
+- continua pendente: smoke de produto real, evento real, presenca, rota invalida e banco vazio em staging/device.

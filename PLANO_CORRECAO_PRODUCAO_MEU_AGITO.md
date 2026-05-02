@@ -834,7 +834,7 @@ Classificacao por grupos:
 | Funcional real em codigo; smoke pendente | Lista do mapa | `frontend/src/screens/main/MapScreen.tsx` | Lista e marker abrem `Item` para evento e `Profile` para estabelecimento |
 | Funcional real em codigo; smoke pendente | Alterar foto em Minha conta | `frontend/src/screens/main/SettingsMyAccountScreen.tsx`, `UserService.uploadAvatar()` | Usa galeria nativa e `POST /users/me/avatar`; validar S3/CloudFront em staging |
 | Fora do caminho visivel; sem fake no codigo local | Pedidos, Agendamentos e Reservas em Activity | `frontend/src/screens/main/ActivityScreen.tsx` | EXECUCAO-014 removeu cards e alerta `Em breve` |
-| Nao implementado | CTAs genericos de Item | `frontend/src/screens/main/ItemScreen.tsx:49-73`, `270-276`, `600-603` | `Agendar`, `Reservar`, `Assinar` e similares apenas exibem alerta |
+| Resolvido em codigo; smoke pendente | CTAs genericos de Item | `frontend/src/screens/main/ItemScreen.tsx` | Apos EXECUCAO-002/023, `ItemScreen` nao contem mais `Agendar`, `Reservar`, `Assinar`, carrinho nem alerta de fluxo fora do MVP; produto abre estabelecimento e evento confirma/cancela presenca via backend |
 | Funcional real em codigo; smoke pendente | Setup pessoal real | `frontend/src/screens/auth/PersonalSetupScreen.tsx`; `frontend/src/services/api/UserService.ts`; `backend/src/modules/users/users.controller.ts` | Username, GPS/cidade, avatar, bio e finish usam services reais; interesses fora do release por ausencia de backend canonico |
 
 Tabela de acoes com problema:
@@ -968,7 +968,7 @@ Resultado priorizado por gravidade:
 | P1 se reexibir | `frontend/src/screens/main/SettingsScreen.tsx` | RESOLVIDO no codigo local pela EXECUCAO-013: toggle GPS local, desativar conta por alerta e fallback vazio de toggle foram removidos | Sim, se oculto do caminho de producao | Preferencia real de localizacao e endpoint real de desativacao antes de voltar ao menu | Criar service de preferencias; criar endpoint de deactivate antes de reexibir | Risco remanescente fica fora da UI visivel; se reexibir sem backend volta a bloquear release |
 | P0 ate smoke | `frontend/src/screens/main/SettingsSecurityScreen.tsx`; `frontend/src/screens/main/SettingsAuxScreens.tsx` | RESOLVIDO parcialmente no codigo local pela EXECUCAO-011: comentario vazio/mojibake removido, senha/2FA ficam reais e sessoes saem do menu | Parcial; alerta de novo acesso fica informativo/obrigatorio | Preferencias/sessoes reais de seguranca se voltarem ao escopo | `POST /auth/change-password`; 2FA existente; criar endpoints de sessions/audit log antes de reexibir sessoes | Risco remanescente fica em smoke de senha/2FA e escopo futuro de sessoes |
 | P1 se reexibir | `frontend/src/screens/main/ActivityScreen.tsx` | RESOLVIDO no codigo local pela EXECUCAO-014: cards de pedidos/agendamentos/reservas com `coming_soon` e alerta `Em breve` foram removidos | Sim, se oculto do caminho de producao | Fluxos reais de pedidos, reservas e agendamentos antes de voltar ao hub | Criar endpoints/telas dedicadas antes de reexibir | Risco remanescente fica fora da UI visivel; se reexibir sem backend volta a bloquear release |
-| P1 | `frontend/src/screens/main/ItemScreen.tsx:49-73`, `270-276`, `600-603` | CTAs genericos (`Agendar`, `Reservar`, `Assinar`, carrinho) apenas exibem alerta de fluxo fora do MVP | Aceitavel somente se botao ficar claramente fora do MVP; melhor remover do release | Contratos reais de agendamento/reserva/assinatura/pedido, ou CTA oculto | Criar services/endpoints especificos ou remover templates genericos | Usuario tenta comprar/agendar e recebe bloqueio; impacto direto em conversao |
+| P1 ate smoke | `frontend/src/screens/main/ItemScreen.tsx` | RESOLVIDO no codigo local pela EXECUCAO-002/023: CTAs genericos (`Agendar`, `Reservar`, `Assinar`, carrinho) e alerta de fluxo fora do MVP nao existem mais no arquivo atual | Sim, como estado atual sem CTA fake | Produto real abre estabelecimento; evento real confirma/cancela presenca via backend | `catalogService.getProduct()`, `locationService.getEvent()`, `locationService.attendEvent()` e `locationService.cancelAttendance()` | Risco remanescente fica em smoke de produto/evento real, nao em botao sem backend |
 | P1 se reexibir | `frontend/src/screens/main/SearchScreen.tsx` | RESOLVIDO no codigo local pela EXECUCAO-015: `RECENT_SEARCHES` fixo exibido como buscas rapidas foi removido | Sim, se fora da UI visivel | Historico real de busca do usuario ou sugestoes editoriais declaradas antes de voltar | Criar endpoint/storage de historico, ou usar `searchService.trending()`/`searchService.autocomplete()` | Risco remanescente fica fora da UI visivel |
 | P1 ate smoke | `frontend/src/screens/main/NotificationsScreen.tsx` | RESOLVIDO no codigo local pela EXECUCAO-016/017: placeholders visiveis removidos e roteamento por entidade/conversa/usuario conectado a rotas reais existentes | Sim para conversa, usuario, estabelecimento, produto e evento | Payloads reais de notificacao em staging | Validar `relatedUserId`, `conversationId` e `entityType/entityId` em smoke | Risco remanescente fica em payload/staging, nao em rota inexistente |
 | P1 se reexibir | `frontend/src/screens/main/ActivityFavoritesScreen.tsx` | RESOLVIDO no codigo local pela EXECUCAO-014: tela nao informa lacuna/backend nem simula favoritos | Sim, se fora do hub visivel | Lista real de favoritos do usuario antes de voltar ao hub | Criar endpoint de favoritos consolidados ou estender `establishments` para listar favoritos do usuario | Risco remanescente fica fora da UI visivel |
@@ -998,7 +998,7 @@ Ordem de correcao desta auditoria:
 3. RESOLVIDO no codigo local pela EXECUCAO-009: `PersonalSetupScreen` persiste username, bio, cidade/localizacao e avatar; interesses ficaram fora do release por ausencia de backend canonico.
 4. RESOLVIDO no codigo local pela EXECUCAO-010: `SettingsCityScreen` usa geolocalizacao real e persiste cidade em `PUT /users/me/profile`; smoke mobile/staging pendente.
 5. RESOLVIDO parcialmente no codigo local pela EXECUCAO-011 e EXECUCAO-012: alterar senha foi implementado; dispositivos/historico, privacidade e bloqueados foram retirados do caminho visivel ou deixaram de exibir dados inventados. Ainda falta ocultar ou implementar notificacoes, idioma e raio sem contrato real.
-6. RESOLVIDO parcialmente no codigo local pela EXECUCAO-014: cards de pedidos/agendamentos/reservas sairam de Activity; CTAs de assinaturas/carrinho fora de Activity continuam dependentes de escopo/backend real.
+6. RESOLVIDO no codigo local pela EXECUCAO-014 e EXECUCAO-023 para o caminho visivel: cards de pedidos/agendamentos/reservas sairam de Activity e `ItemScreen` nao exibe CTAs genericos de assinatura/carrinho/agendamento/reserva sem backend real.
 7. RESOLVIDO no codigo local pela EXECUCAO-015: `RECENT_SEARCHES` foi removido da UI.
 8. RESOLVIDO no codigo local pela EXECUCAO-016/017: `NotificationsScreen` nao exibe placeholders visuais e nao perde params de conversa/usuario/entidade.
 9. RESOLVIDO no codigo local pela EXECUCAO-022: comentario `placeholder` no 2FA backend foi corrigido para refletir que o secret vem de `user.twoFactorSecret`.
@@ -2269,6 +2269,35 @@ Status:
 
 - RESOLVIDO no codigo local: nao ha mais comentario interno indicando placeholder no runtime 2FA.
 - Pendente de smoke: ativar, validar login com 2FA e desativar 2FA em staging/device.
+
+### EXECUCAO-023 - ItemScreen sem CTAs genericos sem backend - 2026-05-02
+
+Objetivo executado:
+
+- Revalidar a pendencia do plano que ainda listava CTAs genericos de item como abertos.
+- Sincronizar o plano com o codigo atual sem reabrir problema ja corrigido.
+
+Arquivos alterados:
+
+- `PLANO_CORRECAO_PRODUCAO_MEU_AGITO.md`
+- `STATUS_EXECUCAO_PROMPT_AWS_2026-04-26.md`
+
+Implementacao:
+
+- Confirmado no codigo atual que `ItemScreen` nao contem mais `Agendar`, `Reservar`, `Assinar`, carrinho ou alerta de fluxo fora do MVP.
+- Produto real mostra `Ver estabelecimento` e usa `catalogService.getProduct()`.
+- Evento real usa `locationService.getEvent()`, `attendEvent()` e `cancelAttendance()`.
+- Templates sem backend real caem em `Item indisponivel`, sem CTA fake.
+- As tabelas do plano foram atualizadas para marcar a pendencia como resolvida em codigo e pendente apenas de smoke.
+
+Validacao executada:
+
+- Varredura em `frontend/src/screens/main/ItemScreen.tsx` para `Agendar`, `Reservar`, `Assinar`, `Carrinho`, `Comprar`, `pedido`, `MVP`, `fora do escopo`, `Fluxo fora`, `Em breve`, `coming soon`, `mock`, `fake`, `dummy`, `sample`, `TODO` e `FIXME`: sem ocorrencias.
+
+Status:
+
+- RESOLVIDO no codigo local: `ItemScreen` nao exibe CTA sem backend real.
+- Pendente de smoke: produto real, evento real, presenca, rota invalida e banco vazio em staging/device.
 
 Resumo de bloqueadores absolutos antes de deploy publico real:
 
