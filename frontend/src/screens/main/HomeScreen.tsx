@@ -72,7 +72,7 @@ function formatDistance(distanceKm: number | null) {
 
 function formatEventBadge(date?: string) {
   if (!date) {
-    return 'EM BREVE';
+    return 'SEM DATA';
   }
 
   const target = new Date(date);

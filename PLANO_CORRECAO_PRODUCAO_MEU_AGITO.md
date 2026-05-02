@@ -972,7 +972,7 @@ Resultado priorizado por gravidade:
 | P1 ate smoke | `frontend/src/screens/main/NotificationsScreen.tsx` | RESOLVIDO no codigo local pela EXECUCAO-016/017: placeholders visiveis removidos e roteamento por entidade/conversa/usuario conectado a rotas reais existentes | Sim para conversa, usuario, estabelecimento, produto e evento | Payloads reais de notificacao em staging | Validar `relatedUserId`, `conversationId` e `entityType/entityId` em smoke | Risco remanescente fica em payload/staging, nao em rota inexistente |
 | P1 se reexibir | `frontend/src/screens/main/ActivityFavoritesScreen.tsx` | RESOLVIDO no codigo local pela EXECUCAO-014: tela nao informa lacuna/backend nem simula favoritos | Sim, se fora do hub visivel | Lista real de favoritos do usuario antes de voltar ao hub | Criar endpoint de favoritos consolidados ou estender `establishments` para listar favoritos do usuario | Risco remanescente fica fora da UI visivel |
 | P1 se reexibir | `frontend/src/screens/main/ActivityHistoryScreen.tsx` | RESOLVIDO no codigo local pela EXECUCAO-014: tela nao informa lacuna/backend nem simula historico | Sim, se fora do hub visivel | Historico real de buscas, perfis vistos, check-ins e atividades antes de voltar ao hub | Criar modelo/endpoint de historico com retencao definida | Risco remanescente fica fora da UI visivel |
-| P2 | `frontend/src/screens/main/HomeScreen.tsx:73-76` | Evento sem data retorna badge `EM BREVE` | Aceitavel como fallback visual se evento sem data for permitido; revisar contrato | Data real do evento ou estado `sem data publicada` | `searchService.searchEvents()`; backend `GET /search/events` deve retornar `date` confiavel | Pode mascarar evento cadastrado incorretamente sem data |
+| P2 | `frontend/src/screens/main/HomeScreen.tsx` | RESOLVIDO no codigo local pela EXECUCAO-020: evento sem data retorna badge `SEM DATA`, nao `EM BREVE` | Aceitavel como estado honesto; smoke pendente | Data real do evento quando disponivel | `searchService.searchEvents()`; backend `GET /search/events` deve retornar `date` confiavel | Risco remanescente: evento cadastrado sem data precisa ser tratado no backend/admin |
 | P2 | `backend/src/modules/auth/auth.service.ts:596-599` | Comentario diz `placeholder` em verificacao 2FA, mas codigo usa `user.twoFactorSecret` persistido | Aceitavel como comentario desatualizado? Nao para qualidade de producao | Comentario correto refletindo fluxo real ou ajuste se houver gap real | `authService.setupTwoFactorAuth()` e `verifyTwoFactorAuth()` | Comentario engana auditoria e manutencao; risco de alterar fluxo correto por leitura errada |
 | P0 ate smoke | `frontend/src/screens/main/MapScreen.tsx` | RESOLVIDO no codigo local pela EXECUCAO-008: item da lista e marker/callout navegam para evento/estabelecimento | Nao aplicavel ao codigo local atual; ainda nao aprovado para producao sem smoke | Navegacao real para evento/estabelecimento | Rotas `Item`/`Profile` com dados carregados por `locationService`/perfil | Risco remanescente fica no smoke de dados reais e permissao/localizacao |
 | P3 | `frontend/src/screens/main/CatalogScreen.tsx:125-132` | Categorias por template sao arrays fixos | Aceitavel se forem taxonomia de produto; nao aceitavel se substituirem categorias reais | Categorias derivadas dos produtos reais quando remoto | Ja existe `dynamicCategories` em `CatalogScreen.tsx:220`; manter para `remoteMode` | Baixo risco se usado so como taxonomia visual; risco medio se filtrar catalogo fake |
@@ -2175,6 +2175,34 @@ Status:
 
 - RESOLVIDO no codigo local: `ItemScreen` nao exibe texto de auditoria/roadmap ao usuario final.
 - Pendente de smoke: validar produto real, evento real, presenca, rota invalida e banco vazio em staging/device.
+
+### EXECUCAO-020 - Home sem badge falso de evento futuro - 2026-05-02
+
+Objetivo executado:
+
+- Remover o fallback `EM BREVE` para evento sem data.
+- Evitar que dado ausente pareca promessa de evento futuro.
+
+Arquivos alterados:
+
+- `frontend/src/screens/main/HomeScreen.tsx`
+- `PLANO_CORRECAO_PRODUCAO_MEU_AGITO.md`
+- `STATUS_EXECUCAO_PROMPT_AWS_2026-04-26.md`
+
+Implementacao:
+
+- `formatEventBadge()` agora retorna `SEM DATA` quando o backend nao envia data do evento.
+
+Validacao executada:
+
+- `cd frontend && npx tsc --noEmit`: OK.
+- `cd frontend && npm run lint`: OK.
+- Varredura em `HomeScreen.tsx` para `EM BREVE`, `coming soon`, `mock`, `fake`, `dummy`, `sample`, `TODO`, `FIXME` e `console.log`: sem ocorrencias.
+
+Status:
+
+- RESOLVIDO no codigo local: Home nao usa badge de evento futuro como fallback para dado ausente.
+- Pendente de smoke: validar Home com eventos com data, sem data, vazio e erro de API.
 
 Resumo de bloqueadores absolutos antes de deploy publico real:
 

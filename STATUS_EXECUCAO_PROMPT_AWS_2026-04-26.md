@@ -943,3 +943,21 @@ Status da validacao ponta a ponta:
 
 - o P1 local "Item com texto de auditoria/escopo visivel" fica RESOLVIDO no codigo.
 - continua pendente: smoke de produto real, evento real, presenca, rota invalida e banco vazio em staging/device.
+
+## Atualizacao complementar - 2026-05-02 (America/Sao_Paulo) - Home sem badge falso de evento futuro
+
+### Correcao aplicada
+
+- `HomeScreen.formatEventBadge()` deixou de retornar `EM BREVE` quando o evento vem sem data.
+- O fallback agora e `SEM DATA`, estado honesto para dado ausente.
+
+### Validacao executada
+
+- `cd frontend && npx tsc --noEmit`: OK.
+- `cd frontend && npm run lint`: OK.
+- Varredura em `HomeScreen.tsx` para `EM BREVE`, `coming soon`, `mock`, `fake`, `dummy`, `sample`, `TODO`, `FIXME` e `console.log`: sem ocorrencias.
+
+### Leitura correta apos esta rodada
+
+- o P2 local "Home com `EM BREVE` para evento sem data" fica RESOLVIDO no codigo.
+- continua pendente: smoke de Home com evento com data, evento sem data, resultado vazio e erro de API.
