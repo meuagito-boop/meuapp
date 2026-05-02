@@ -191,7 +191,8 @@ Status atualizado em 2026-05-01:
 
 Impacto:
 
-- O app ainda pode exibir catalogo/item como se fossem reais quando estao em modo mock ou incompleto.
+- Historico mitigado no codigo local: o app nao exibe mais catalogo/item como se fossem reais quando nao ha fonte backend.
+- Risco remanescente: falta smoke mobile/staging com estabelecimento real, produto real, evento real, rota sem `establishmentId` e banco vazio.
 
 Correcao:
 
@@ -378,10 +379,10 @@ Criterio de aceite:
 
 ### Fase 5 - Catalogo, Item e gestao owner
 
-1. Remover `MOCK_CATALOGS` do fluxo publico.
-2. Garantir que Catalog sempre use `establishmentId` real ou mostre estado vazio honesto.
-3. Remover `item-fallback` do fluxo publico.
-4. Remover botoes de pedido/reserva/agenda/assinatura fora do MVP ou implementar contratos reais.
+1. RESOLVIDO no codigo local pela EXECUCAO-002/024: remover `MOCK_CATALOGS` do fluxo publico.
+2. RESOLVIDO no codigo local pela EXECUCAO-002/024: Catalog usa `establishmentId` real ou mostra estado vazio honesto.
+3. RESOLVIDO no codigo local pela EXECUCAO-002/023: remover `item-fallback` do fluxo publico.
+4. RESOLVIDO no codigo local pela EXECUCAO-002/023: remover botoes de pedido/reserva/agenda/assinatura fora do MVP.
 5. Criar tela owner para criar/editar/arquivar produto se gestao de catalogo fizer parte do release.
 
 Criterio de aceite:
@@ -957,7 +958,7 @@ Resultado priorizado por gravidade:
 
 | Prioridade | Arquivo/linha | Ocorrencia | Aceitavel em producao? | Dado real que deve substituir | Endpoint/service a usar | Risco se for para producao |
 |---|---|---|---|---|---|---|
-| P0 | `frontend/src/screens/main/CatalogScreen.tsx:57-123`, `166-172`, `324-334` | `MOCK_CATALOGS` alimenta catalogo quando nao existe `establishmentId`; card pode navegar para `Item` com item local | Nao | Produtos reais do estabelecimento ou estado vazio real | `catalogService.getEstablishmentProducts(establishmentId)` -> `GET /establishments/:id/products`; item real via `GET /products/:id` | Usuario ve cardapio/quartos/planos/servicos que nao existem no backend; gera decisao baseada em dado falso |
+| P0 ate smoke | `frontend/src/screens/main/CatalogScreen.tsx` | RESOLVIDO no codigo local pela EXECUCAO-002/024: `MOCK_CATALOGS` nao existe no arquivo atual, rota sem `establishmentId` mostra estado honesto e cards so aparecem a partir de `catalogService.getEstablishmentProducts(establishmentId)` | Sim, como estado atual sem mock | Produtos reais do estabelecimento ou estado vazio real | `catalogService.getEstablishmentProducts(establishmentId)` -> `GET /establishments/:id/products`; item real via `GET /products/:id` | Risco remanescente fica em smoke de vitrine real e banco vazio, nao em catalogo fake |
 | P0 ate smoke | `frontend/src/screens/main/SettingsMyAccountScreen.tsx`; `frontend/src/services/api/UserService.ts`; `frontend/src/stores/userStore.ts` | RESOLVIDO no codigo local pela EXECUCAO-004: conta inicial fixa, timer e save simulado foram removidos | Nao aplicavel ao codigo local atual; ainda nao aprovado para producao sem smoke | Perfil do usuario autenticado, avatar real, email real, bio reais | `userStore.getProfile()`, `UserService.updateAccount()`, `UserService.updateProfile()`, `UserService.uploadAvatar()` | Risco remanescente de producao esta em storage real, smoke de device e alteracao de e-mail/duplicidade |
 | P0 ate smoke | `frontend/src/screens/main/SettingsMyAccountScreen.tsx` | RESOLVIDO no codigo local pela EXECUCAO-004: alert de foto com funcoes vazias foi substituido por picker/upload real | Nao aplicavel ao codigo local atual; ainda nao aprovado para producao sem smoke | Imagem escolhida pelo usuario e upload real | `expo-image-picker` + `userService.uploadAvatar()` -> `POST /users/me/avatar` | Se S3/CloudFront nao estiverem validados, avatar pode falhar em producao |
 | P0 ate smoke | `frontend/src/screens/auth/PersonalSetupScreen.tsx`; `frontend/src/services/api/UserService.ts`; `backend/src/modules/users/users.controller.ts`; `backend/src/modules/users/users.service.ts` | RESOLVIDO no codigo local pela EXECUCAO-009: onboarding pessoal nao usa mais `setTimeout`, cidade fixa, avatar booleano local ou finalizacao sem persistencia | Nao aplicavel ao codigo local atual; ainda nao aprovado para producao sem smoke | Username, bio, cidade/localizacao e avatar reais persistidos; interesses fora do release ate existir backend canonico | `GET /users/username/availability`, `PUT /users/me`, `PUT /users/me/profile`, `POST /users/me/avatar` | Risco remanescente esta em smoke mobile/staging, S3/CloudFront real, permissao de localizacao e decisao futura de preferencias/interesses |
@@ -993,7 +994,7 @@ Ocorrencias procuradas e classificadas como nao problematica:
 
 Ordem de correcao desta auditoria:
 
-1. Remover `MOCK_CATALOGS` do caminho de producao: se nao houver `establishmentId`, mostrar estado vazio/erro de rota invalida em vez de catalogo local.
+1. RESOLVIDO no codigo local pela EXECUCAO-002/024: `MOCK_CATALOGS` foi removido do caminho de producao; sem `establishmentId`, a tela mostra estado vazio/erro de rota invalida em vez de catalogo local.
 2. RESOLVIDO no codigo local pela EXECUCAO-004: `SettingsMyAccountScreen` usa `userStore.getProfile`, `PUT /users/me`, `PUT /users/me/profile` e `POST /users/me/avatar`; timers e dados de Joao foram removidos.
 3. RESOLVIDO no codigo local pela EXECUCAO-009: `PersonalSetupScreen` persiste username, bio, cidade/localizacao e avatar; interesses ficaram fora do release por ausencia de backend canonico.
 4. RESOLVIDO no codigo local pela EXECUCAO-010: `SettingsCityScreen` usa geolocalizacao real e persiste cidade em `PUT /users/me/profile`; smoke mobile/staging pendente.
@@ -2298,6 +2299,35 @@ Status:
 
 - RESOLVIDO no codigo local: `ItemScreen` nao exibe CTA sem backend real.
 - Pendente de smoke: produto real, evento real, presenca, rota invalida e banco vazio em staging/device.
+
+### EXECUCAO-024 - CatalogScreen sem MOCK_CATALOGS no codigo atual - 2026-05-02
+
+Objetivo executado:
+
+- Revalidar a pendencia P0 do plano que ainda listava `MOCK_CATALOGS` como aberta.
+- Sincronizar o plano com a correcao ja existente no codigo.
+
+Arquivos alterados:
+
+- `PLANO_CORRECAO_PRODUCAO_MEU_AGITO.md`
+- `STATUS_EXECUCAO_PROMPT_AWS_2026-04-26.md`
+
+Implementacao:
+
+- Confirmado que `frontend/src/screens/main/CatalogScreen.tsx` nao contem `MOCK_CATALOGS`, `mock`, `fake`, `dummy`, `sample`, `TODO`, `FIXME`, `Em breve` ou `coming soon`.
+- Confirmado que sem `establishmentId` a tela mostra `Catalogo indisponivel` e nao monta lista fake.
+- Confirmado que com `establishmentId` a tela usa `catalogService.getEstablishmentProducts(establishmentId)` e navega para `Item` com `productId`.
+- O plano foi atualizado para marcar o P0 historico como resolvido em codigo e pendente apenas de smoke.
+
+Validacao executada:
+
+- Varredura em `frontend/src/screens/main/CatalogScreen.tsx` para `MOCK_CATALOGS`, `mock`, `fake`, `dummy`, `sample`, `item-fallback`, `Em breve`, `coming soon`, `TODO` e `FIXME`: sem ocorrencias.
+- Leitura de `frontend/src/services/api/CatalogService.ts`: `getEstablishmentProducts()` e `getProduct()` usam endpoints reais.
+
+Status:
+
+- RESOLVIDO no codigo local: catalogo nao usa dados fake no caminho de producao.
+- Pendente de smoke: perfil de estabelecimento real, vitrine vazia, vitrine com produtos e rota sem `establishmentId` em staging/device.
 
 Resumo de bloqueadores absolutos antes de deploy publico real:
 

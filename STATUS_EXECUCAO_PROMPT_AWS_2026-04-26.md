@@ -1020,3 +1020,22 @@ Status da validacao ponta a ponta:
 
 - o P1 local "CTAs genericos de Item sem backend" fica RESOLVIDO no codigo.
 - continua pendente: smoke de produto real, evento real, presenca, rota invalida e banco vazio em staging/device.
+
+## Atualizacao complementar - 2026-05-02 (America/Sao_Paulo) - CatalogScreen sem MOCK_CATALOGS no codigo atual
+
+### Correcao aplicada
+
+- Nao houve alteracao de runtime nesta rodada; a tarefa foi sincronizar o plano com o codigo atual.
+- `CatalogScreen` foi revalidado e nao contem `MOCK_CATALOGS` nem dados fake de catalogo.
+- Sem `establishmentId`, a tela mostra estado honesto de catalogo indisponivel.
+- Com `establishmentId`, a tela usa `catalogService.getEstablishmentProducts(establishmentId)` e navega para `Item` com `productId`.
+
+### Validacao executada
+
+- Varredura em `frontend/src/screens/main/CatalogScreen.tsx` para `MOCK_CATALOGS`, `mock`, `fake`, `dummy`, `sample`, `item-fallback`, `Em breve`, `coming soon`, `TODO` e `FIXME`: sem ocorrencias.
+- Leitura de `frontend/src/services/api/CatalogService.ts`: `getEstablishmentProducts()` e `getProduct()` usam endpoints reais.
+
+### Leitura correta apos esta rodada
+
+- o P0 local "CatalogScreen com MOCK_CATALOGS" fica RESOLVIDO no codigo.
+- continua pendente: smoke de perfil de estabelecimento real, vitrine vazia, vitrine com produtos e rota sem `establishmentId` em staging/device.
