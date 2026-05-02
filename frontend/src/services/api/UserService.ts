@@ -22,6 +22,21 @@ export interface UserProfile {
   createdAt: string;
 }
 
+export interface PublicUserProfile {
+  id: string;
+  name?: string | null;
+  username?: string | null;
+  avatar?: string | null;
+  bio?: string | null;
+  profileType?: string;
+  location?: string | null;
+  website?: string | null;
+  followersCount: number;
+  followingCount: number;
+  postsCount: number;
+  createdAt: string;
+}
+
 export interface UpdateAccountRequest {
   name?: string;
   email?: string;
@@ -56,6 +71,10 @@ class UserService {
 
   async getUserProfile(userId: string): Promise<UserProfile> {
     return this.apiClient.get(`/users/${userId}`);
+  }
+
+  async getPublicProfile(userId: string): Promise<PublicUserProfile> {
+    return this.apiClient.get(`/users/${userId}/public-profile`);
   }
 
   async updateAccount(data: UpdateAccountRequest): Promise<UserProfile> {

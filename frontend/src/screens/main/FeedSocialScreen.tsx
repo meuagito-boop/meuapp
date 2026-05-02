@@ -240,7 +240,7 @@ export default function FeedSocialScreen() {
             style={[styles.avatar, isEstablishment && styles.avatarSquare]}
             onPress={() =>
               navigation.navigate('Profile', {
-                type: isEstablishment ? 'establishment' : 'user',
+                type: 'user',
                 userId: item.author.id,
               })
             }

@@ -353,6 +353,17 @@ export default function NotificationsScreen() {
         return;
       }
 
+      if (notification.relatedUserId) {
+        navigation.navigate('MainTabs', {
+          screen: 'Profile',
+          params: {
+            type: 'user',
+            userId: notification.relatedUserId,
+          },
+        });
+        return;
+      }
+
       if (notification.type === 'system') {
         navigation.navigate('MainTabs', { screen: 'Settings' });
       }

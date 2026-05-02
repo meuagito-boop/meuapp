@@ -15,14 +15,16 @@ import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { colors } from '@constants/colors';
 import { componentSizes, fontSize, spacing } from '@constants/design';
 import { authStore } from '@stores/authStore';
-import { catalogService, locationService } from '@services/api';
+import { catalogService, locationService, userService } from '@services/api';
 import type { CatalogProduct } from '@services/api/CatalogService';
 import type { Establishment, Review } from '@services/api/LocationService';
+import type { PublicUserProfile } from '@services/api/UserService';
 
 type ProfileType = 'user' | 'establishment';
 type EstablishmentTab = 'Tudo' | 'Midia' | 'Avaliacoes' | 'Servicos';
 type ProfileRouteParams = {
   type?: ProfileType;
+  userId?: string;
   establishmentId?: string;
   ownerView?: boolean;
 };
@@ -147,7 +149,10 @@ export default function ProfileScreen() {
 
   const requestedType: ProfileType =
     routeParams?.type ?? (user?.profileType === 'ESTABLISHMENT' ? 'establishment' : 'user');
+  const requestedUserId = routeParams?.userId;
   const requestedEstablishmentId = routeParams?.establishmentId;
+  const isOwnUserProfile =
+    requestedType === 'user' && (!requestedUserId || requestedUserId === user?.id);
   const isOwnerEstablishmentView =
     requestedType === 'establishment' &&
     user?.profileType === 'ESTABLISHMENT' &&
@@ -158,10 +163,11 @@ export default function ProfileScreen() {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [establishment, setEstablishment] = useState<Establishment | null>(null);
   const [products, setProducts] = useState<CatalogProduct[]>([]);
+  const [publicUser, setPublicUser] = useState<PublicUserProfile | null>(null);
 
   useEffect(() => {
     setActiveTab('Tudo');
-  }, [requestedEstablishmentId, requestedType]);
+  }, [requestedEstablishmentId, requestedType, requestedUserId]);
 
   useEffect(() => {
     let isMounted = true;
@@ -224,6 +230,63 @@ export default function ProfileScreen() {
     };
   }, [isOwnerEstablishmentView, requestedEstablishmentId, requestedType]);
 
+  useEffect(() => {
+    let isMounted = true;
+
+    const loadPublicUserProfile = async () => {
+      if (requestedType !== 'user') {
+        setPublicUser(null);
+        return;
+      }
+
+      if (isOwnUserProfile) {
+        setPublicUser(null);
+        setLoadError(null);
+        setIsLoading(false);
+        return;
+      }
+
+      if (!requestedUserId) {
+        setPublicUser(null);
+        setLoadError('Perfil de usuario sem identificador.');
+        setIsLoading(false);
+        return;
+      }
+
+      setIsLoading(true);
+      setLoadError(null);
+
+      try {
+        const nextUser = await userService.getPublicProfile(requestedUserId);
+
+        if (!isMounted) {
+          return;
+        }
+
+        setPublicUser(nextUser);
+      } catch (error) {
+        if (!isMounted) {
+          return;
+        }
+
+        const message =
+          error instanceof Error ? error.message : 'Falha ao carregar o perfil do usuario.';
+        setLoadError(message);
+        setPublicUser(null);
+      } finally {
+        if (isMounted) {
+          setIsLoading(false);
+        }
+      }
+    };
+
+    void loadPublicUserProfile();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [isOwnUserProfile, requestedType, requestedUserId]);
+
   const mediaUrls = useMemo(() => getMediaUrls(establishment), [establishment]);
   const openingHoursRows = useMemo(
     () => getOpeningHoursRows(establishment?.openingHours ?? null),
@@ -268,28 +331,98 @@ export default function ProfileScreen() {
     void openExternalUrl(`https://www.google.com/maps/search/?api=1&query=${query}`);
   };
 
-  const renderUserProfile = () => (
-    <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-      <View style={styles.profileHeader}>
-        <View style={[styles.avatar, styles.avatarCircular]}>
-          <Text style={styles.avatarFallback}>{getInitials(user?.name || 'Conta')}</Text>
+  const renderUserProfile = () => {
+    if (!isOwnUserProfile && isLoading) {
+      return (
+        <View style={styles.centerState}>
+          <ActivityIndicator size="large" color={colors.primary} />
+        </View>
+      );
+    }
+
+    if (!isOwnUserProfile && (loadError || !publicUser)) {
+      return (
+        <View style={styles.centerState}>
+          <Text style={styles.emptyTitle}>Perfil indisponivel</Text>
+          <Text style={styles.emptyText}>
+            {loadError || 'Nao foi possivel localizar este usuario.'}
+          </Text>
+        </View>
+      );
+    }
+
+    const profileName = publicUser?.name || user?.name || 'Sua conta';
+    const avatarUrl = publicUser?.avatar || user?.avatar;
+    const subtitle = publicUser
+      ? publicUser.username
+        ? `@${publicUser.username}`
+        : publicUser.location || 'Perfil publico'
+      : user?.email || 'Sem email cadastrado';
+    const bio = publicUser?.bio || null;
+    const location = publicUser?.location || null;
+    const website = publicUser?.website || null;
+    const hasPublicInfo = Boolean(bio || location || website || (!publicUser && user?.email));
+
+    return (
+      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+        <View style={styles.profileHeader}>
+          {avatarUrl ? (
+            <Image
+              source={{ uri: avatarUrl }}
+              style={[styles.avatar, styles.avatarCircular]}
+              resizeMode="cover"
+            />
+          ) : (
+            <View style={[styles.avatar, styles.avatarCircular]}>
+              <Text style={styles.avatarFallback}>{getInitials(profileName)}</Text>
+            </View>
+          )}
+
+          <View style={styles.identityBlock}>
+            <Text style={styles.profileName}>{profileName}</Text>
+            <Text style={styles.profileSubtitle}>{subtitle}</Text>
+          </View>
         </View>
 
-        <View style={styles.identityBlock}>
-          <Text style={styles.profileName}>{user?.name || 'Sua conta'}</Text>
-          <Text style={styles.profileSubtitle}>{user?.email || 'Sem email cadastrado'}</Text>
-        </View>
-      </View>
+        {publicUser ? (
+          <View style={styles.statsRow}>
+            <View style={styles.statCard}>
+              <Text style={styles.statValue}>{publicUser.followersCount}</Text>
+              <Text style={styles.statLabel}>Seguidores</Text>
+            </View>
+            <View style={styles.statCard}>
+              <Text style={styles.statValue}>{publicUser.followingCount}</Text>
+              <Text style={styles.statLabel}>Seguindo</Text>
+            </View>
+            <View style={styles.statCard}>
+              <Text style={styles.statValue}>{publicUser.postsCount}</Text>
+              <Text style={styles.statLabel}>Posts</Text>
+            </View>
+          </View>
+        ) : null}
 
-      <View style={styles.infoCard}>
-        <Text style={styles.cardTitle}>Conta pessoal</Text>
-        <Text style={styles.cardText}>
-          Este espaco mostra os dados reais da sua conta. O perfil publico de estabelecimento foi
-          tratado separadamente porque ele e o alvo dos blocos 4 e 5.
-        </Text>
-      </View>
-    </ScrollView>
-  );
+        <View style={styles.infoCard}>
+          <Text style={styles.cardTitle}>
+            {publicUser ? 'Informacoes publicas' : 'Dados da conta'}
+          </Text>
+          {hasPublicInfo ? (
+            <>
+              {!publicUser && user?.email ? renderInfoRow('Email', user.email) : null}
+              {bio ? renderInfoRow('Bio', bio) : null}
+              {location ? renderInfoRow('Localidade', location) : null}
+              {website ? (
+                <TouchableOpacity style={styles.catalogButton} onPress={() => void openExternalUrl(website)}>
+                  <Text style={styles.catalogButtonText}>Abrir website</Text>
+                </TouchableOpacity>
+              ) : null}
+            </>
+          ) : (
+            <Text style={styles.cardText}>Sem informacoes publicas.</Text>
+          )}
+        </View>
+      </ScrollView>
+    );
+  };
 
   const renderInfoRow = (label: string, value: string) => (
     <View style={styles.infoRow} key={label}>

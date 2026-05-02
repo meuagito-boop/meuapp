@@ -594,34 +594,56 @@ export class UsersService {
       cacheKey,
       async () => {
         try {
-          const user = await this.prisma.user.findUnique({
-            where: { id: userId },
-            select: {
-              id: true,
-              name: true,
-              avatar: true,
-              bio: true,
-              profileType: true,
-              location: true,
-              website: true,
-              createdAt: true,
-              _count: {
-                select: {
-                  followers: true,
-                  following: true,
+          const [user, postsCount] = await Promise.all([
+            this.prisma.user.findUnique({
+              where: { id: userId },
+              select: {
+                id: true,
+                name: true,
+                username: true,
+                avatar: true,
+                bio: true,
+                profileType: true,
+                location: true,
+                website: true,
+                createdAt: true,
+                _count: {
+                  select: {
+                    followers: true,
+                    following: true,
+                  },
                 },
               },
-            },
-          });
+            }),
+            this.prisma.post.count({
+              where: {
+                authorId: userId,
+                isPublic: true,
+                isDeleted: false,
+                deletedAt: null,
+              },
+            }),
+          ]);
 
           if (!user) {
             throw new NotFoundException('User not found');
           }
 
+          const { _count } = user;
+
           return {
-            ...user,
-            followersCount: user._count?.followers || 0,
-            followingCount: user._count?.following || 0,
+            id: user.id,
+            name: user.name,
+            username: user.username,
+            avatar: user.avatar,
+            bio: user.bio,
+            profileType: user.profileType,
+            location: user.location,
+            website: user.website,
+            createdAt: user.createdAt,
+            followersCount: _count?.followers || 0,
+            followingCount: _count?.following || 0,
+            postsCount,
           };
         } catch (error) {
           if (error instanceof NotFoundException) {

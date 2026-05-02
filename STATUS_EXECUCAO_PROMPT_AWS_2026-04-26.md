@@ -868,7 +868,7 @@ Status da validacao ponta a ponta:
 - Clique em notificacao de estabelecimento abre `Profile` com `establishmentId`.
 - Clique em notificacao de produto abre `Item` com `template: produto` e `productId`.
 - Clique em notificacao de evento abre `Item` com `template: evento` e `item.id`.
-- `relatedUserId` nao foi roteado para `Profile`, porque o destino atual nao carrega perfil publico por `userId`; isso segue documentado como pendencia de produto/frontend/backend.
+- Historico da rodada: `relatedUserId` nao foi roteado naquela execucao porque o destino ainda nao carregava perfil publico por `userId`. Status posterior: corrigido na atualizacao seguinte de perfil publico por userId.
 
 ### Validacao executada
 
@@ -879,4 +879,30 @@ Status da validacao ponta a ponta:
 ### Leitura correta apos esta rodada
 
 - o P1 local "Notifications com placeholders visuais e perda de parametros de conversa/entidade" fica RESOLVIDO parcialmente no codigo.
-- continua pendente: smoke com payload real em staging/device e decisao/implementacao de perfil publico por `relatedUserId` se esse tipo de notificacao entrar no MVP.
+- status posterior: perfil publico por `relatedUserId` foi implementado na atualizacao seguinte; continua pendente smoke com payload real em staging/device.
+
+## Atualizacao complementar - 2026-05-02 (America/Sao_Paulo) - Perfil publico por userId conectado
+
+### Correcao aplicada
+
+- `UsersService.getPublicProfile()` retorna explicitamente apenas campos publicos e inclui `postsCount`.
+- `UserService` recebeu `PublicUserProfile` e `getPublicProfile(userId)` apontando para `GET /users/:id/public-profile`.
+- `ProfileScreen` passou a consumir `route.params.userId` para carregar perfil publico real.
+- `FeedSocialScreen` agora navega para `Profile` com `{ type: 'user', userId }`, contrato consumido pelo destino.
+- `NotificationsScreen` reativou `relatedUserId` para abrir perfil publico real.
+- Texto de auditoria/roadmap visivel no perfil pessoal foi removido.
+
+### Validacao executada
+
+- `cd backend && npm run build`: OK.
+- `cd backend && npm run lint`: OK.
+- `cd backend && npx jest src/modules/users/users.spec.ts --runInBand`: OK, 27 testes.
+- `cd frontend && npx tsc --noEmit`: OK.
+- `cd frontend && npm run lint`: OK.
+- Varredura em `ProfileScreen.tsx`, `FeedSocialScreen.tsx` e `NotificationsScreen.tsx` para `blocos`, `tratado`, `alvo`, `mock`, `fake`, `dummy`, `sample`, `TODO`, `FIXME`, `console.log`, `Em breve` e `coming soon`: sem texto de auditoria/roadmap visivel; ocorrencia restante de `placeholder` e placeholder de input no modal de comentario.
+
+### Leitura correta apos esta rodada
+
+- o P1 local "perfil publico por userId ignorado pelo destino" fica RESOLVIDO no codigo.
+- o `relatedUserId` de notificacoes passa a ter destino real.
+- continua pendente: smoke com autor usuario, autor estabelecimento, usuario inexistente e notificacao real.

@@ -411,6 +411,60 @@ describe('UsersService', () => {
       });
     });
   });
+
+  describe('getPublicProfile', () => {
+    it('should return only public user profile fields', async () => {
+      jest.spyOn(prismaService.user, 'findUnique').mockResolvedValue(mockUser);
+      jest.spyOn(prismaService.post, 'count').mockResolvedValue(3);
+
+      const result = await service.getPublicProfile('test-id');
+
+      expect(result).toEqual(
+        expect.objectContaining({
+          id: 'test-id',
+          name: 'Test User',
+          username: 'test.user',
+          avatar: 'https://example.com/avatar.jpg',
+          bio: 'Test bio',
+          location: 'São Paulo',
+          website: 'https://example.com',
+          followersCount: 10,
+          followingCount: 5,
+          postsCount: 3,
+        })
+      );
+      expect(result).not.toHaveProperty('email');
+      expect(result).not.toHaveProperty('password');
+      expect(prismaService.user.findUnique).toHaveBeenCalledWith({
+        where: { id: 'test-id' },
+        select: {
+          id: true,
+          name: true,
+          username: true,
+          avatar: true,
+          bio: true,
+          profileType: true,
+          location: true,
+          website: true,
+          createdAt: true,
+          _count: {
+            select: {
+              followers: true,
+              following: true,
+            },
+          },
+        },
+      });
+      expect(prismaService.post.count).toHaveBeenCalledWith({
+        where: {
+          authorId: 'test-id',
+          isPublic: true,
+          isDeleted: false,
+          deletedAt: null,
+        },
+      });
+    });
+  });
 });
 
 describe('UsersController', () => {

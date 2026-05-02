@@ -457,8 +457,8 @@ Criterio de aceite:
 | `frontend/src/screens/main/SettingsAuxScreens.tsx` | RESOLVIDO no codigo local pela EXECUCAO-011: troca de senha deixou de ser scaffold e usa `authStore.changePassword()` -> `POST /auth/change-password` | Validar smoke com senha atual correta/incorreta e confirmacao divergente |
 | `frontend/src/screens/main/SettingsAuxScreens.tsx` | RESOLVIDO parcialmente no codigo local pela EXECUCAO-011: dispositivos/historico nao exibem dados inventados e sairam do menu de seguranca | Criar endpoints reais de sessoes/audit log antes de voltar a exibir essas entradas |
 | `frontend/src/screens/main/SettingsAuxScreens.tsx:102-112` | Contas vinculadas existe e esta registrada, mas nao tem entrada acessivel no menu de Settings | Adicionar item de menu real ou remover rota |
-| `frontend/src/screens/main/FeedSocialScreen.tsx:242-245` + `frontend/src/screens/main/ProfileScreen.tsx:148-192` | Avatar do autor no feed envia `userId`, mas `ProfileScreen` nao carrega perfil publico por `userId` e estabelecimento exige `establishmentId` | Passar `establishmentId` quando autor for estabelecimento e implementar perfil publico de usuario por `userId` |
-| `frontend/src/screens/main/NotificationsScreen.tsx` | RESOLVIDO parcialmente no codigo local pela EXECUCAO-016: clique em notificacao preserva `conversationId`, `entityType/entityId` para estabelecimento/produto/evento e usa nested route de chat | Pendente apenas perfil publico de usuario por `relatedUserId`, pois `ProfileScreen` ainda nao consome `userId` |
+| `frontend/src/screens/main/FeedSocialScreen.tsx` + `frontend/src/screens/main/ProfileScreen.tsx` + `frontend/src/services/api/UserService.ts` | RESOLVIDO no codigo local pela EXECUCAO-017: avatar do autor envia `type: 'user'` + `userId` e `ProfileScreen` carrega `GET /users/:id/public-profile` | Validar smoke com autor usuario e autor estabelecimento; se produto exigir vitrine de estabelecimento ao tocar autor ESTABLISHMENT, incluir `establishmentId` no feed |
+| `frontend/src/screens/main/NotificationsScreen.tsx` | RESOLVIDO no codigo local pela EXECUCAO-016/017: clique em notificacao preserva `conversationId`, `entityType/entityId` para estabelecimento/produto/evento e `relatedUserId` para perfil publico de usuario | Validar payloads reais em staging/device |
 | `frontend/src/services/api/UserService.ts` | RESOLVIDO no codigo local: Delete account envia senha para `DELETE /users/me` | Validar smoke mobile/staging |
 | `backend/src/modules/users/users.controller.ts` + `backend/src/modules/users/users.service.ts` | RESOLVIDO no codigo local: backend valida senha e revoga refresh tokens antes do soft delete | Validar senha correta/incorreta e tokens |
 | `frontend/src/screens/main/NotificationsScreen.tsx` | RESOLVIDO no codigo local pela EXECUCAO-016: placeholders `??`/`?` visiveis removidos | Validar smoke visual em device |
@@ -698,9 +698,9 @@ Matriz de telas:
 | Atividade | Sim | Sim | Sim, tab | Estado vazio honesto no codigo local | Nao precisa para estado vazio | Nao encontrado no codigo local apos EXECUCAO-014 | Sim em codigo; depende decisao de produto | `RootNavigator.tsx:159-172`, `ActivityScreen.tsx`; criar cards reais antes de reexibir recursos |
 | Mapa | Sim | Sim | Sim, tab | Real | Sim | Nao encontrado no codigo local apos EXECUCAO-008; smoke pendente | Sim em codigo; depende smoke | `RootNavigator.tsx:173-180`, `MapScreen.tsx`; lista e marker abrem `Item`/`Profile` |
 | Chat | Sim | Sim | Sim, tab | Real | Sim | Nao encontrado | Sim em codigo; depende smoke 2 usuarios/Redis | `RootNavigator.tsx:181-188`, `ChatScreen.tsx:87-100`, `chatStore.ts:261-352` |
-| Perfil | Sim | Sim | Sim, tab e navegacao por busca/feed/home | Real para estabelecimento | Sim | Fallback visual de avatar/produto | Sim em codigo; depende smoke | `RootNavigator.tsx:189-197`, `ProfileScreen.tsx:191-193`, `233-256` |
+| Perfil | Sim | Sim | Sim, tab e navegacao por busca/feed/home | Real para estabelecimento e perfil publico de usuario apos EXECUCAO-017 | Sim | Fallback visual de avatar/produto sem dado fake | Sim em codigo; depende smoke | `RootNavigator.tsx:189-197`, `ProfileScreen.tsx`; `GET /users/:id/public-profile` |
 | Configuracoes | Sim | Sim | Sim, tab | Parcial/local | Parcial | Varios itens estaticos/local-only | Nao | `RootNavigator.tsx:198-211`, `SettingsScreen.tsx:55-176`; conectar ou remover itens |
-| Notificacoes | Sim | Sim | Sim, via Feed/header e MainStack | Real | Sim | Placeholders visiveis removidos pela EXECUCAO-016; perfil publico por `relatedUserId` ainda depende de destino real | Parcial; pronta para conversa/estabelecimento/produto/evento, depende smoke e perfil publico se entrar no release | `RootNavigator.tsx:220`, `FeedSocialScreen.tsx:204`, `NotificationsScreen.tsx`; validar com notificacoes reais |
+| Notificacoes | Sim | Sim | Sim, via Feed/header e MainStack | Real | Sim | Placeholders visiveis removidos pela EXECUCAO-016; `relatedUserId` conectado pela EXECUCAO-017 | Sim em codigo para conversa/usuario/estabelecimento/produto/evento; depende smoke | `RootNavigator.tsx:220`, `FeedSocialScreen.tsx:204`, `NotificationsScreen.tsx`; validar com notificacoes reais |
 | Catalogo | Sim | Sim | Sim, via Perfil | Real com `establishmentId`; sem contexto mostra estado honesto | Sim | Nao encontrado no codigo local apos EXECUCAO-002 | Sim em codigo; depende smoke | `RootNavigator.tsx:221`, `ProfileScreen.tsx:233-242`, `CatalogScreen.tsx`; validar staging/device |
 | Item | Sim | Sim | Sim, via Home/Catalogo/Perfil | Real para produto/evento | Sim | Nao encontrado no codigo local apos EXECUCAO-002 | Sim em codigo; depende smoke | `RootNavigator.tsx:222`, `CatalogScreen.tsx`, `ItemScreen.tsx`; validar produto/evento e rota invalida |
 | Favoritos | Sim | Sim | Nao fica mais visivel pelo hub de Atividade apos EXECUCAO-014 | Sem dado real; sem fake | Nao | Estado vazio simples se acessada internamente | Fora do release ate backend existir | `RootNavigator.tsx:74`, `ActivityFavoritesScreen.tsx`; criar lista real antes de reexibir |
@@ -736,7 +736,7 @@ Correcoes derivadas:
 2. Decidir se `SettingsLinkedAccounts` entra no produto; se entrar, adicionar item no menu e backend real; se nao entrar, remover rota.
 3. RESOLVIDO no codigo local pela EXECUCAO-008: conectar `MapScreen` list item a Perfil/Item.
 4. RESOLVIDO no codigo local pela EXECUCAO-015: remover `RECENT_SEARCHES` e a secao `Buscas rapidas` estatica de `SearchScreen`.
-5. RESOLVIDO parcialmente no codigo local pela EXECUCAO-016: notificacoes agora roteiam conversa, estabelecimento, produto e evento com parametros reais; perfil publico de usuario por `relatedUserId` permanece pendente.
+5. RESOLVIDO no codigo local pela EXECUCAO-016 e EXECUCAO-017: notificacoes agora roteiam conversa, usuario relacionado, estabelecimento, produto e evento com parametros reais.
 6. Reclassificar tela como pronta somente depois de consumir backend real ou ser declarada como tela puramente local por definicao de produto.
 
 ### PROMPT-003 - auditoria de navegacao React Native/Expo - 2026-04-30
@@ -764,11 +764,11 @@ Tabela de navegacao:
 | `frontend/src/screens/auth/ProfileSelectionScreen.tsx:46-49` | Escolher tipo de perfil e continuar | `SignUp` com `profileType` e `nextSetupScreen` | `SignUp` recebe parametros corretos | Sem problema na chamada atual | Manter; validar em smoke cadastro |
 | `frontend/src/screens/auth/SignUpScreen.tsx` | Abrir `SignUp` sem parametros | Voltar para escolha de perfil ou mostrar erro | Apos EXECUCAO-007, mostra estado acionavel com botao para `ProfileSelection` e link para `Login` | Parametro obrigatorio deixou de causar loading infinito | Validar smoke direto na rota e fluxo normal por `ProfileSelection` |
 | `frontend/src/screens/auth/SignUpScreen.tsx:214-217` | Cadastro concluido | `PersonalSetup` ou `BusinessSetup` | `navigation.replace(resolvedNextScreen)` | Destino dinamico e tipado pelo store, sem rota inexistente encontrada | Manter; validar que backend/store nunca devolvem valor fora de `PersonalSetup`/`BusinessSetup` |
-| `frontend/src/screens/main/FeedSocialScreen.tsx:239-245` | Tocar avatar do autor no feed | Perfil publico do autor | Navega `Profile` com `{ type, userId }` | `ProfileScreen` nao carrega perfil publico por `userId`; para `establishment` tambem falta `establishmentId` | Passar `establishmentId` no feed quando autor for estabelecimento e implementar carregamento de perfil publico de usuario por `userId` |
-| `frontend/src/screens/main/ProfileScreen.tsx:148-192` | Receber `Profile` com `type: 'user'` e `userId` | Perfil do usuario indicado | Renderiza dados da conta logada e ignora `userId` | Parametro de rota aceito pela origem nao e consumido no destino | Criar fluxo de perfil publico de usuario ou bloquear navegacao para autores `USER` |
+| `frontend/src/screens/main/FeedSocialScreen.tsx` | Tocar avatar do autor no feed | Perfil publico do autor | RESOLVIDO no codigo local pela EXECUCAO-017: navega `Profile` com `{ type: 'user', userId }` | Smoke pendente; autor ESTABLISHMENT abre perfil publico do usuario dono, nao vitrine de estabelecimento | Validar smoke; se o produto exigir vitrine empresarial, enriquecer feed com `establishmentId` |
+| `frontend/src/screens/main/ProfileScreen.tsx` | Receber `Profile` com `type: 'user'` e `userId` | Perfil do usuario indicado | RESOLVIDO no codigo local pela EXECUCAO-017: carrega `userService.getPublicProfile(userId)` | Smoke pendente | Validar usuario existente, inexistente e conta logada |
 | `frontend/src/screens/main/NotificationsScreen.tsx` | Tocar notificacao de conversa | Abrir conversa especifica | RESOLVIDO no codigo local pela EXECUCAO-016: navega `MainTabs -> Chat -> ChatDetail` com `conversationId` e `recipientName` | Smoke pendente com payload real | Validar notificacao de chat em device/staging |
-| `frontend/src/screens/main/NotificationsScreen.tsx` | Tocar notificacao com `relatedUserId` | Abrir perfil do usuario relacionado | Apos EXECUCAO-016, nao navega por `relatedUserId` isolado | Perfil publico por `userId` ainda nao existe; a navegacao antiga abria perfil padrao/conta atual | Criar perfil publico por `userId` ou nao emitir notificacao clicavel baseada somente em `relatedUserId` |
-| `frontend/src/screens/main/NotificationsScreen.tsx` | Tocar notificacao com `entityType/entityId` | Abrir entidade relacionada | RESOLVIDO parcialmente no codigo local pela EXECUCAO-016: `post`, `conversation`, `establishment`, `product/produto` e `event/evento` entram no roteamento | Smoke pendente; `relatedUserId` ainda depende de perfil publico de usuario no destino | Validar payloads reais e decidir escopo de perfil publico |
+| `frontend/src/screens/main/NotificationsScreen.tsx` | Tocar notificacao com `relatedUserId` | Abrir perfil do usuario relacionado | RESOLVIDO no codigo local pela EXECUCAO-017: navega `MainTabs -> Profile` com `{ type: 'user', userId }` | Smoke pendente com notificacao real | Validar payload real e usuario inexistente |
+| `frontend/src/screens/main/NotificationsScreen.tsx` | Tocar notificacao com `entityType/entityId` | Abrir entidade relacionada | RESOLVIDO no codigo local pela EXECUCAO-016/017: `post`, `conversation`, `user`, `establishment`, `product/produto` e `event/evento` entram no roteamento | Smoke pendente | Validar payloads reais |
 | `frontend/src/screens/main/MapScreen.tsx` | Tocar item na lista do mapa ou callout do marker | Abrir perfil do estabelecimento ou item do evento | Apos EXECUCAO-008, navega para `Profile` com `establishmentId` ou `Item` com `template: evento` | Sem problema de `onPress` morto no codigo local; smoke pendente | Validar dados reais em mapa/lista no device |
 | `frontend/src/screens/main/ActivityScreen.tsx` | Abrir aba Atividade | Ver atividades reais ou estado vazio | Apos EXECUCAO-014, tela mostra estado vazio simples e nao possui cards clicaveis sem backend | Sem problema de `Em breve`/rota fake no codigo local | Criar cards reais somente quando houver backend/fluxo real |
 | `frontend/src/screens/main/SettingsScreen.tsx:55-140` | Tocar itens principais de Settings | Abrir subtelas registradas | Rotas dinamicas de `item.route` apontam para telas registradas | Sem nome inexistente encontrado | Manter, mas conectar conteudo das subtelas |
@@ -789,8 +789,8 @@ Achados negativos da auditoria:
 
 Correcoes derivadas:
 
-1. Corrigir navegacao do feed para perfil publico, eliminando o uso de `userId` em destino que nao o consome.
-2. Corrigir roteamento de notificacoes para preservar `conversationId`, `relatedUserId`, `entityType` e `entityId`.
+1. RESOLVIDO no codigo local pela EXECUCAO-017: corrigir navegacao do feed para perfil publico, eliminando o uso de `userId` em destino que nao o consome.
+2. RESOLVIDO no codigo local pela EXECUCAO-016 e EXECUCAO-017: corrigir roteamento de notificacoes para preservar `conversationId`, `relatedUserId`, `entityType` e `entityId`.
 3. Decidir e implementar deep links nativos se o release precisar abrir telas por e-mail/push/link externo.
 4. RESOLVIDO no codigo local pela EXECUCAO-007: remover loading infinito de `SignUp` sem `profileType`.
 5. RESOLVIDO no codigo local pela EXECUCAO-008: conectar `MapScreen` list item e markers.
@@ -824,7 +824,7 @@ Classificacao por grupos:
 | Funcional real em codigo; smoke pendente | Excluir conta | `frontend/src/screens/main/SettingsDeleteAccountScreen.tsx`, `frontend/src/services/api/UserService.ts`, `backend/src/modules/users/users.service.ts` | Front envia senha; backend valida `bcrypt.compare` e revoga refresh tokens; validar em device/staging |
 | Funcional real em codigo; smoke pendente | Busca | `frontend/src/screens/main/SearchScreen.tsx` | Busca usa service real e `RECENT_SEARCHES` foi removido pela EXECUCAO-015 |
 | Funcional real parcial; smoke pendente | Notificacoes | `frontend/src/screens/main/NotificationsScreen.tsx` | Marca como lida/deleta via service real; apos EXECUCAO-016 roteia conversa, estabelecimento, produto e evento com parametros reais; perfil publico por `relatedUserId` ainda depende de destino |
-| Parcial | Perfil publico a partir do feed | `frontend/src/screens/main/FeedSocialScreen.tsx:239-245` | `onPress` existe, mas envia params que `ProfileScreen` nao consome corretamente |
+| Funcional real em codigo; smoke pendente | Perfil publico a partir do feed | `frontend/src/screens/main/FeedSocialScreen.tsx`; `frontend/src/screens/main/ProfileScreen.tsx`; `UserService.getPublicProfile()` | Apos EXECUCAO-017, `onPress` envia `userId` e o destino consome endpoint publico real |
 | Fora do caminho visivel; sem fake no codigo local | Configuracoes locais | `frontend/src/screens/main/SettingsScreen.tsx` | EXECUCAO-013 removeu toggle GPS local-only e fallback vazio para handler |
 | Funcional real em codigo; smoke pendente | Minha conta | `frontend/src/screens/main/SettingsMyAccountScreen.tsx`, `frontend/src/services/api/UserService.ts`, `frontend/src/stores/userStore.ts` | Perfil carrega do backend, salva conta/perfil em endpoints separados e envia avatar; validar device/staging/S3 |
 | Funcional real em codigo; smoke pendente | Cidade | `frontend/src/screens/main/SettingsCityScreen.tsx`; `UserService.updateProfile()` | GPS usa geolocalizacao real e cidade manual persiste no perfil via backend |
@@ -858,8 +858,8 @@ Tabela de acoes com problema:
 | `frontend/src/screens/main/ActivityHistoryScreen.tsx` | Botao/estado de Historico | Ver historico | Fora do hub visivel; sem fake no codigo local | EXECUCAO-014 removeu texto de auditoria/backend e deixa estado vazio simples | `ActivityHistoryScreen.tsx` | Criar contrato real antes de reexibir |
 | `frontend/src/screens/main/CatalogScreen.tsx` | Card de catalogo | Abrir item | RESOLVIDO no codigo local; smoke pendente | Apos EXECUCAO-002, sem `establishmentId` nao carrega `MOCK_CATALOGS` e mostra estado honesto | `CatalogScreen.tsx` | Validar smoke em perfil de estabelecimento real e rota sem contexto |
 | `frontend/src/screens/main/ItemScreen.tsx` | CTA generico | Agendar, reservar, assinar, adicionar ao carrinho | RESOLVIDO no codigo local; smoke pendente | Apos EXECUCAO-002, CTA generico fora do backend foi removido | `ItemScreen.tsx` | Validar produto/evento real em device/staging |
-| `frontend/src/screens/main/FeedSocialScreen.tsx` | Avatar do autor | Abrir perfil publico | Parcial | Navega com `{ type, userId }`, mas destino nao consome corretamente esse contrato | `FeedSocialScreen.tsx:239-245` | Passar `establishmentId` ou implementar perfil publico por `userId` |
-| `frontend/src/screens/main/NotificationsScreen.tsx` | Linha de notificacao | Abrir entidade relacionada | Funcional real parcial; smoke pendente | Apos EXECUCAO-016, conversa/estabelecimento/produto/evento usam params reais; `relatedUserId` nao e roteado para evitar abrir perfil errado enquanto `ProfileScreen` nao suporta perfil publico de usuario | `NotificationsScreen.tsx` | Validar payloads reais e implementar perfil publico se esse fluxo entrar no MVP |
+| `frontend/src/screens/main/FeedSocialScreen.tsx` | Avatar do autor | Abrir perfil publico | Funcional real em codigo; smoke pendente | Apos EXECUCAO-017, navega para perfil publico de usuario via endpoint real | `FeedSocialScreen.tsx`; `ProfileScreen.tsx`; `UserService.ts` | Validar autor usuario/estabelecimento em device/staging |
+| `frontend/src/screens/main/NotificationsScreen.tsx` | Linha de notificacao | Abrir entidade relacionada | Funcional real em codigo; smoke pendente | Apos EXECUCAO-016/017, conversa/usuario/estabelecimento/produto/evento usam params reais | `NotificationsScreen.tsx`; `ProfileScreen.tsx` | Validar payloads reais em device/staging |
 | `frontend/src/screens/auth/PersonalSetupScreen.tsx` | Username | Verificar disponibilidade | Funcional real em codigo; smoke pendente | Chama `UserService.checkUsernameAvailability()` contra endpoint autenticado | `PersonalSetupScreen.tsx`; `UserService.ts`; `UsersController.checkUsernameAvailability()` | Validar username livre, duplicado e invalido em staging/device |
 | `frontend/src/screens/auth/PersonalSetupScreen.tsx` | Avatar | Adicionar/trocar foto | Funcional real em codigo; smoke pendente | Usa `expo-image-picker` e `userStore.uploadAvatar()` | `PersonalSetupScreen.tsx`; `POST /users/me/avatar` | Validar upload com S3/CloudFront real |
 | `frontend/src/screens/auth/PersonalSetupScreen.tsx` | GPS | Usar localizacao atual | Funcional real em codigo; smoke pendente | Usa `GeolocationService.getCurrentLocation()` e reverse geocode, sem cidade fixa | `PersonalSetupScreen.tsx`; `GeolocationService` | Validar permissao concedida/negada e cidade resolvida em device |
@@ -907,7 +907,7 @@ Tabela service/endpoints:
 | `ApiClient.ts:231-270` | Refresh automatico em 401 via axios cru `POST /auth/refresh` | Mesmo endpoint `POST /auth/refresh` | OK estatico | Esse caminho nao passa pelo interceptor e envia bearer de refresh corretamente | Reaproveitar esse caminho tambem no `AuthService.refreshToken` |
 | `AuthService.ts:109-129` | `POST /auth/logout`, `POST /auth/enable-2fa`, `POST /auth/verify-2fa`, `POST /auth/disable-2fa` | `AuthController` `@Post('logout')`, `enable-2fa`, `verify-2fa`, `disable-2fa` em `auth.controller.ts:118-287` | OK estatico | Rotas protegidas dependem do bearer injetado pelo `ApiClient` | Smoke autenticado |
 | `AuthService.ts:135-172` | `POST /auth/request-password-reset`, `reset-password`, `change-password`, `verify-email`, `resend-verification-email` | Endpoints equivalentes em `auth.controller.ts:129-216` | OK estatico | Payloads batem com DTOs; e-mail real depende de SES | Fechar SES e smoke de e-mail |
-| `UserService.ts:45-50` | `GET /users/me`, `GET /users/:userId` | `UsersController` `@Get('me')` e `@Get(':id')` em `users.controller.ts:48-69`, `171-185` | OK estatico | `getUserProfile` usa rota generica, nao `public-profile` | Decidir se perfil publico deve usar `GET /users/:id/public-profile` |
+| `UserService.ts` | `GET /users/me`, `GET /users/:userId`, `GET /users/:userId/public-profile` | `UsersController` `@Get('me')`, `@Get(':id')` e `@Get(':id/public-profile')` | OK no codigo local; smoke pendente | EXECUCAO-017 adicionou `getPublicProfile()` e `ProfileScreen` usa a rota publica para `userId` de feed/notificacao | Validar perfil publico e garantir que e-mail/senha nao retornam |
 | `UserService.ts` | `GET /users/username/availability`, `PUT /users/me` para conta e `PUT /users/me/profile` para perfil | `UsersController` `@Get('username/availability')`, `@Put('me')` e `@Put('me/profile')` | OK no codigo local; smoke pendente | EXECUCAO-004 separou `updateAccount`/`updateProfile`; EXECUCAO-009 adicionou check real de username e `UpdateUserDto` valida formato de username | Validar smoke autenticado, username livre/duplicado/invalido, e-mail duplicado e limpeza de bio |
 | `UserService.ts:57-70` | Multipart `POST /users/me/avatar` campo `file` | `UsersController` `@Post('me/avatar')` + `FileInterceptor('file')` em `users.controller.ts:236-267` | OK estatico | Depende de storage real para producao | Validar S3/CloudFront e smoke de upload |
 | `UserService.ts:73-101` | follow/unfollow, followers/following, search `GET /users`, delete `DELETE /users/me` | Endpoints equivalentes em `users.controller.ts:121-169`, `267-309` | OK no codigo local; smoke pendente | Delete account envia senha e backend valida antes do soft delete | Validar em device/staging com senha correta/incorreta e refresh token revogado |
@@ -969,7 +969,7 @@ Resultado priorizado por gravidade:
 | P1 se reexibir | `frontend/src/screens/main/ActivityScreen.tsx` | RESOLVIDO no codigo local pela EXECUCAO-014: cards de pedidos/agendamentos/reservas com `coming_soon` e alerta `Em breve` foram removidos | Sim, se oculto do caminho de producao | Fluxos reais de pedidos, reservas e agendamentos antes de voltar ao hub | Criar endpoints/telas dedicadas antes de reexibir | Risco remanescente fica fora da UI visivel; se reexibir sem backend volta a bloquear release |
 | P1 | `frontend/src/screens/main/ItemScreen.tsx:49-73`, `270-276`, `600-603` | CTAs genericos (`Agendar`, `Reservar`, `Assinar`, carrinho) apenas exibem alerta de fluxo fora do MVP | Aceitavel somente se botao ficar claramente fora do MVP; melhor remover do release | Contratos reais de agendamento/reserva/assinatura/pedido, ou CTA oculto | Criar services/endpoints especificos ou remover templates genericos | Usuario tenta comprar/agendar e recebe bloqueio; impacto direto em conversao |
 | P1 se reexibir | `frontend/src/screens/main/SearchScreen.tsx` | RESOLVIDO no codigo local pela EXECUCAO-015: `RECENT_SEARCHES` fixo exibido como buscas rapidas foi removido | Sim, se fora da UI visivel | Historico real de busca do usuario ou sugestoes editoriais declaradas antes de voltar | Criar endpoint/storage de historico, ou usar `searchService.trending()`/`searchService.autocomplete()` | Risco remanescente fica fora da UI visivel |
-| P1 ate smoke | `frontend/src/screens/main/NotificationsScreen.tsx` | RESOLVIDO parcialmente no codigo local pela EXECUCAO-016: placeholders visiveis removidos e roteamento por entidade/conversa conectado a rotas reais existentes | Sim para conversa, estabelecimento, produto e evento; nao para perfil publico de usuario | Payloads reais de notificacao em staging e destino para `relatedUserId` se entrar no MVP | Implementar perfil publico por `userId` ou nao emitir notificacao clicavel baseada somente em `relatedUserId` | Risco remanescente fica limitado a notificacoes sociais de usuario sem destino publico |
+| P1 ate smoke | `frontend/src/screens/main/NotificationsScreen.tsx` | RESOLVIDO no codigo local pela EXECUCAO-016/017: placeholders visiveis removidos e roteamento por entidade/conversa/usuario conectado a rotas reais existentes | Sim para conversa, usuario, estabelecimento, produto e evento | Payloads reais de notificacao em staging | Validar `relatedUserId`, `conversationId` e `entityType/entityId` em smoke | Risco remanescente fica em payload/staging, nao em rota inexistente |
 | P1 se reexibir | `frontend/src/screens/main/ActivityFavoritesScreen.tsx` | RESOLVIDO no codigo local pela EXECUCAO-014: tela nao informa lacuna/backend nem simula favoritos | Sim, se fora do hub visivel | Lista real de favoritos do usuario antes de voltar ao hub | Criar endpoint de favoritos consolidados ou estender `establishments` para listar favoritos do usuario | Risco remanescente fica fora da UI visivel |
 | P1 se reexibir | `frontend/src/screens/main/ActivityHistoryScreen.tsx` | RESOLVIDO no codigo local pela EXECUCAO-014: tela nao informa lacuna/backend nem simula historico | Sim, se fora do hub visivel | Historico real de buscas, perfis vistos, check-ins e atividades antes de voltar ao hub | Criar modelo/endpoint de historico com retencao definida | Risco remanescente fica fora da UI visivel |
 | P2 | `frontend/src/screens/main/HomeScreen.tsx:73-76` | Evento sem data retorna badge `EM BREVE` | Aceitavel como fallback visual se evento sem data for permitido; revisar contrato | Data real do evento ou estado `sem data publicada` | `searchService.searchEvents()`; backend `GET /search/events` deve retornar `date` confiavel | Pode mascarar evento cadastrado incorretamente sem data |
@@ -999,7 +999,7 @@ Ordem de correcao desta auditoria:
 5. RESOLVIDO parcialmente no codigo local pela EXECUCAO-011 e EXECUCAO-012: alterar senha foi implementado; dispositivos/historico, privacidade e bloqueados foram retirados do caminho visivel ou deixaram de exibir dados inventados. Ainda falta ocultar ou implementar notificacoes, idioma e raio sem contrato real.
 6. RESOLVIDO parcialmente no codigo local pela EXECUCAO-014: cards de pedidos/agendamentos/reservas sairam de Activity; CTAs de assinaturas/carrinho fora de Activity continuam dependentes de escopo/backend real.
 7. RESOLVIDO no codigo local pela EXECUCAO-015: `RECENT_SEARCHES` foi removido da UI.
-8. RESOLVIDO parcialmente no codigo local pela EXECUCAO-016: `NotificationsScreen` nao exibe placeholders visuais e nao perde params de conversa/entidade; perfil publico por `relatedUserId` segue pendente.
+8. RESOLVIDO no codigo local pela EXECUCAO-016/017: `NotificationsScreen` nao exibe placeholders visuais e nao perde params de conversa/usuario/entidade.
 9. Corrigir comentario `placeholder` no 2FA backend para refletir que o secret vem de `user.twoFactorSecret`.
 
 ### PROMPT-007 - checklist objetivo para producao e deploy - 2026-04-30
@@ -1322,7 +1322,7 @@ Regra absoluta de release: nunca deixar em producao mock, botao sem acao, alerta
 | `frontend/src/screens/main/ItemScreen.tsx` | Detalhe de item | Ver produto/evento real e agir | Sim via `GET /products/:id` e `GET /events/:id`; acoes de presenca usam backend | Sim products/events | Sim se catalogo/home abrem item | Conectado ao backend existente no codigo local | `item-fallback` e CTA generico removidos; validar 404/empty e device real | P0 ate smoke |
 | `frontend/src/screens/main/SearchScreen.tsx` | Historico/buscas recentes | Reusar buscas recentes reais | Nao existe no codigo local apos EXECUCAO-015 | Pode ser local storage aceitavel se declarado; backend nao obrigatorio | Sim se exibido | Manter fora da UI ate haver historico real | Criar endpoint/storage real antes de reexibir | P1 se voltar ao escopo; P0 se parece dado real |
 | `frontend/src/screens/main/MapScreen.tsx` | Item clicavel no mapa/lista | Abrir perfil/item do lugar/evento | Sim via eventos/estabelecimentos e rotas `Item`/`Profile` | Sim para establishment/event/product | Sim | Conectado ao backend existente no codigo local pela EXECUCAO-008 | Validar evento, estabelecimento, mapa e lista em smoke mobile/staging | P0 ate smoke |
-| `frontend/src/screens/main/NotificationsScreen.tsx` | Roteamento ao tocar notificacao | Abrir conversa, perfil, item ou entidade relacionada | RESOLVIDO parcialmente no codigo local pela EXECUCAO-016: conversa, estabelecimento, produto e evento usam rotas reais; perfil publico por `relatedUserId` pendente | Sim parcial | Sim se notificacoes visiveis | Conectar ao backend existente quando houver destino; criar destino para perfil publico se entrar no MVP | Validar payload real, nested route do chat e entidades em smoke; nao emitir/mostrar notificacao clicavel sem destino | P1 ate smoke; P0 se notificacoes sociais sem destino entrarem no release |
+| `frontend/src/screens/main/NotificationsScreen.tsx` | Roteamento ao tocar notificacao | Abrir conversa, perfil, item ou entidade relacionada | RESOLVIDO no codigo local pela EXECUCAO-016/017: conversa, usuario, estabelecimento, produto e evento usam rotas reais | Sim | Sim se notificacoes visiveis | Conectado ao backend existente | Validar payload real, nested route do chat, perfil publico e entidades em smoke | P1 ate smoke |
 | `frontend/src/screens/main/SettingsDeleteAccountScreen.tsx` | Excluir conta com senha | Apagar conta real com confirmacao segura | OK no codigo local; smoke/LGPD final pendente | Sim User/Auth | Sim | Contrato corrigido no codigo local | Backend valida senha e revoga refresh tokens; ainda validar device/staging e retencao/anonimizacao LGPD | P0 ate smoke/legal final |
 | `SettingsLinkedAccounts` / `frontend/src/screens/main/SettingsAuxScreens.tsx` | Contas vinculadas | Conectar/desconectar provedores externos | Nao comprovado | Nao comprovado | Nao para MVP se login social nao existir | Manter fora do release por escopo ou ocultar temporariamente | Ocultar ate existir produto/backend real; nao mostrar tela fake | P1 se visivel; P2 se oculto |
 
@@ -1455,11 +1455,11 @@ Base: `.codex/PROJECT_CONTEXT.md` define MVP funcional, coeso, enxuto, com nucle
 | Feed social T_AGITO | Sim | Conteudo social real | Confirmado no codigo | Entra no release | Nao reabrir como mock |
 | Home/discovery | Sim | Descoberta de eventos/locais | Parcial; depende dados reais e empty states | Entra com backend real e banco vazio correto | Sem cards fake |
 | Busca | Sim | Encontrar locais/eventos | Backend real; `RECENT_SEARCHES` removido no codigo local | Entra apos smoke mobile/staging | Pendente apenas validacao real de busca/localizacao |
-| Perfil usuario/estabelecimento | Sim | Identidade e vitrine | Parcial para perfil publico usuario | Entra com escopo claro | Bloquear rotas que fingem perfil publico inexistente |
+| Perfil usuario/estabelecimento | Sim | Identidade e vitrine | RESOLVIDO no codigo local para perfil publico usuario pela EXECUCAO-017; vitrine de estabelecimento ja usava backend real | Entra apos smoke mobile/staging | Se o produto exigir abrir vitrine empresarial ao tocar autor ESTABLISHMENT, enriquecer feed com `establishmentId` |
 | Catalogo/item | Sim para estabelecimento/produto/evento | Vitrine publica | Backend existe; frontend sem fallback mock no codigo local | Entra apos smoke mobile/staging confirmar produto/evento reais e banco vazio | P0 ate smoke |
 | Mapa | Sim se discovery usa mapa | Localizar itens | Conectado no codigo local; smoke pendente | Entra se smoke aprovar mapa/lista e empty state | P0 ate smoke |
 | Chat | Sim se interacao entre usuarios/estabelecimentos | Conversa real | Backend confirmado; smoke multi-device pendente | Entra se smoke realtime passar | P0 se exposto |
-| Notificacoes in-app | Sim | Alertas internos | Backend/service existem; roteamento parcial | Entra com roteamento honesto | Push pode ser fora do MVP se documentado |
+| Notificacoes in-app | Sim | Alertas internos | Backend/service existem; roteamento conectado no codigo local pela EXECUCAO-016/017 | Entra apos smoke mobile/staging | Push pode ser fora do MVP se documentado |
 | Push | Opcional para primeiro MVP | Retencao/alertas | Backend SNS existe; plataforma mobile pendente | Entra somente se device real passar; senao sai do release | Sem Firebase como backend |
 | Settings criticas | Sim | Conta, seguranca, privacidade, delete | Parcial; conta/delete/cidade/senha conectados e privacidade ocultada no codigo local | Entra apenas com backend real ou itens ocultos | Nada de toggle local fake; preferencias restantes ainda precisam decisao/correcao |
 | Historico/contas vinculadas/recursos auxiliares | Nao necessariamente | Conveniencia | Parcial/fake | Adiado ou oculto | P2 somente se fora da UI de producao |
@@ -1489,7 +1489,7 @@ A matriz do PROMPT-008 continua valida. Complemento obrigatorio: antes de oculta
 | Item | Evidencia | Acao |
 |---|---|---|
 | Search `RECENT_SEARCHES` | RESOLVIDO no codigo local pela EXECUCAO-015 | Validar busca real e estado vazio no smoke |
-| Notifications routing | RESOLVIDO parcialmente no codigo local pela EXECUCAO-016 para chat/estabelecimento/produto/evento; `relatedUserId` ainda sem destino publico real | Validar payload real e implementar perfil publico por usuario se entrar no MVP |
+| Notifications routing | RESOLVIDO no codigo local pela EXECUCAO-016/017 para chat/usuario/estabelecimento/produto/evento | Validar payload real em staging/device |
 | Activity/Favorites/History | Telas existem com backend nao comprovado | Criar backend ou tirar do release conscientemente |
 | Observabilidade operacional | Codigo estruturado existe, CloudWatch/CloudTrail nao aplicado | Criar log groups, alarmes, retention e runbook |
 | Governanca release | Branch/tag/pipeline ainda precisam regra final | Definir branch release, tags e artefatos |
@@ -2042,7 +2042,7 @@ Objetivo executado:
 
 - Fechar o P1 visual em que `NotificationsScreen` exibia `??`/`?` na UI.
 - Corrigir o roteamento parcial de notificacoes para nao perder parametros reais de conversa e entidade.
-- Evitar navegar para perfil publico de usuario enquanto `ProfileScreen` ainda nao suporta `userId`.
+- Evitar navegar para perfil publico de usuario enquanto `ProfileScreen` ainda nao suportava `userId`; status posterior: RESOLVIDO pela EXECUCAO-017.
 
 Arquivos alterados:
 
@@ -2060,7 +2060,7 @@ Implementacao:
   - abrir `Item` de produto com `productId`;
   - abrir `Item` de evento com `item.id`;
   - manter `post` apontando para Feed e `system` para Settings.
-- `relatedUserId` nao e roteado para `Profile` por enquanto, porque o destino atual abriria perfil errado/conta logada; o plano mantem a decisao pendente de perfil publico por usuario.
+- Historico da EXECUCAO-016: `relatedUserId` nao foi roteado naquele momento porque o destino abriria perfil errado/conta logada. Status posterior: EXECUCAO-017 criou consumo real de perfil publico por `userId` e reativou esse roteamento.
 
 Validacao executada:
 
@@ -2071,8 +2071,52 @@ Validacao executada:
 Status:
 
 - RESOLVIDO no codigo local para placeholders visiveis e roteamento de conversa/estabelecimento/produto/evento.
-- Pendente de produto/frontend/backend: definir se perfil publico por `relatedUserId` entra no MVP; se entrar, criar destino real antes de emitir notificacao clicavel desse tipo.
+- RESOLVIDO posteriormente pela EXECUCAO-017: perfil publico por `relatedUserId` usa `GET /users/:id/public-profile`.
 - Pendente de smoke: validar payloads reais de notificacoes em staging/device.
+
+### EXECUCAO-017 - Perfil publico por userId conectado ao backend - 2026-05-02
+
+Objetivo executado:
+
+- Corrigir o fluxo em que `FeedSocialScreen` enviava `userId`, mas `ProfileScreen` ignorava esse parametro.
+- Conectar perfil publico de usuario ao endpoint real `GET /users/:id/public-profile`.
+- Reativar notificacoes com `relatedUserId` para abrirem destino real.
+- Remover texto de auditoria/roadmap visivel do perfil pessoal.
+
+Arquivos alterados:
+
+- `backend/src/modules/users/users.service.ts`
+- `backend/src/modules/users/users.spec.ts`
+- `frontend/src/services/api/UserService.ts`
+- `frontend/src/screens/main/ProfileScreen.tsx`
+- `frontend/src/screens/main/FeedSocialScreen.tsx`
+- `frontend/src/screens/main/NotificationsScreen.tsx`
+- `PLANO_CORRECAO_PRODUCAO_MEU_AGITO.md`
+- `STATUS_EXECUCAO_PROMPT_AWS_2026-04-26.md`
+
+Implementacao:
+
+- `UsersService.getPublicProfile()` agora retorna explicitamente apenas campos publicos (`id`, `name`, `username`, `avatar`, `bio`, `profileType`, `location`, `website`, `createdAt`, contadores) e inclui `postsCount`.
+- `UserService` recebeu `PublicUserProfile` e `getPublicProfile(userId)`.
+- `ProfileScreen` passou a aceitar `route.params.userId`, carregar perfil publico real para outro usuario e manter a conta logada apenas quando nao ha `userId` externo.
+- `FeedSocialScreen` navega para `Profile` com `{ type: 'user', userId }`, que agora e contrato consumido pelo destino.
+- `NotificationsScreen` voltou a rotear `relatedUserId` para `Profile` com `{ type: 'user', userId }`.
+- Texto visivel que explicava blocos/roadmap no perfil pessoal foi removido; a tela agora exibe dados reais/estado vazio honesto.
+
+Validacao executada:
+
+- `cd backend && npm run build`: OK.
+- `cd backend && npm run lint`: OK.
+- `cd backend && npx jest src/modules/users/users.spec.ts --runInBand`: OK, 27 testes.
+- `cd frontend && npx tsc --noEmit`: OK.
+- `cd frontend && npm run lint`: OK.
+- Varredura em `ProfileScreen.tsx`, `FeedSocialScreen.tsx` e `NotificationsScreen.tsx` para `blocos`, `tratado`, `alvo`, `mock`, `fake`, `dummy`, `sample`, `TODO`, `FIXME`, `console.log`, `Em breve` e `coming soon`: sem texto de auditoria/roadmap visivel; ocorrencia restante de `placeholder` e placeholder de input no modal de comentario.
+
+Status:
+
+- RESOLVIDO no codigo local: perfil publico por `userId` para feed e notificacoes.
+- Pendente de smoke: validar autor usuario, autor estabelecimento, usuario inexistente e notificacao com `relatedUserId`.
+- Decisao futura: se o toque em autor com `profileType: ESTABLISHMENT` precisar abrir vitrine empresarial e nao perfil publico do usuario dono, enriquecer payload do feed com `establishmentId`.
 
 Resumo de bloqueadores absolutos antes de deploy publico real:
 
