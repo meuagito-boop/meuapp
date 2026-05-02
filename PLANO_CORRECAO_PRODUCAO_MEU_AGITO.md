@@ -109,6 +109,7 @@ Evidencias:
 - Status atualizado em 2026-05-01: os quatro achados acima de `SettingsMyAccountScreen` foram RESOLVIDOS no codigo local pela EXECUCAO-004. A tela agora carrega `userStore.getProfile()`, salva dados de conta via `PUT /users/me`, salva bio via `PUT /users/me/profile` e envia avatar por `POST /users/me/avatar`. Pendencias remanescentes: smoke mobile/staging, S3/CloudFront real para avatar e fluxo final de verificacao de e-mail se o e-mail for alterado.
 - `frontend/src/screens/main/SettingsCityScreen.tsx:22-29` usa cidades fixas e historico local.
 - `frontend/src/screens/main/SettingsCityScreen.tsx:44-52` confirma cidade apenas em estado local.
+- Status atualizado em 2026-05-02: os achados acima de `SettingsCityScreen` foram RESOLVIDOS no codigo local pela EXECUCAO-010. A tela agora carrega o perfil real, usa `GeolocationService.getCurrentLocation()` + reverse geocode sem cidade fixa, permite cidade manual e salva `location` por `PUT /users/me/profile` antes de voltar. Pendencias remanescentes: smoke mobile/staging, permissao de localizacao em dispositivo real e validar impacto da cidade salva nos fluxos de descoberta.
 - `frontend/src/screens/main/SettingsScreen.tsx:88-93` alterna GPS somente em estado local.
 - `frontend/src/screens/main/SettingsScreen.tsx:149-163` desativa conta apenas com alerta local.
 - `frontend/src/screens/main/SettingsPrivacyScreen.tsx:31-34` tem comentario `Load privacy settings` sem implementacao.
@@ -332,7 +333,7 @@ Criterio de aceite:
 
 1. RESOLVIDO no codigo local pela EXECUCAO-004: conectar `SettingsMyAccountScreen` ao perfil real.
 2. RESOLVIDO no codigo local pela EXECUCAO-004: implementar upload de foto por picker/upload real.
-3. Conectar troca de cidade ao estado/backend definido.
+3. RESOLVIDO no codigo local pela EXECUCAO-010: conectar troca de cidade a `userStore.updateProfile({ location })` e geolocalizacao real.
 4. Persistir privacidade e raio de busca, ou remover do release.
 5. Implementar `SettingsChangePasswordScreen` usando endpoint real de troca de senha.
 6. Substituir dispositivos/historico fake por endpoint real ou remover telas.
@@ -444,7 +445,7 @@ Criterio de aceite:
 | `frontend/src/screens/main/CatalogScreen.tsx` | RESOLVIDO no codigo local: removido `MOCK_CATALOGS`; rota sem `establishmentId` mostra estado honesto | Validar smoke mobile/staging com estabelecimento real |
 | `frontend/src/screens/main/ItemScreen.tsx` | RESOLVIDO no codigo local: removido `item-fallback` e CTA generico sem backend | Validar produto/evento real em device/staging |
 | `frontend/src/screens/main/SettingsMyAccountScreen.tsx` | RESOLVIDO no codigo local pela EXECUCAO-004: conta deixou de usar dados fixos, upload vazio e save simulado | Validar smoke mobile/staging, S3/CloudFront de avatar e alteracao de e-mail |
-| `frontend/src/screens/main/SettingsCityScreen.tsx:22-52` | Cidade e recentes locais | Persistir preferencia real |
+| `frontend/src/screens/main/SettingsCityScreen.tsx` | RESOLVIDO no codigo local pela EXECUCAO-010: cidade/recentes fixos removidos; GPS e cidade manual persistem em `PUT /users/me/profile` | Validar smoke mobile/staging e impacto em descoberta local |
 | `frontend/src/screens/main/SettingsScreen.tsx:88-163` | Toggle/acao local | Conectar backend ou remover |
 | `frontend/src/screens/main/SettingsPrivacyScreen.tsx:31-34` | Privacidade nao carrega/persiste | Criar contrato e conectar |
 | `frontend/src/screens/main/SettingsSecurityScreen.tsx:26-29` | Seguranca sem carregamento real | Criar contrato e conectar |
@@ -630,7 +631,7 @@ Tabela de problemas exigida pelo prompt:
 | `frontend/app.json` | Estrategia de push mobile sem Firebase ainda precisa ser fechada para Android/iOS | Pendente para producao/deploy | Push real pode ficar fora do release ou sem token nativo em Android | `frontend/app.json:17-44`; decisao do projeto: sem Firebase/Render | Definir SNS/APNs e alternativa Android sem Firebase, ou declarar push fora do MVP | P1 |
 | `frontend/src/screens/auth/PersonalSetupScreen.tsx` + `backend/src/modules/users/users.controller.ts` | RESOLVIDO no codigo local pela EXECUCAO-009: disponibilidade de username e finalizacao de perfil usam backend real | Pendente smoke | Perfil pessoal persiste username, bio, cidade e avatar antes de completar onboarding; interesses nao ficam visiveis sem backend | `PersonalSetupScreen.tsx`; `UserService.checkUsernameAvailability()`; `GET /users/username/availability`; `PUT /users/me`; `PUT /users/me/profile`; `POST /users/me/avatar` | Validar usuario novo pessoal em staging/device, username duplicado, upload avatar e permissao de localizacao | P0 ate smoke |
 | `frontend/src/screens/main/SettingsMyAccountScreen.tsx` | RESOLVIDO no codigo local pela EXECUCAO-004: dados de conta, bio e avatar passaram a usar services reais | Pendente smoke | Usuario edita perfil usando backend real; producao ainda depende de smoke e S3/CloudFront | `SettingsMyAccountScreen.tsx`; `UserService.ts`; `userStore.ts`; `users.service.ts`; `update-user.dto.ts` | Validar device/staging, upload em S3/CloudFront e alteracao de e-mail/username duplicado | P0 ate smoke |
-| `frontend/src/screens/main/SettingsCityScreen.tsx` | Cidades e recentes sao locais/fixos | Mockado/estatico/fake | Preferencia de cidade nao persiste | `frontend/src/screens/main/SettingsCityScreen.tsx:22-52` | Conectar preferencia real ou remover tela | P1 |
+| `frontend/src/screens/main/SettingsCityScreen.tsx` | RESOLVIDO no codigo local pela EXECUCAO-010: cidades/recentes fixos foram removidos e cidade passa a persistir no perfil | Pendente smoke | Preferencia de cidade usa backend real, mas ainda precisa device/staging para GPS/permissao e descoberta local | `SettingsCityScreen.tsx`; `GeolocationService`; `userStore.updateProfile()`; `PUT /users/me/profile` | Validar cidade manual, GPS concedido/negado e reflexo em perfil/descoberta | P0 ate smoke |
 | `frontend/src/screens/main/SettingsScreen.tsx` | GPS e desativacao de conta sao acoes locais/alerta | Quebrado ou sem ligacao | Usuario ve acao sem efeito backend | `frontend/src/screens/main/SettingsScreen.tsx:88-163` | Persistir preferencias e implementar desativacao real | P0 |
 | `frontend/src/screens/main/SettingsPrivacyScreen.tsx` | Privacidade tem comentario de load, mas nao carrega/persiste | Criado parcialmente | Preferencias de privacidade nao sao reais | `frontend/src/screens/main/SettingsPrivacyScreen.tsx:31-34` | Criar contrato backend ou remover do release | P1 |
 | `frontend/src/screens/main/SettingsSecurityScreen.tsx` | Seguranca tem comentario de load, mas nao carrega dados reais | Criado parcialmente | Tela passa impressao de seguranca sem estado real | `frontend/src/screens/main/SettingsSecurityScreen.tsx:26-29` | Criar contrato real para estado de seguranca | P1 |
@@ -700,7 +701,7 @@ Matriz de telas:
 | Favoritos | Sim | Sim | Sim, via Atividade | Nao consome lista real | Nao | Tela informa lacuna | Nao | `RootNavigator.tsx:74`, `ActivityScreen.tsx:33-76`, `ActivityFavoritesScreen.tsx:27-46` |
 | Historico | Sim | Sim | Sim, via Atividade | Nao existe contrato real | Nao | Tela informa lacuna | Nao | `RootNavigator.tsx:75`, `ActivityScreen.tsx:57-76`, `ActivityHistoryScreen.tsx:27-39` |
 | Minha conta | Sim | Sim | Sim, via Settings | Real no codigo local | Sim | Nao encontrado no codigo local apos EXECUCAO-004; smoke/S3 pendentes | Sim em codigo; depende smoke | `RootNavigator.tsx:84`, `SettingsScreen.tsx:65`, `SettingsMyAccountScreen.tsx`, `UserService.ts`, `userStore.ts`, `users.service.ts`; validar staging/device |
-| Cidade | Sim | Sim | Sim, via Settings | Fake/local | Nao | Lista de cidades e recentes fixos | Nao | `RootNavigator.tsx:85`, `SettingsScreen.tsx:78`, `SettingsCityScreen.tsx:22-52` |
+| Cidade | Sim | Sim | Sim, via Settings | Real no codigo local; smoke pendente | Sim | Nao encontrado no codigo local apos EXECUCAO-010 | Sim em codigo; depende smoke | `RootNavigator.tsx:85`, `SettingsScreen.tsx:78`, `SettingsCityScreen.tsx`; salva `location` via `PUT /users/me/profile` |
 | Privacidade | Sim | Sim | Sim, via Settings | Local-only | Nao | `Load privacy settings` sem implementacao | Nao | `RootNavigator.tsx:89`, `SettingsScreen.tsx:113`, `SettingsPrivacyScreen.tsx:31-34`, `68-118` |
 | Seguranca | Sim | Sim | Sim, via Settings | Parcial | Parcial via sub-tela 2FA | `Load security settings` sem implementacao | Nao | `RootNavigator.tsx:91`, `SettingsScreen.tsx:120`, `SettingsSecurityScreen.tsx:26-29`, `37-80` |
 | Excluir conta | Sim | Sim | Sim, via Settings | Real no codigo local | Sim | Nao encontrado no codigo local apos EXECUCAO-003 | Sim em codigo; depende smoke | `RootNavigator.tsx:98`, `SettingsScreen.tsx:176`, `SettingsDeleteAccountScreen.tsx`, `UserService.ts`, `users.controller.ts`, `users.service.ts`; validar staging/device |
@@ -721,7 +722,7 @@ Resumo do mapeamento:
 - Telas esperadas registradas no navigator: encontradas.
 - Telas esperadas realmente prontas em codigo, dependendo apenas de smoke/deploy: Login, SignUp, TwoFactorLogin, BusinessSetup, Home, Feed, Chat, Perfil, 2FA.
 - Telas com service real mas ainda nao prontas por placeholder/fallback/acao parcial: Buscar e Notificacoes. `Mapa` saiu desta lista no codigo local pela EXECUCAO-008, pendente de smoke.
-- Telas criadas visualmente mas sem backend real suficiente: Atividade, Favoritos, Historico, Cidade, Privacidade, Seguranca, Raio de busca, Preferencias de notificacoes, Bloqueados, Alterar senha, Dispositivos, Historico de acessos, Idioma. `Minha conta` saiu desta lista no codigo local pela EXECUCAO-004 e `PersonalSetup` saiu pela EXECUCAO-009, ambos pendentes apenas de smoke/staging e integracoes reais de storage/localizacao quando aplicavel.
+- Telas criadas visualmente mas sem backend real suficiente: Atividade, Favoritos, Historico, Privacidade, Seguranca, Raio de busca, Preferencias de notificacoes, Bloqueados, Alterar senha, Dispositivos, Historico de acessos, Idioma. `Minha conta` saiu desta lista no codigo local pela EXECUCAO-004, `PersonalSetup` saiu pela EXECUCAO-009 e `Cidade` saiu pela EXECUCAO-010, todos pendentes de smoke/staging e integracoes reais quando aplicavel.
 - Tela registrada mas sem acesso de usuario encontrado: Contas vinculadas.
 
 Correcoes derivadas:
@@ -821,7 +822,7 @@ Classificacao por grupos:
 | Parcial | Perfil publico a partir do feed | `frontend/src/screens/main/FeedSocialScreen.tsx:239-245` | `onPress` existe, mas envia params que `ProfileScreen` nao consome corretamente |
 | Parcial | Configuracoes locais | `frontend/src/screens/main/SettingsScreen.tsx:88-93`, `196-198` | Toggle visual/local sem persistencia e fallback vazio para handler |
 | Funcional real em codigo; smoke pendente | Minha conta | `frontend/src/screens/main/SettingsMyAccountScreen.tsx`, `frontend/src/services/api/UserService.ts`, `frontend/src/stores/userStore.ts` | Perfil carrega do backend, salva conta/perfil em endpoints separados e envia avatar; validar device/staging/S3 |
-| Mock/fake | Cidade | `frontend/src/screens/main/SettingsCityScreen.tsx:22-52`, `71-143` | GPS escolhe `Sao Paulo, SP`, lista e historico sao locais |
+| Funcional real em codigo; smoke pendente | Cidade | `frontend/src/screens/main/SettingsCityScreen.tsx`; `UserService.updateProfile()` | GPS usa geolocalizacao real e cidade manual persiste no perfil via backend |
 | Mock/fake | Catalogo sem `establishmentId` | `frontend/src/screens/main/CatalogScreen.tsx:57-175`, `324-334` | Card clicavel pode abrir `Item` com item de `MOCK_CATALOGS` |
 | Mock/fake | Telas auxiliares de Settings | `frontend/src/screens/main/SettingsAuxScreens.tsx:102-154`, `188-210`, `375-398` | Linhas estaticas, switches disabled ou scaffold sem service real |
 | Funcional real em codigo; smoke pendente | Lista do mapa | `frontend/src/screens/main/MapScreen.tsx` | Lista e marker abrem `Item` para evento e `Profile` para estabelecimento |
@@ -839,8 +840,8 @@ Tabela de acoes com problema:
 | `frontend/src/screens/main/SettingsMyAccountScreen.tsx` | Botao `Salvar` | Salvar dados de conta | Funcional real em codigo; smoke pendente | Salva conta via `updateAccount` e bio via `updateProfile`; falta smoke final | `SettingsMyAccountScreen.tsx`; `UserService.updateAccount()`; `UserService.updateProfile()` | Validar sucesso, erro de duplicidade, token expirado e alteracao de e-mail |
 | `frontend/src/screens/main/SettingsScreen.tsx` | Toggle GPS | Alternar permissao/localizacao | Parcial | Altera somente estado local `gpsEnabled` | `SettingsScreen.tsx:88-93`, `196-198` | Persistir preferencia/permissionamento real ou remover toggle |
 | `frontend/src/screens/main/SettingsScreen.tsx` | Item `Desativar Conta` | Confirmar desativacao | Mock/fake | Mostra alerta de sucesso sem service/backend | `SettingsScreen.tsx:149-163` | Criar endpoint de desativacao ou remover a entrada |
-| `frontend/src/screens/main/SettingsCityScreen.tsx` | Card `Usar minha localizacao` | Detectar cidade por GPS | Mock/fake | Seleciona `Sao Paulo, SP` fixo | `SettingsCityScreen.tsx:71-80` | Usar geolocalizacao real e persistir cidade |
-| `frontend/src/screens/main/SettingsCityScreen.tsx` | Lista e confirmar cidade | Escolher/confirmar cidade | Mock/fake | `CITY_OPTIONS` e `recentCities` sao locais; `handleConfirmCity` so faz `goBack()` | `SettingsCityScreen.tsx:22-52`, `104-143` | Criar service de preferencias/localizacao ou ocultar tela |
+| `frontend/src/screens/main/SettingsCityScreen.tsx` | Card `Usar minha localizacao` | Detectar cidade por GPS | Funcional real em codigo; smoke pendente | Usa `GeolocationService.getCurrentLocation()` + reverse geocode, sem cidade fixa | `SettingsCityScreen.tsx`; `GeolocationService` | Validar permissao concedida/negada em device real |
+| `frontend/src/screens/main/SettingsCityScreen.tsx` | Cidade manual e confirmar | Escolher/confirmar cidade | Funcional real em codigo; smoke pendente | `CITY_OPTIONS`/`recentCities` removidos; `handleConfirmCity` salva `location` via backend antes de voltar | `SettingsCityScreen.tsx`; `userStore.updateProfile()`; `PUT /users/me/profile` | Validar persistencia em staging e impacto em telas que leem perfil/localizacao |
 | `frontend/src/screens/main/SettingsPrivacyScreen.tsx` | Switches e radios | Alterar privacidade, mensagens e check-ins | Parcial | `Load privacy settings` sem implementacao; estado fica local | `SettingsPrivacyScreen.tsx:31-34`, `68-118` | Criar get/update de privacy settings |
 | `frontend/src/screens/main/SettingsSecurityScreen.tsx` | Menu de seguranca | Abrir submenus | Parcial | Navegacao existe, mas load de settings e telas de senha/dispositivos sao parciais/fake | `SettingsSecurityScreen.tsx:26-29`, `37-80` | Conectar estado de seguranca e implementar destinos |
 | `frontend/src/screens/main/SettingsAuxScreens.tsx` | Contas vinculadas, raio, notificacoes, idioma | Interagir com linhas/switches | Mock/fake | Linhas estaticas, sem `onPress` real ou switches disabled | `SettingsAuxScreens.tsx:102-154` | Implementar contratos reais ou remover do release |
@@ -953,7 +954,7 @@ Resultado priorizado por gravidade:
 | P0 ate smoke | `frontend/src/screens/main/SettingsMyAccountScreen.tsx`; `frontend/src/services/api/UserService.ts`; `frontend/src/stores/userStore.ts` | RESOLVIDO no codigo local pela EXECUCAO-004: conta inicial fixa, timer e save simulado foram removidos | Nao aplicavel ao codigo local atual; ainda nao aprovado para producao sem smoke | Perfil do usuario autenticado, avatar real, email real, bio reais | `userStore.getProfile()`, `UserService.updateAccount()`, `UserService.updateProfile()`, `UserService.uploadAvatar()` | Risco remanescente de producao esta em storage real, smoke de device e alteracao de e-mail/duplicidade |
 | P0 ate smoke | `frontend/src/screens/main/SettingsMyAccountScreen.tsx` | RESOLVIDO no codigo local pela EXECUCAO-004: alert de foto com funcoes vazias foi substituido por picker/upload real | Nao aplicavel ao codigo local atual; ainda nao aprovado para producao sem smoke | Imagem escolhida pelo usuario e upload real | `expo-image-picker` + `userService.uploadAvatar()` -> `POST /users/me/avatar` | Se S3/CloudFront nao estiverem validados, avatar pode falhar em producao |
 | P0 ate smoke | `frontend/src/screens/auth/PersonalSetupScreen.tsx`; `frontend/src/services/api/UserService.ts`; `backend/src/modules/users/users.controller.ts`; `backend/src/modules/users/users.service.ts` | RESOLVIDO no codigo local pela EXECUCAO-009: onboarding pessoal nao usa mais `setTimeout`, cidade fixa, avatar booleano local ou finalizacao sem persistencia | Nao aplicavel ao codigo local atual; ainda nao aprovado para producao sem smoke | Username, bio, cidade/localizacao e avatar reais persistidos; interesses fora do release ate existir backend canonico | `GET /users/username/availability`, `PUT /users/me`, `PUT /users/me/profile`, `POST /users/me/avatar` | Risco remanescente esta em smoke mobile/staging, S3/CloudFront real, permissao de localizacao e decisao futura de preferencias/interesses |
-| P0 | `frontend/src/screens/main/SettingsCityScreen.tsx:22-52`, `71-80`, `104-127` | Lista de cidades e recentes fixos; GPS seleciona `Sao Paulo, SP`; confirmar so atualiza estado local e `goBack()` | Nao | Cidade real por geolocalizacao/permissao e preferencia persistida | `GeolocationService`/`useLocation`; criar endpoint de preferencia de cidade se a cidade for perfil persistente | Feed/localizacao podem parecer atualizados sem alterar backend ou cache; experiencia local incorreta |
+| P0 ate smoke | `frontend/src/screens/main/SettingsCityScreen.tsx`; `frontend/src/stores/userStore.ts`; `frontend/src/services/api/UserService.ts` | RESOLVIDO no codigo local pela EXECUCAO-010: lista de cidades/recentes fixos removidos, GPS usa geolocalizacao real e confirmar persiste `location` | Nao aplicavel ao codigo local atual; ainda nao aprovado para producao sem smoke | Cidade real por geolocalizacao/permissao ou entrada manual persistida no perfil | `GeolocationService`; `userStore.updateProfile()` -> `PUT /users/me/profile` | Risco remanescente esta em permissao/GPS de device real, staging e uso da cidade pelos fluxos de descoberta |
 | P1 | `frontend/src/screens/main/SettingsAuxScreens.tsx:375-397` | Dispositivos e historico de acesso exibem `Windows Chrome`, `Android Pixel`, `Sao Paulo, BR`, `Santos, BR` fixos | Nao | Sessoes reais, dispositivos reais e eventos de login/auditoria | Criar endpoints de sessoes/audit log, ou ocultar telas; possivel base: `AuditLogService` backend | Risco de seguranca: usuario ve acessos inventados e nao consegue reconhecer acesso real indevido |
 | P1 | `frontend/src/screens/main/SettingsAuxScreens.tsx:102-154`, `188-210` | Contas vinculadas, raio, preferencias de notificacao, idioma, bloqueados e alterar senha sao linhas estaticas/switches disabled/scaffold sem formulario | Nao para telas de configuracao acionaveis | Estado real das preferencias, provedores vinculados, bloqueios e formulario de senha | Auth: `authService.changePassword()`; notificacoes: `notificationsService`; demais exigem endpoints de preferencias/bloqueios | Usuario altera nada apesar da UI parecer area de conta real; suporte e privacidade ficam inconsistentes |
 | P1 | `frontend/src/screens/main/SettingsPrivacyScreen.tsx:26-35`, `68-118`, `121-129` | Privacidade, mensagens, check-ins e bloqueados ficam em estado local; comentario `Load privacy settings` sem implementacao | Nao | Preferencias reais de privacidade e bloqueios do usuario | Criar endpoints `GET/PUT /users/me/privacy` e bloqueios, ou remover tela do release | Usuario acredita ter restringido privacidade, mas backend nao aplica regra |
@@ -987,7 +988,7 @@ Ordem de correcao desta auditoria:
 1. Remover `MOCK_CATALOGS` do caminho de producao: se nao houver `establishmentId`, mostrar estado vazio/erro de rota invalida em vez de catalogo local.
 2. RESOLVIDO no codigo local pela EXECUCAO-004: `SettingsMyAccountScreen` usa `userStore.getProfile`, `PUT /users/me`, `PUT /users/me/profile` e `POST /users/me/avatar`; timers e dados de Joao foram removidos.
 3. RESOLVIDO no codigo local pela EXECUCAO-009: `PersonalSetupScreen` persiste username, bio, cidade/localizacao e avatar; interesses ficaram fora do release por ausencia de backend canonico.
-4. Reimplementar `SettingsCityScreen` com geolocalizacao real e persistencia de cidade, ou remover tela do release.
+4. RESOLVIDO no codigo local pela EXECUCAO-010: `SettingsCityScreen` usa geolocalizacao real e persiste cidade em `PUT /users/me/profile`; smoke mobile/staging pendente.
 5. Ocultar ou implementar telas auxiliares de configuracao que mostram dispositivos, historico, privacidade, notificacoes, idioma, bloqueados e raio sem contrato real.
 6. Remover CTAs de pedidos/agendamentos/reservas/assinaturas/carrinho do release ate existirem endpoints reais.
 7. Trocar `RECENT_SEARCHES` por historico real ou renomear explicitamente para sugestoes fixas.
@@ -1030,7 +1031,7 @@ Checklist por area:
 | TypeScript mobile | README registra OK anterior; script nao existe no package | Rodar tsc direto | `cd frontend && npx tsc --noEmit` | Zero erro de tipo | Sim |
 | Lint mobile | Script existe | Rodar lint | `cd frontend && npm run lint` | Zero erro; warnings aceitaveis documentados | Sim |
 | API URL producao | Pendente | Conferir env do build | `cd frontend && Get-Content .env` e build com `EXPO_PUBLIC_API_URL=https://api...` | Build nao aponta `localhost`; API resolve via HTTPS real | Sim |
-| Remocao de mocks bloqueantes | Parcial | Validar itens PROMPT-006 | Varredura + smoke das telas | Catalogo, minha conta e onboarding pessoal ja resolvidos no codigo local; cidade/settings/activity ainda nao podem simular producao | Sim |
+| Remocao de mocks bloqueantes | Parcial | Validar itens PROMPT-006 | Varredura + smoke das telas | Catalogo, minha conta, onboarding pessoal e cidade ja resolvidos no codigo local; settings restantes/activity ainda nao podem simular producao | Sim |
 | Config de push mobile | Parcial | Conferir estrategia sem Firebase, APNs e env SNS | Build/device com provider definido | Android/iOS geram token nativo sem Firebase ou push fica declarado fora do MVP | Sim para push no release |
 | Deep links/notificacao para telas | Pendente/parcial | Abrir app por notificacao/link | Smoke manual com push real | Notificacao abre entidade correta ou comportamento fora do escopo declarado | Nao para MVP sem deep link; Sim se push exigir roteamento |
 
@@ -1141,7 +1142,7 @@ Checklist por area:
 | Perfil/catalogo/item | Pendente smoke final | Perfil estabelecimento, catalogo, produto, evento | Smoke manual | Carrega backend real; sem `MOCK_CATALOGS` em producao | Sim |
 | Chat/realtime | Pendente smoke final | Duas contas/dispositivos | Smoke manual | Mensagem e unread chegam; socket reconecta | Sim |
 | Notificacoes/push | Pendente smoke final | Registrar token, push-test, abrir notificacao | Smoke manual | Push chega e in-app atualiza | Sim se push no release |
-| Settings criticas | Parcial | Minha conta e delete resolvidos no codigo local; senha, privacidade, cidade e demais preferencias ainda pendentes | Smoke manual | Nada simula persistencia falsa | Sim |
+| Settings criticas | Parcial | Minha conta, delete e cidade resolvidos no codigo local; senha, privacidade e demais preferencias ainda pendentes | Smoke manual | Nada simula persistencia falsa | Sim |
 
 #### 13. Build final
 
@@ -1302,7 +1303,7 @@ Regra absoluta de release: nunca deixar em producao mock, botao sem acao, alerta
 |---|---|---|---|---|---|---|---|---|
 | `frontend/src/screens/auth/PersonalSetupScreen.tsx` | Setup pessoal, username/localizacao/avatar/bio; interesses fora do release | Concluir perfil real apos cadastro | Sim para username, perfil e avatar: `GET /users/username/availability`, `PUT /users/me`, `PUT /users/me/profile`, `POST /users/me/avatar`; nao existe endpoint canonico de interesses | Sim via User/Profile e media; nao existe model canonico de interesses/preferencias | Sim | Conectar backend existente - RESOLVIDO no codigo local pela EXECUCAO-009; manter interesses fora do release | Smoke mobile/staging, DB vazio, username duplicado/invalido, upload avatar e permissao de localizacao | P0 ate smoke |
 | `frontend/src/screens/main/SettingsMyAccountScreen.tsx` | Editar dados da conta/avatar | Atualizar conta real e midia | Sim: `PUT /users/me`, `PUT /users/me/profile`, `POST /users/me/avatar` | Sim para usuario; midia depende Media/S3 | Sim | Conectar ao backend existente - RESOLVIDO no codigo local pela EXECUCAO-004 | Smoke mobile/staging, S3/CloudFront, erro de duplicidade e alteracao de e-mail | P0 ate smoke |
-| `frontend/src/screens/main/SettingsCityScreen.tsx` | Alterar cidade/preferencia | Salvar cidade real usada em home/busca | Nao comprovado | Parcial se User/Profile tiver localizacao; cidade preferida precisa validar | Sim se cidade afeta descoberta | Criar backend novo e conectar ou manter fora do release | Persistir cidade, recarregar home/busca/mapa e remover lista local fake | P1; vira P0 se visivel com fake |
+| `frontend/src/screens/main/SettingsCityScreen.tsx` | Alterar cidade/preferencia | Salvar cidade real usada em home/busca | Sim: `PUT /users/me/profile` com `location` | Sim via User/Profile | Sim se cidade afeta descoberta | Conectar ao backend existente - RESOLVIDO no codigo local pela EXECUCAO-010 | Smoke mobile/staging, permissao GPS, cidade manual, DB vazio e reflexo nos fluxos de descoberta | P0 ate smoke |
 | `frontend/src/screens/main/SettingsPrivacyScreen.tsx` | Alterar privacidade/mensagens/check-ins | Controlar exposicao de dados e interacoes | Nao comprovado | Nao comprovado | Sim para release profissional | Criar model/migration/DTO/controller/service e conectar frontend, ou ocultar temporariamente | Modelar preferencias, endpoint GET/PUT, carregar estado real e salvar | P1; P0 se visivel alterando so estado local |
 | `frontend/src/screens/main/SettingsSecurityScreen.tsx` | Senha/2FA/sessoes/seguranca | Proteger conta | Parcial para auth; 2FA/sessoes precisam validar | Parcial | Sim | Conectar ao backend existente e criar faltantes | Alterar senha real, 2FA real ou ocultar, listar/revogar sessoes se exibido | P0 |
 | `frontend/src/screens/main/SettingsAuxScreens.tsx` | Notificacoes, idioma, bloqueados, alterar senha, suporte/legal auxiliares | Ajustar preferencias e acessar suporte/legal | Parcial | Parcial/nao comprovado | Parcial | Classificar item a item; conectar ou ocultar temporariamente | Remover fallback local, conectar preferencias reais, suporte real e legal real | P1; P0 para itens visiveis fake |
@@ -1452,7 +1453,7 @@ Base: `.codex/PROJECT_CONTEXT.md` define MVP funcional, coeso, enxuto, com nucle
 | Chat | Sim se interacao entre usuarios/estabelecimentos | Conversa real | Backend confirmado; smoke multi-device pendente | Entra se smoke realtime passar | P0 se exposto |
 | Notificacoes in-app | Sim | Alertas internos | Backend/service existem; roteamento parcial | Entra com roteamento honesto | Push pode ser fora do MVP se documentado |
 | Push | Opcional para primeiro MVP | Retencao/alertas | Backend SNS existe; plataforma mobile pendente | Entra somente se device real passar; senao sai do release | Sem Firebase como backend |
-| Settings criticas | Sim | Conta, seguranca, privacidade, delete | Parcial | Entra apenas com backend real ou itens ocultos | Nada de toggle local fake |
+| Settings criticas | Sim | Conta, seguranca, privacidade, delete | Parcial; conta/delete/cidade conectados no codigo local | Entra apenas com backend real ou itens ocultos | Nada de toggle local fake; privacidade/seguranca/preferencias ainda precisam decisao/correcao |
 | Historico/contas vinculadas/recursos auxiliares | Nao necessariamente | Conveniencia | Parcial/fake | Adiado ou oculto | P2 somente se fora da UI de producao |
 
 #### Reforco da regra de itens sem backend
@@ -1469,7 +1470,7 @@ A matriz do PROMPT-008 continua valida. Complemento obrigatorio: antes de oculta
 | Health check expandido | Implementado no codigo: DB + Redis obrigatorio + storage local/S3 configuravel | Validar no ALB/ECS staging com RDS, ElastiCache e S3 reais |
 | Catalog/Item sem fallback fake | RESOLVIDO no codigo local pela EXECUCAO-002; smoke mobile/staging pendente | Validar estabelecimento real, produto real, evento real e rotas sem contexto |
 | Onboarding pessoal real | RESOLVIDO no codigo local pela EXECUCAO-009; smoke mobile/staging pendente | Validar usuario pessoal novo com DB vazio, username livre/duplicado/invalido, upload avatar e permissao de localizacao |
-| Settings criticas com estado local/fake | MyAccount resolvido no codigo local pela EXECUCAO-004; Delete resolvido pela EXECUCAO-003; Privacy/Security/City e preferencias auxiliares ainda parciais | Conectar backend ou ocultar itens nao prontos; validar MyAccount/Delete em smoke |
+| Settings criticas com estado local/fake | MyAccount resolvido no codigo local pela EXECUCAO-004; Delete resolvido pela EXECUCAO-003; City resolvido pela EXECUCAO-010; Privacy/Security e preferencias auxiliares ainda parciais | Conectar backend ou ocultar itens nao prontos; validar MyAccount/Delete/City em smoke |
 | Build mobile release real | Ainda pendente EAS/processo equivalente/device real | Gerar APK/AAB, validar env e smoke em device |
 | SES/SNS/S3/Redis reais | Codigo existe, ambiente real nao validado | Validar providers em staging AWS |
 | E2E e smoke com banco vazio | e2e depende postgres-test; banco zerado precisa smoke | Subir DB teste/staging limpo e validar estados vazios |
@@ -1827,6 +1828,39 @@ Status:
 - RESOLVIDO no codigo local para username, bio, cidade/localizacao e avatar.
 - Pendente para producao: smoke mobile/staging com usuario pessoal novo, banco vazio, username livre/duplicado/invalido, permissao de localizacao concedida/negada e upload real em S3/CloudFront.
 - Pendente de produto/backend futuro: preferencias/interesses pessoais, caso voltem ao escopo, exigem model/migration/DTO/controller/service e conexao mobile antes de aparecerem na UI.
+
+### EXECUCAO-010 - SettingsCityScreen com cidade real persistida - 2026-05-02
+
+Objetivo executado:
+
+- Fechar o P0 local em que `SettingsCityScreen` usava lista fixa de cidades, historico local, GPS apontando para `Sao Paulo, SP` e confirmacao que apenas voltava de tela.
+- Conectar a troca de cidade ao contrato backend ja existente de perfil do usuario.
+
+Arquivos alterados:
+
+- `frontend/src/screens/main/SettingsCityScreen.tsx`
+- `PLANO_CORRECAO_PRODUCAO_MEU_AGITO.md`
+- `STATUS_EXECUCAO_PROMPT_AWS_2026-04-26.md`
+
+Implementacao:
+
+- `SettingsCityScreen` passou a carregar o perfil real via `userStore.getProfile()` quando necessario.
+- A tela removeu `CITY_OPTIONS`, `recentCities`, lista fixa e historico local.
+- O card "Usar minha localizacao" passou a chamar `GeolocationService.getCurrentLocation()` e `reverseGeocodeCoordinates()`.
+- A cidade manual passou a ser validada e revisada antes da confirmacao.
+- Confirmar cidade agora executa `userStore.updateProfile({ location })`, que chama `PUT /users/me/profile`, antes de voltar.
+- Estados de loading, erro, GPS em andamento e salvamento foram adicionados.
+
+Validacao executada:
+
+- `cd frontend && npx tsc --noEmit`: OK.
+- `cd frontend && npm run lint`: OK.
+- Varredura em `SettingsCityScreen.tsx` para `CITY_OPTIONS`, `recentCities`, `Sao Paulo`, `mock`, `fake`, `dummy`, `sample`, `TODO`, `FIXME`, `console.log`, `onPress={() => {}}`, `Em breve` e `coming_soon`: sem ocorrencias.
+
+Status:
+
+- RESOLVIDO no codigo local.
+- Pendente para producao: smoke mobile/staging com cidade manual, permissao de localizacao concedida/negada, perfil recarregado apos salvar e impacto da cidade nos fluxos de descoberta.
 
 Resumo de bloqueadores absolutos antes de deploy publico real:
 

@@ -1,6 +1,7 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
-  FlatList,
+  ActivityIndicator,
+  Alert,
   SafeAreaView,
   StyleSheet,
   Text,
@@ -11,134 +12,248 @@ import {
 import { useNavigation, ParamListBase } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
-
-
-
 import { colors } from '@constants/colors';
 import { fontSize, spacing } from '@constants/design';
+import GeolocationService from '@services/geolocation/GeolocationService';
+import { userStore } from '@stores/userStore';
 
-type CityState = 'initial' | 'search' | 'confirm';
+type CityMode = 'edit' | 'confirm';
 
-const CITY_OPTIONS = ['Sao Paulo, SP', 'Santos, SP', 'Campinas, SP', 'Rio de Janeiro, RJ'];
+type GeocodedAddress = Awaited<
+  ReturnType<typeof GeolocationService.reverseGeocodeCoordinates>
+>[number];
+
+const getErrorMessage = (error: unknown, fallback: string) =>
+  error instanceof Error ? error.message : fallback;
+
+const formatCityFromAddress = (address: GeocodedAddress) => {
+  const city = address.city || address.subregion || address.district || address.name;
+  const region = address.region;
+
+  if (city && region) {
+    return `${city}, ${region}`;
+  }
+
+  return city || region || '';
+};
 
 export default function SettingsCityScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<ParamListBase>>();
-  const [state, setState] = useState<CityState>('initial');
-  const [query, setQuery] = useState('');
-  const [selectedCity, setSelectedCity] = useState<string | null>(null);
-  const [recentCities, setRecentCities] = useState<string[]>(['Santos, SP', 'Campinas, SP']);
+  const profile = userStore((state) => state.profile);
+  const getProfile = userStore((state) => state.getProfile);
+  const updateProfile = userStore((state) => state.updateProfile);
 
-  const filteredCities = useMemo(() => {
-    const normalizedQuery = query.trim().toLowerCase();
-    if (normalizedQuery.length === 0) {
-      return CITY_OPTIONS;
+  const [mode, setMode] = useState<CityMode>('edit');
+  const [city, setCity] = useState(profile?.location || '');
+  const [selectedCity, setSelectedCity] = useState('');
+  const [isLoadingProfile, setIsLoadingProfile] = useState(!profile);
+  const [isResolvingLocation, setIsResolvingLocation] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  useEffect(() => {
+    let active = true;
+
+    const loadProfile = async () => {
+      if (profile) {
+        return;
+      }
+
+      setIsLoadingProfile(true);
+
+      try {
+        const loadedProfile = await getProfile();
+        if (active) {
+          setCity(loadedProfile.location || '');
+        }
+      } catch (error) {
+        if (active) {
+          setErrorMessage(getErrorMessage(error, 'Nao foi possivel carregar sua cidade atual.'));
+        }
+      } finally {
+        if (active) {
+          setIsLoadingProfile(false);
+        }
+      }
+    };
+
+    void loadProfile();
+
+    return () => {
+      active = false;
+    };
+  }, [getProfile, profile]);
+
+  const currentCity = profile?.location?.trim();
+  const canReview = city.trim().length > 1 && !isLoadingProfile && !isSaving;
+
+  const handleReviewCity = () => {
+    const nextCity = city.trim();
+
+    if (nextCity.length < 2) {
+      setErrorMessage('Informe uma cidade valida antes de continuar.');
+      return;
     }
-    return CITY_OPTIONS.filter((city) => city.toLowerCase().includes(normalizedQuery));
-  }, [query]);
 
-  const handleSelectCity = (city: string) => {
-    setSelectedCity(city);
-    setState('confirm');
+    setSelectedCity(nextCity);
+    setErrorMessage(null);
+    setMode('confirm');
   };
 
-  const handleConfirmCity = () => {
+  const handleUseGps = async () => {
+    setIsResolvingLocation(true);
+    setErrorMessage(null);
+
+    try {
+      const coordinates = await GeolocationService.getCurrentLocation();
+      const addresses = await GeolocationService.reverseGeocodeCoordinates(
+        coordinates.latitude,
+        coordinates.longitude,
+      );
+      const resolvedCity = addresses[0] ? formatCityFromAddress(addresses[0]) : '';
+
+      if (!resolvedCity) {
+        throw new Error('Nao foi possivel identificar a cidade pela localizacao.');
+      }
+
+      setCity(resolvedCity);
+      setSelectedCity(resolvedCity);
+      setMode('confirm');
+    } catch (error) {
+      const message = getErrorMessage(error, 'Nao foi possivel usar sua localizacao.');
+      setErrorMessage(message);
+      Alert.alert('Localizacao indisponivel', message);
+    } finally {
+      setIsResolvingLocation(false);
+    }
+  };
+
+  const handleConfirmCity = async () => {
     if (!selectedCity) {
       return;
     }
-    setRecentCities((prev) => {
-      const next = [selectedCity, ...prev.filter((item) => item !== selectedCity)];
-      return next.slice(0, 3);
-    });
-    navigation.goBack();
+
+    setIsSaving(true);
+    setErrorMessage(null);
+
+    try {
+      await updateProfile({ location: selectedCity });
+      navigation.goBack();
+    } catch (error) {
+      const message = getErrorMessage(error, 'Nao foi possivel atualizar sua cidade.');
+      setErrorMessage(message);
+      Alert.alert('Erro ao atualizar cidade', message);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleChooseOther = () => {
+    setMode('edit');
+    setSelectedCity('');
   };
 
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()}>
+        <TouchableOpacity onPress={() => navigation.goBack()} disabled={isSaving}>
           <View style={styles.headerButton}>
-            <Text style={styles.headerButtonText}>âœ•</Text>
+            <Text style={styles.headerButtonText}>X</Text>
           </View>
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Trocar cidade</Text>
-        <TouchableOpacity onPress={() => navigation.goBack()}>
+        <TouchableOpacity onPress={() => navigation.goBack()} disabled={isSaving}>
           <Text style={styles.cancelText}>Cancelar</Text>
         </TouchableOpacity>
       </View>
 
-      {state !== 'confirm' && (
+      {mode === 'edit' ? (
         <View style={styles.content}>
+          <View style={styles.currentCard}>
+            <Text style={styles.currentLabel}>Cidade atual</Text>
+            <Text style={styles.currentValue}>{currentCity || 'Nenhuma cidade salva'}</Text>
+          </View>
+
           <TouchableOpacity
-            style={styles.gpsCard}
-            onPress={() => handleSelectCity('Sao Paulo, SP')}
+            style={[
+              styles.gpsCard,
+              (isResolvingLocation || isLoadingProfile || isSaving) && styles.disabled,
+            ]}
+            onPress={() => {
+              void handleUseGps();
+            }}
+            disabled={isResolvingLocation || isLoadingProfile || isSaving}
           >
             <View>
               <Text style={styles.gpsTitle}>Usar minha localizacao</Text>
-              <Text style={styles.gpsSubtitle}>Detectar cidade automaticamente</Text>
+              <Text style={styles.gpsSubtitle}>
+                {isResolvingLocation
+                  ? 'Detectando cidade...'
+                  : 'Detectar cidade com permissao do dispositivo'}
+              </Text>
             </View>
-            <Text style={styles.chevron}>â€º</Text>
+            {isResolvingLocation ? (
+              <ActivityIndicator color={colors.primary} />
+            ) : (
+              <Text style={styles.chevron}>{'>'}</Text>
+            )}
           </TouchableOpacity>
 
-          <View style={styles.searchInputWrap}>
-            <Text style={styles.searchIcon}>ðŸ”Ž</Text>
+          <View style={styles.formBlock}>
+            <Text style={styles.inputLabel}>Cidade</Text>
             <TextInput
               style={styles.searchInput}
-              placeholder="Digite o nome da cidade"
+              placeholder="Digite sua cidade"
               placeholderTextColor={colors.textTertiary}
-              value={query}
-              onChangeText={(text) => {
-                setQuery(text);
-                setState(text.length > 0 ? 'search' : 'initial');
+              value={city}
+              onChangeText={(value) => {
+                setCity(value);
+                setErrorMessage(null);
               }}
+              editable={!isLoadingProfile && !isSaving}
             />
-            {query.length > 0 && (
-              <TouchableOpacity onPress={() => {
-                setQuery('');
-                setState('initial');
-              }}>
-                <Text style={styles.clearIcon}>âœ•</Text>
-              </TouchableOpacity>
-            )}
+            <Text style={styles.helperText}>
+              Esta cidade sera salva no seu perfil e usada como preferencia de descoberta local.
+            </Text>
           </View>
 
-          {state === 'initial' && recentCities.length > 0 ? (
-            <View style={styles.listSection}>
-              <Text style={styles.sectionTitle}>Buscas recentes</Text>
-              {recentCities.map((city) => (
-                <TouchableOpacity key={city} style={styles.listItem} onPress={() => handleSelectCity(city)}>
-                  <Text style={styles.listItemIcon}>ðŸ•˜</Text>
-                  <Text style={styles.listItemText}>{city}</Text>
-                </TouchableOpacity>
-              ))}
+          {isLoadingProfile ? (
+            <View style={styles.loadingRow}>
+              <ActivityIndicator color={colors.primary} />
+              <Text style={styles.loadingText}>Carregando perfil...</Text>
             </View>
-          ) : (
-            <View style={styles.listSection}>
-              <Text style={styles.sectionTitle}>Resultados</Text>
-              <FlatList
-                data={filteredCities}
-                keyExtractor={(item) => item}
-                renderItem={({ item }) => (
-                  <TouchableOpacity style={styles.listItem} onPress={() => handleSelectCity(item)}>
-                    <Text style={styles.listItemIcon}>ðŸ“</Text>
-                    <Text style={styles.listItemText}>{item}</Text>
-                  </TouchableOpacity>
-                )}
-              />
-            </View>
-          )}
-        </View>
-      )}
+          ) : null}
 
-      {state === 'confirm' && selectedCity && (
+          {errorMessage ? <Text style={styles.errorText}>{errorMessage}</Text> : null}
+
+          <TouchableOpacity
+            style={[styles.primaryButton, !canReview && styles.disabled]}
+            onPress={handleReviewCity}
+            disabled={!canReview}
+          >
+            <Text style={styles.primaryButtonText}>Revisar cidade</Text>
+          </TouchableOpacity>
+        </View>
+      ) : (
         <View style={styles.confirmContainer}>
           <Text style={styles.confirmTitle}>Confirmar cidade</Text>
           <Text style={styles.confirmCity}>{selectedCity}</Text>
 
-          <TouchableOpacity style={styles.confirmButton} onPress={handleConfirmCity}>
-            <Text style={styles.confirmButtonText}>Confirmar e atualizar</Text>
+          {errorMessage ? <Text style={styles.errorText}>{errorMessage}</Text> : null}
+
+          <TouchableOpacity
+            style={[styles.confirmButton, isSaving && styles.disabled]}
+            onPress={() => {
+              void handleConfirmCity();
+            }}
+            disabled={isSaving}
+          >
+            <Text style={styles.confirmButtonText}>
+              {isSaving ? 'Atualizando...' : 'Confirmar e atualizar'}
+            </Text>
           </TouchableOpacity>
 
-          <TouchableOpacity onPress={() => setState('search')} style={styles.chooseOther}>
+          <TouchableOpacity onPress={handleChooseOther} style={styles.chooseOther} disabled={isSaving}>
             <Text style={styles.chooseOtherText}>Escolher outra cidade</Text>
           </TouchableOpacity>
         </View>
@@ -173,7 +288,8 @@ const styles = StyleSheet.create({
   },
   headerButtonText: {
     color: colors.text,
-    fontSize: fontSize.sm,
+    fontSize: fontSize.xs,
+    fontWeight: '800',
   },
   headerTitle: {
     color: colors.text,
@@ -189,6 +305,25 @@ const styles = StyleSheet.create({
     flex: 1,
     padding: spacing.md,
     gap: spacing.md,
+  },
+  currentCard: {
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 12,
+    backgroundColor: colors.surface,
+    padding: spacing.md,
+  },
+  currentLabel: {
+    color: colors.textSecondary,
+    fontSize: fontSize.xs,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+  },
+  currentValue: {
+    color: colors.text,
+    fontSize: fontSize.md,
+    fontWeight: '700',
+    marginTop: spacing.xs,
   },
   gpsCard: {
     flexDirection: 'row',
@@ -214,61 +349,58 @@ const styles = StyleSheet.create({
     color: colors.textTertiary,
     fontSize: fontSize.xxl,
   },
-  searchInputWrap: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 12,
-    backgroundColor: colors.surface,
-    paddingHorizontal: spacing.md,
+  formBlock: {
     gap: spacing.sm,
   },
-  searchIcon: {
-    fontSize: fontSize.sm,
-  },
-  searchInput: {
-    flex: 1,
-    color: colors.text,
-    fontSize: fontSize.sm,
-    paddingVertical: spacing.md,
-  },
-  clearIcon: {
-    color: colors.textSecondary,
-    fontSize: fontSize.sm,
-  },
-  listSection: {
-    flex: 1,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 12,
-    backgroundColor: colors.surface,
-    paddingVertical: spacing.sm,
-  },
-  sectionTitle: {
+  inputLabel: {
     color: colors.textSecondary,
     fontSize: fontSize.xs,
     fontWeight: '700',
-    letterSpacing: 1,
     textTransform: 'uppercase',
-    paddingHorizontal: spacing.md,
-    paddingBottom: spacing.sm,
   },
-  listItem: {
+  searchInput: {
+    color: colors.text,
+    fontSize: fontSize.sm,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 12,
+    backgroundColor: colors.surface,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.md,
+  },
+  helperText: {
+    color: colors.textSecondary,
+    fontSize: fontSize.xs,
+    lineHeight: 18,
+  },
+  loadingRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.sm,
-    paddingHorizontal: spacing.md,
+  },
+  loadingText: {
+    color: colors.textSecondary,
+    fontSize: fontSize.sm,
+  },
+  errorText: {
+    color: colors.error,
+    fontSize: fontSize.sm,
+    lineHeight: 18,
+  },
+  disabled: {
+    opacity: 0.55,
+  },
+  primaryButton: {
+    borderRadius: 12,
+    backgroundColor: colors.primary,
     paddingVertical: spacing.md,
-    borderTopWidth: 1,
-    borderTopColor: colors.border,
+    alignItems: 'center',
+    marginTop: 'auto',
   },
-  listItemIcon: {
-    fontSize: fontSize.sm,
-  },
-  listItemText: {
+  primaryButtonText: {
     color: colors.text,
-    fontSize: fontSize.sm,
+    fontSize: fontSize.md,
+    fontWeight: '700',
   },
   confirmContainer: {
     flex: 1,
@@ -286,6 +418,7 @@ const styles = StyleSheet.create({
     color: colors.primary,
     fontSize: fontSize.xxl,
     fontWeight: '800',
+    textAlign: 'center',
   },
   confirmButton: {
     width: '100%',

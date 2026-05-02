@@ -729,3 +729,26 @@ Status da validacao ponta a ponta:
 - o P0 local "PersonalSetup com username/GPS/avatar/finalizacao fake" fica RESOLVIDO no codigo.
 - continua pendente de ambiente: smoke mobile/staging com usuario pessoal novo, DB vazio, username livre/duplicado/invalido, permissao de localizacao concedida/negada e upload real em S3/CloudFront.
 - continua pendente de produto/backend futuro: preferencias/interesses pessoais so podem voltar a UI depois de model/migration/DTO/controller/service reais ou decisao formal de escopo.
+
+## Atualizacao complementar - 2026-05-02 (America/Sao_Paulo) - SettingsCity real
+
+### Correcao aplicada
+
+- `SettingsCityScreen` deixou de usar `CITY_OPTIONS`, `recentCities`, lista fixa e historico local.
+- O card "Usar minha localizacao" deixou de selecionar `Sao Paulo, SP` fixo.
+- A tela passou a carregar o perfil real via `userStore.getProfile()` quando necessario.
+- GPS passou a usar `GeolocationService.getCurrentLocation()` + `reverseGeocodeCoordinates()`.
+- Cidade manual passou a ser validada e revisada antes da confirmacao.
+- Confirmar cidade passou a chamar `userStore.updateProfile({ location })`, que usa `PUT /users/me/profile`, antes de voltar.
+- Estados de loading, erro, localizacao em andamento e salvamento foram adicionados.
+
+### Validacao executada
+
+- `cd frontend && npx tsc --noEmit`: OK.
+- `cd frontend && npm run lint`: OK.
+- Varredura em `SettingsCityScreen.tsx` para `CITY_OPTIONS`, `recentCities`, `Sao Paulo`, `mock`, `fake`, `dummy`, `sample`, `TODO`, `FIXME`, `console.log`, `onPress={() => {}}`, `Em breve` e `coming_soon`: sem ocorrencias.
+
+### Leitura correta apos esta rodada
+
+- o P0 local "SettingsCity com cidade/GPS/recentes fake e confirmacao sem persistencia" fica RESOLVIDO no codigo.
+- continua pendente de ambiente: smoke mobile/staging com cidade manual, permissao de localizacao concedida/negada, perfil recarregado apos salvar e impacto da cidade nos fluxos de descoberta.
