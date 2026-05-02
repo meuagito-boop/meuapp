@@ -158,6 +158,7 @@ Evidencias:
 - `frontend/src/screens/main/ActivityFavoritesScreen.tsx:43-46` declara falta de endpoint dedicado ou estrategia oficial.
 - `frontend/src/screens/main/ActivityHistoryScreen.tsx:27-31` declara que historico consolidado ainda nao existe no backend.
 - `frontend/src/screens/main/ActivityHistoryScreen.tsx:36-39` declara falta de endpoint canonico.
+- Status atualizado em 2026-05-02: os achados acima foram RESOLVIDOS no codigo local pela EXECUCAO-014 para o caminho visivel. `ActivityScreen` nao possui mais cards `coming_soon`, alerta `Em breve`, pedidos/agendamentos/reservas, nem textos de auditoria no app. `ActivityFavoritesScreen` e `ActivityHistoryScreen` foram reduzidas a estados vazios simples, sem dados locais, sem explicacao de backend e sem simular lista real.
 
 Impacto:
 
@@ -365,10 +366,10 @@ Criterio de aceite:
 
 ### Fase 4 - Activity, Favoritos e Historico
 
-1. Decidir se Favoritos e Historico entram no primeiro release.
-2. Se entrarem, criar endpoints canonicos e conectar telas.
-3. Se nao entrarem, remover cards/rotas visiveis do build.
-4. Remover alertas `Em breve` do caminho de producao.
+1. RESOLVIDO no codigo local pela EXECUCAO-014: Pedidos, Agendamentos e Reservas sairam do caminho visivel de Activity.
+2. RESOLVIDO no codigo local pela EXECUCAO-014: Favoritos e Historico nao sao mais cards clicaveis no hub de Activity.
+3. RESOLVIDO no codigo local pela EXECUCAO-014: telas auxiliares de Favoritos/Historico mostram somente estado vazio simples se acessadas internamente.
+4. RESOLVIDO no codigo local pela EXECUCAO-014: alertas `Em breve` foram removidos do caminho de producao.
 
 Criterio de aceite:
 
@@ -443,9 +444,9 @@ Criterio de aceite:
 | `backend/src/common/notification/notification.service.ts:48-52` | Push pode ficar desabilitado | Exigir SNS no ambiente final |
 | `docker-compose.yml:79-82` | Storage/email/push desligados no runtime local | Nao usar compose local como prova de producao |
 | `frontend/src/screens/auth/PersonalSetupScreen.tsx` | RESOLVIDO no codigo local pela EXECUCAO-009: username, bio, cidade/localizacao e avatar deixaram de ser simulados | Validar smoke mobile/staging; manter interesses fora do release ate existir backend real |
-| `frontend/src/screens/main/ActivityScreen.tsx:40-71` | Cards `coming_soon` e alerta `Em breve` | Implementar ou remover |
-| `frontend/src/screens/main/ActivityFavoritesScreen.tsx:27-46` | Favoritos sem lista backend | Criar endpoint/lista ou remover |
-| `frontend/src/screens/main/ActivityHistoryScreen.tsx:27-39` | Historico sem contrato backend | Criar contrato ou remover |
+| `frontend/src/screens/main/ActivityScreen.tsx` | RESOLVIDO no codigo local pela EXECUCAO-014: cards `coming_soon`, alerta `Em breve` e cards comerciais sem backend removidos | Criar contratos reais antes de reexibir cards/rotas de atividade |
+| `frontend/src/screens/main/ActivityFavoritesScreen.tsx` | RESOLVIDO no codigo local pela EXECUCAO-014: tela nao declara lacuna/backend nem simula lista real | Criar endpoint/lista real antes de reexibir Favoritos no hub |
+| `frontend/src/screens/main/ActivityHistoryScreen.tsx` | RESOLVIDO no codigo local pela EXECUCAO-014: tela nao declara lacuna/backend nem simula historico real | Criar contrato real antes de reexibir Historico no hub |
 | `frontend/src/screens/main/CatalogScreen.tsx` | RESOLVIDO no codigo local: removido `MOCK_CATALOGS`; rota sem `establishmentId` mostra estado honesto | Validar smoke mobile/staging com estabelecimento real |
 | `frontend/src/screens/main/ItemScreen.tsx` | RESOLVIDO no codigo local: removido `item-fallback` e CTA generico sem backend | Validar produto/evento real em device/staging |
 | `frontend/src/screens/main/SettingsMyAccountScreen.tsx` | RESOLVIDO no codigo local pela EXECUCAO-004: conta deixou de usar dados fixos, upload vazio e save simulado | Validar smoke mobile/staging, S3/CloudFront de avatar e alteracao de e-mail |
@@ -490,7 +491,7 @@ Criterio de aceite:
 - [x] Onboarding pessoal persistindo username, bio, cidade/localizacao e avatar no codigo local; smoke mobile/staging pendente.
 - [ ] Onboarding business validado ponta a ponta.
 - [ ] Settings persistindo dados reais ou ocultando itens fora do release.
-- [ ] Favoritos/historico implementados ou removidos.
+- [x] Favoritos/historico fora do caminho visivel sem dados fake no codigo local; endpoints reais pendentes se voltarem ao escopo.
 - [x] Catalogo e Item sem fallback fake no codigo local; smoke mobile/staging pendente.
 - [x] Delete account validando senha no backend no codigo local; smoke mobile/staging pendente.
 - [ ] Endpoints de gestao de catalogo com UI owner ou fora do release.
@@ -640,9 +641,9 @@ Tabela de problemas exigida pelo prompt:
 | `frontend/src/screens/main/SettingsPrivacyScreen.tsx` + `frontend/src/screens/main/SettingsScreen.tsx` | RESOLVIDO no codigo local pela EXECUCAO-012: privacidade nao fica mais acessivel pelo menu e nao possui controles locais falsos | Fora do release visivel | Preferencias de privacidade nao sao prometidas sem backend real | `SettingsScreen.tsx`; `SettingsPrivacyScreen.tsx` | Criar contrato backend real antes de reexibir no menu | P1 se voltar ao escopo; nao bloqueia se oculto |
 | `frontend/src/screens/main/SettingsSecurityScreen.tsx` | RESOLVIDO parcialmente no codigo local pela EXECUCAO-011: menu de seguranca mostra senha/2FA e alerta obrigatorio, sem dispositivos/historico fake visiveis | Pendente smoke | Seguranca nao expoe mais atalhos para telas com dados inventados; sessoes/audit log seguem fora do escopo visivel | `SettingsSecurityScreen.tsx`; `SettingsAuxScreens.tsx` | Validar senha/2FA em device; criar backend de sessoes antes de reexibir dispositivos/historico | P0 ate smoke |
 | `frontend/src/screens/main/SettingsAuxScreens.tsx` | RESOLVIDO no codigo local pela EXECUCAO-011: trocar senha agora tem formulario real; dispositivos/historico nao mostram dados inventados | Pendente smoke | Fluxo de senha usa backend real; rotas auxiliares nao fingem dados reais | `SettingsChangePasswordScreen`; `authStore.changePassword`; `AuthService.changePassword`; `POST /auth/change-password` | Validar senha atual correta/incorreta, nova senha invalida e confirmacao divergente | P0 ate smoke |
-| `frontend/src/screens/main/ActivityScreen.tsx` | Cards `coming_soon` exibem alerta `Em breve` | Criado parcialmente | Area principal mostra recurso nao entregue | `frontend/src/screens/main/ActivityScreen.tsx:40-71` | Implementar ou ocultar cards | P1 |
-| `frontend/src/screens/main/ActivityFavoritesScreen.tsx` | Tela declara falta de endpoint/lista consolidada | Criado parcialmente | Favoritos nao estao consumiveis nesta area | `frontend/src/screens/main/ActivityFavoritesScreen.tsx:27-46` | Criar endpoint/lista ou remover tela | P1 |
-| `frontend/src/screens/main/ActivityHistoryScreen.tsx` | Tela declara falta de contrato canonico de historico | Criado parcialmente | Historico nao e funcional | `frontend/src/screens/main/ActivityHistoryScreen.tsx:27-39` | Criar contrato ou remover tela | P1 |
+| `frontend/src/screens/main/ActivityScreen.tsx` | RESOLVIDO no codigo local pela EXECUCAO-014: cards `coming_soon`, alerta `Em breve` e recursos comerciais sem backend foram removidos | Fora do release visivel | Area principal nao mostra recurso nao entregue como card acionavel | `ActivityScreen.tsx` | Criar endpoints/telas reais antes de reexibir pedidos/agendamentos/reservas/favoritos/historico | P1 se voltar ao escopo; P0 se reexibir falso |
+| `frontend/src/screens/main/ActivityFavoritesScreen.tsx` | RESOLVIDO no codigo local pela EXECUCAO-014: tela mostra estado vazio simples sem texto de auditoria/backend | Fora do hub visivel | Favoritos nao sao prometidos no hub sem lista real | `ActivityFavoritesScreen.tsx` | Criar endpoint/lista real antes de reexibir | P1 se voltar ao escopo |
+| `frontend/src/screens/main/ActivityHistoryScreen.tsx` | RESOLVIDO no codigo local pela EXECUCAO-014: tela mostra estado vazio simples sem texto de auditoria/backend | Fora do hub visivel | Historico nao e prometido no hub sem contrato real | `ActivityHistoryScreen.tsx` | Criar contrato real antes de reexibir | P1 se voltar ao escopo |
 | `frontend/src/screens/main/CatalogScreen.tsx` | RESOLVIDO no codigo local: `MOCK_CATALOGS` removido e rota sem `establishmentId` nao renderiza catalogo fake | Pendente smoke | Evita produtos/servicos fake no caminho publico | `frontend/src/screens/main/CatalogScreen.tsx` | Validar com estabelecimento real e banco vazio em staging | P0 ate smoke |
 | `frontend/src/screens/main/ItemScreen.tsx` | RESOLVIDO no codigo local: `item-fallback` e CTA generico removidos | Pendente smoke | Evita CTA de pedido/reserva/agenda sem backend | `frontend/src/screens/main/ItemScreen.tsx` | Validar produto/evento real e rota invalida em device/staging | P0 ate smoke |
 | `frontend/src/services/api/UserService.ts` + `backend/src/modules/users/users.controller.ts` + `backend/src/modules/users/users.service.ts` | RESOLVIDO no codigo local: exclusao envia senha, valida `bcrypt.compare` e revoga refresh tokens | Pendente smoke | Garantia de seguranca passa a existir no backend | `frontend/src/services/api/UserService.ts`; `backend/src/modules/users/users.controller.ts`; `backend/src/modules/users/users.service.ts`; `delete-account.dto.ts` | Validar senha correta/incorreta, logout e refresh apos delete em staging/device | P0 ate smoke |
@@ -694,7 +695,7 @@ Matriz de telas:
 | Home | Sim | Sim | Sim, tab | Real | Sim | Apenas fallback visual de midia | Sim em codigo; depende smoke | `RootNavigator.tsx:135-142`, `HomeScreen.tsx:180-214` |
 | Feed | Sim | Sim | Sim, tab | Real | Sim | Nao encontrado | Sim em codigo; depende smoke | `RootNavigator.tsx:143-150`, `FeedSocialScreen.tsx:84-90`, `feedStore.ts:164` |
 | Buscar | Sim | Sim | Sim, tab | Real nos resultados | Sim | `RECENT_SEARCHES` estatico | Parcial para criterio 100% sem mock | `RootNavigator.tsx:151-158`, `SearchScreen.tsx:36-52`, `127`, `293-319`; trocar historico fake por historico real ou renomear como sugestoes fixas |
-| Atividade | Sim | Sim | Sim, tab | Parcial | Nao para cards principais | Cards `coming_soon` | Nao | `RootNavigator.tsx:159-172`, `ActivityScreen.tsx:26-76`; implementar/remover cards |
+| Atividade | Sim | Sim | Sim, tab | Estado vazio honesto no codigo local | Nao precisa para estado vazio | Nao encontrado no codigo local apos EXECUCAO-014 | Sim em codigo; depende decisao de produto | `RootNavigator.tsx:159-172`, `ActivityScreen.tsx`; criar cards reais antes de reexibir recursos |
 | Mapa | Sim | Sim | Sim, tab | Real | Sim | Nao encontrado no codigo local apos EXECUCAO-008; smoke pendente | Sim em codigo; depende smoke | `RootNavigator.tsx:173-180`, `MapScreen.tsx`; lista e marker abrem `Item`/`Profile` |
 | Chat | Sim | Sim | Sim, tab | Real | Sim | Nao encontrado | Sim em codigo; depende smoke 2 usuarios/Redis | `RootNavigator.tsx:181-188`, `ChatScreen.tsx:87-100`, `chatStore.ts:261-352` |
 | Perfil | Sim | Sim | Sim, tab e navegacao por busca/feed/home | Real para estabelecimento | Sim | Fallback visual de avatar/produto | Sim em codigo; depende smoke | `RootNavigator.tsx:189-197`, `ProfileScreen.tsx:191-193`, `233-256` |
@@ -702,8 +703,8 @@ Matriz de telas:
 | Notificacoes | Sim | Sim | Sim, via Feed/header e MainStack | Real | Sim | Placeholders `??`/`?` | Nao | `RootNavigator.tsx:220`, `FeedSocialScreen.tsx:204`, `NotificationsScreen.tsx:138-226`, `49-69`, `306-335` |
 | Catalogo | Sim | Sim | Sim, via Perfil | Real com `establishmentId`; sem contexto mostra estado honesto | Sim | Nao encontrado no codigo local apos EXECUCAO-002 | Sim em codigo; depende smoke | `RootNavigator.tsx:221`, `ProfileScreen.tsx:233-242`, `CatalogScreen.tsx`; validar staging/device |
 | Item | Sim | Sim | Sim, via Home/Catalogo/Perfil | Real para produto/evento | Sim | Nao encontrado no codigo local apos EXECUCAO-002 | Sim em codigo; depende smoke | `RootNavigator.tsx:222`, `CatalogScreen.tsx`, `ItemScreen.tsx`; validar produto/evento e rota invalida |
-| Favoritos | Sim | Sim | Sim, via Atividade | Nao consome lista real | Nao | Tela informa lacuna | Nao | `RootNavigator.tsx:74`, `ActivityScreen.tsx:33-76`, `ActivityFavoritesScreen.tsx:27-46` |
-| Historico | Sim | Sim | Sim, via Atividade | Nao existe contrato real | Nao | Tela informa lacuna | Nao | `RootNavigator.tsx:75`, `ActivityScreen.tsx:57-76`, `ActivityHistoryScreen.tsx:27-39` |
+| Favoritos | Sim | Sim | Nao fica mais visivel pelo hub de Atividade apos EXECUCAO-014 | Sem dado real; sem fake | Nao | Estado vazio simples se acessada internamente | Fora do release ate backend existir | `RootNavigator.tsx:74`, `ActivityFavoritesScreen.tsx`; criar lista real antes de reexibir |
+| Historico | Sim | Sim | Nao fica mais visivel pelo hub de Atividade apos EXECUCAO-014 | Sem dado real; sem fake | Nao | Estado vazio simples se acessada internamente | Fora do release ate backend existir | `RootNavigator.tsx:75`, `ActivityHistoryScreen.tsx`; criar contrato real antes de reexibir |
 | Minha conta | Sim | Sim | Sim, via Settings | Real no codigo local | Sim | Nao encontrado no codigo local apos EXECUCAO-004; smoke/S3 pendentes | Sim em codigo; depende smoke | `RootNavigator.tsx:84`, `SettingsScreen.tsx:65`, `SettingsMyAccountScreen.tsx`, `UserService.ts`, `userStore.ts`, `users.service.ts`; validar staging/device |
 | Cidade | Sim | Sim | Sim, via Settings | Real no codigo local; smoke pendente | Sim | Nao encontrado no codigo local apos EXECUCAO-010 | Sim em codigo; depende smoke | `RootNavigator.tsx:85`, `SettingsScreen.tsx:78`, `SettingsCityScreen.tsx`; salva `location` via `PUT /users/me/profile` |
 | Privacidade | Sim | Sim | Nao fica mais visivel pelo menu de Settings apos EXECUCAO-012 | Sem dado real; sem fake | Nao | Controles locais removidos | Fora do release ate backend existir | `RootNavigator.tsx:89`, `SettingsScreen.tsx`, `SettingsPrivacyScreen.tsx`; criar preferencias reais antes de reexibir |
@@ -726,7 +727,7 @@ Resumo do mapeamento:
 - Telas esperadas registradas no navigator: encontradas.
 - Telas esperadas realmente prontas em codigo, dependendo apenas de smoke/deploy: Login, SignUp, TwoFactorLogin, BusinessSetup, Home, Feed, Chat, Perfil, 2FA.
 - Telas com service real mas ainda nao prontas por placeholder/fallback/acao parcial: Buscar e Notificacoes. `Mapa` saiu desta lista no codigo local pela EXECUCAO-008, pendente de smoke.
-- Telas criadas visualmente mas sem backend real suficiente: Atividade, Favoritos e Historico. `Minha conta` saiu desta lista no codigo local pela EXECUCAO-004, `PersonalSetup` saiu pela EXECUCAO-009, `Cidade` saiu pela EXECUCAO-010, `Seguranca/Alterar senha` saiu parcialmente pela EXECUCAO-011, `Privacidade/Bloqueados` saiu do caminho visivel pela EXECUCAO-012 e raio/notificacoes prefs/idioma sairam do caminho visivel pela EXECUCAO-013.
+- Telas criadas visualmente mas sem backend real suficiente: nenhuma dessas tres permanece com card/alerta/dado falso no caminho visivel apos EXECUCAO-014. `Minha conta` saiu desta lista no codigo local pela EXECUCAO-004, `PersonalSetup` pela EXECUCAO-009, `Cidade` pela EXECUCAO-010, `Seguranca/Alterar senha` parcialmente pela EXECUCAO-011, `Privacidade/Bloqueados` pela EXECUCAO-012, raio/notificacoes prefs/idioma pela EXECUCAO-013 e `Atividade/Favoritos/Historico` pela EXECUCAO-014.
 - Tela registrada mas sem acesso de usuario encontrado: Contas vinculadas.
 
 Correcoes derivadas:
@@ -768,8 +769,7 @@ Tabela de navegacao:
 | `frontend/src/screens/main/NotificationsScreen.tsx:243-245` | Tocar notificacao com `relatedUserId` | Abrir perfil do usuario relacionado | Navega `MainTabs -> Profile` sem params | `relatedUserId` e descartado; abre perfil padrao/conta atual | Passar `{ screen: 'Profile', params: { type: 'user', userId } }` e implementar destino |
 | `frontend/src/screens/main/NotificationsScreen.tsx:233-249` | Tocar notificacao com `entityType/entityId` | Abrir entidade relacionada | Codigo so trata post, conversa, related user e system | `entityType/entityId` mapeados na notificacao nao entram no roteamento | Criar roteador por entidade: post/feed, conversation/chat detail, establishment/profile, product/item, event/item |
 | `frontend/src/screens/main/MapScreen.tsx` | Tocar item na lista do mapa ou callout do marker | Abrir perfil do estabelecimento ou item do evento | Apos EXECUCAO-008, navega para `Profile` com `establishmentId` ou `Item` com `template: evento` | Sem problema de `onPress` morto no codigo local; smoke pendente | Validar dados reais em mapa/lista no device |
-| `frontend/src/screens/main/ActivityScreen.tsx:36-55` | Tocar Pedidos, Agendamentos ou Reservas | Abrir fluxo/tela do recurso | Alerta `Em breve` em `ActivityScreen.tsx:70-71` | Cards nao navegam para tela real | Remover cards do release ou implementar telas/rotas reais |
-| `frontend/src/screens/main/ActivityScreen.tsx:27-63` | Tocar Favoritos/Historico | `ActivityFavorites`/`ActivityHistory` | `navigation.push(card.route)` para rotas registradas | Nome de rota correto, mas telas destino nao consomem backend real | Manter rota somente se contrato real for implementado; caso contrario ocultar |
+| `frontend/src/screens/main/ActivityScreen.tsx` | Abrir aba Atividade | Ver atividades reais ou estado vazio | Apos EXECUCAO-014, tela mostra estado vazio simples e nao possui cards clicaveis sem backend | Sem problema de `Em breve`/rota fake no codigo local | Criar cards reais somente quando houver backend/fluxo real |
 | `frontend/src/screens/main/SettingsScreen.tsx:55-140` | Tocar itens principais de Settings | Abrir subtelas registradas | Rotas dinamicas de `item.route` apontam para telas registradas | Sem nome inexistente encontrado | Manter, mas conectar conteudo das subtelas |
 | `frontend/src/screens/main/SettingsAuxScreens.tsx:102-112` | Tentar acessar Contas vinculadas pelo app | Abrir `SettingsLinkedAccounts` | Rota registrada em `RootNavigator.tsx:86`, mas sem item no menu de usuario | Tela registrada nunca acessada pelo fluxo principal | Adicionar item em `SettingsScreen` ou remover rota/tela do release |
 | `frontend/src/screens/main/SettingsSecurityScreen.tsx` | Tocar Senha ou 2FA | Abrir subtelas de seguranca | Apos EXECUCAO-011, senha e 2FA apontam para telas registradas e reais; dispositivos/historico sairam do menu visivel | Sem rota fake visivel nesse menu no codigo local; smoke pendente | Validar alterar senha e 2FA; reexibir dispositivos/historico somente com backend real |
@@ -831,7 +831,7 @@ Classificacao por grupos:
 | Mock/fake | Telas auxiliares de Settings | `frontend/src/screens/main/SettingsAuxScreens.tsx:102-154`, `188-210`, `375-398` | Linhas estaticas, switches disabled ou scaffold sem service real |
 | Funcional real em codigo; smoke pendente | Lista do mapa | `frontend/src/screens/main/MapScreen.tsx` | Lista e marker abrem `Item` para evento e `Profile` para estabelecimento |
 | Funcional real em codigo; smoke pendente | Alterar foto em Minha conta | `frontend/src/screens/main/SettingsMyAccountScreen.tsx`, `UserService.uploadAvatar()` | Usa galeria nativa e `POST /users/me/avatar`; validar S3/CloudFront em staging |
-| Nao implementado | Pedidos, Agendamentos e Reservas em Activity | `frontend/src/screens/main/ActivityScreen.tsx:36-55`, `69-71` | Cards terminam em alerta `Em breve` |
+| Fora do caminho visivel; sem fake no codigo local | Pedidos, Agendamentos e Reservas em Activity | `frontend/src/screens/main/ActivityScreen.tsx` | EXECUCAO-014 removeu cards e alerta `Em breve` |
 | Nao implementado | CTAs genericos de Item | `frontend/src/screens/main/ItemScreen.tsx:49-73`, `270-276`, `600-603` | `Agendar`, `Reservar`, `Assinar` e similares apenas exibem alerta |
 | Funcional real em codigo; smoke pendente | Setup pessoal real | `frontend/src/screens/auth/PersonalSetupScreen.tsx`; `frontend/src/services/api/UserService.ts`; `backend/src/modules/users/users.controller.ts` | Username, GPS/cidade, avatar, bio e finish usam services reais; interesses fora do release por ausencia de backend canonico |
 
@@ -852,9 +852,9 @@ Tabela de acoes com problema:
 | `frontend/src/screens/main/SettingsAuxScreens.tsx` | Alterar senha | Atualizar senha | Funcional real em codigo; smoke pendente | Usa formulario real e `authStore.changePassword()` -> `POST /auth/change-password` | `SettingsChangePasswordScreen`; `useAuth.changePassword`; `AuthService.changePassword()` | Validar senha atual correta/incorreta, confirmacao divergente e token expirado |
 | `frontend/src/screens/main/SettingsAuxScreens.tsx` | Bloqueados | Gerenciar bloqueios | Fora do caminho visivel; sem fake no codigo local | EXECUCAO-012 removeu lista vazia fake e Privacidade saiu do menu | `SettingsAuxScreens.tsx`; `SettingsScreen.tsx` | Criar lista real antes de reexibir |
 | `frontend/src/screens/main/SettingsAuxScreens.tsx` | Dispositivos e historico | Ver sessoes/acessos | Fora do menu visivel; sem fake no codigo local | EXECUCAO-011 removeu dados inventados e tirou os atalhos do menu de seguranca | `SettingsSecurityScreen.tsx`; `SettingsAuxScreens.tsx` | Criar endpoints de sessoes/audit log antes de voltar ao menu |
-| `frontend/src/screens/main/ActivityScreen.tsx` | Cards Pedidos/Agendamentos/Reservas | Abrir fluxo comercial | Nao implementado | Cards `coming_soon` terminam em `Alert.alert('Em breve')` | `ActivityScreen.tsx:36-55`, `69-71` | Implementar telas/rotas reais ou remover cards |
-| `frontend/src/screens/main/ActivityFavoritesScreen.tsx` | Botao/estado de Favoritos | Ver favoritos | Parcial | Tela informa que nao consome lista consolidada do backend | `ActivityFavoritesScreen.tsx:24-52` | Criar endpoint/lista real ou remover tela |
-| `frontend/src/screens/main/ActivityHistoryScreen.tsx` | Botao/estado de Historico | Ver historico | Parcial | Tela informa que nao existe contrato consolidado | `ActivityHistoryScreen.tsx:24-53` | Criar contrato de historico ou remover tela |
+| `frontend/src/screens/main/ActivityScreen.tsx` | Cards Pedidos/Agendamentos/Reservas | Abrir fluxo comercial | Fora do caminho visivel; sem fake no codigo local | EXECUCAO-014 removeu cards `coming_soon` e alerta `Em breve` | `ActivityScreen.tsx` | Implementar telas/rotas reais antes de reexibir |
+| `frontend/src/screens/main/ActivityFavoritesScreen.tsx` | Botao/estado de Favoritos | Ver favoritos | Fora do hub visivel; sem fake no codigo local | EXECUCAO-014 removeu texto de auditoria/backend e deixa estado vazio simples | `ActivityFavoritesScreen.tsx` | Criar endpoint/lista real antes de reexibir |
+| `frontend/src/screens/main/ActivityHistoryScreen.tsx` | Botao/estado de Historico | Ver historico | Fora do hub visivel; sem fake no codigo local | EXECUCAO-014 removeu texto de auditoria/backend e deixa estado vazio simples | `ActivityHistoryScreen.tsx` | Criar contrato real antes de reexibir |
 | `frontend/src/screens/main/CatalogScreen.tsx` | Card de catalogo | Abrir item | RESOLVIDO no codigo local; smoke pendente | Apos EXECUCAO-002, sem `establishmentId` nao carrega `MOCK_CATALOGS` e mostra estado honesto | `CatalogScreen.tsx` | Validar smoke em perfil de estabelecimento real e rota sem contexto |
 | `frontend/src/screens/main/ItemScreen.tsx` | CTA generico | Agendar, reservar, assinar, adicionar ao carrinho | RESOLVIDO no codigo local; smoke pendente | Apos EXECUCAO-002, CTA generico fora do backend foi removido | `ItemScreen.tsx` | Validar produto/evento real em device/staging |
 | `frontend/src/screens/main/FeedSocialScreen.tsx` | Avatar do autor | Abrir perfil publico | Parcial | Navega com `{ type, userId }`, mas destino nao consome corretamente esse contrato | `FeedSocialScreen.tsx:239-245` | Passar `establishmentId` ou implementar perfil publico por `userId` |
@@ -965,11 +965,11 @@ Resultado priorizado por gravidade:
 | P1 se reexibir | `frontend/src/screens/main/SettingsPrivacyScreen.tsx`; `frontend/src/screens/main/SettingsScreen.tsx`; `frontend/src/screens/main/SettingsAuxScreens.tsx` | RESOLVIDO no codigo local pela EXECUCAO-012: privacidade/mensagens/check-ins/bloqueados nao ficam mais em estado local visivel | Sim, se oculto do caminho de producao | Preferencias reais de privacidade e bloqueios do usuario antes de voltar ao menu | Criar endpoints `GET/PUT /users/me/privacy` e bloqueios antes de reexibir | Risco remanescente fica fora da UI visivel; se reexibir sem backend volta a bloquear release |
 | P1 se reexibir | `frontend/src/screens/main/SettingsScreen.tsx` | RESOLVIDO no codigo local pela EXECUCAO-013: toggle GPS local, desativar conta por alerta e fallback vazio de toggle foram removidos | Sim, se oculto do caminho de producao | Preferencia real de localizacao e endpoint real de desativacao antes de voltar ao menu | Criar service de preferencias; criar endpoint de deactivate antes de reexibir | Risco remanescente fica fora da UI visivel; se reexibir sem backend volta a bloquear release |
 | P0 ate smoke | `frontend/src/screens/main/SettingsSecurityScreen.tsx`; `frontend/src/screens/main/SettingsAuxScreens.tsx` | RESOLVIDO parcialmente no codigo local pela EXECUCAO-011: comentario vazio/mojibake removido, senha/2FA ficam reais e sessoes saem do menu | Parcial; alerta de novo acesso fica informativo/obrigatorio | Preferencias/sessoes reais de seguranca se voltarem ao escopo | `POST /auth/change-password`; 2FA existente; criar endpoints de sessions/audit log antes de reexibir sessoes | Risco remanescente fica em smoke de senha/2FA e escopo futuro de sessoes |
-| P1 | `frontend/src/screens/main/ActivityScreen.tsx:26-64`, `69-72`, `123-131` | Cards de pedidos/agendamentos/reservas com `coming_soon` e alerta `Em breve` | Aceitavel somente se decisao de MVP for mostrar status; nao aceitavel como funcionalidade | Fluxos reais de pedidos, reservas e agendamentos ou remocao dos cards | Criar endpoints/telas dedicadas ou remover do menu de producao | Produto comunica recurso que nao existe; aumenta suporte e frustra fluxo comercial |
+| P1 se reexibir | `frontend/src/screens/main/ActivityScreen.tsx` | RESOLVIDO no codigo local pela EXECUCAO-014: cards de pedidos/agendamentos/reservas com `coming_soon` e alerta `Em breve` foram removidos | Sim, se oculto do caminho de producao | Fluxos reais de pedidos, reservas e agendamentos antes de voltar ao hub | Criar endpoints/telas dedicadas antes de reexibir | Risco remanescente fica fora da UI visivel; se reexibir sem backend volta a bloquear release |
 | P1 | `frontend/src/screens/main/ItemScreen.tsx:49-73`, `270-276`, `600-603` | CTAs genericos (`Agendar`, `Reservar`, `Assinar`, carrinho) apenas exibem alerta de fluxo fora do MVP | Aceitavel somente se botao ficar claramente fora do MVP; melhor remover do release | Contratos reais de agendamento/reserva/assinatura/pedido, ou CTA oculto | Criar services/endpoints especificos ou remover templates genericos | Usuario tenta comprar/agendar e recebe bloqueio; impacto direto em conversao |
 | P1 | `frontend/src/screens/main/SearchScreen.tsx:52`, `290-300` | `RECENT_SEARCHES` fixo exibido como buscas rapidas | Parcial; aceitavel se renomeado como sugestoes fixas, nao como historico real | Historico real de busca do usuario ou sugestoes editoriais declaradas | Criar endpoint/storage de historico, ou usar `searchService.trending()`/`searchService.autocomplete()` | Usuario ve termos que nao sao recentes; personalizacao falsa |
-| P2 | `frontend/src/screens/main/ActivityFavoritesScreen.tsx:24-47` | Tela informa que favoritos nao estao sincronizados e que dados fake anteriores foram removidos | Parcialmente aceitavel como tela de status; nao e funcionalidade pronta | Lista real de favoritos do usuario | Criar endpoint de favoritos consolidados ou estender `establishments` para listar favoritos do usuario | Feature existe no menu mas nao entrega valor final |
-| P2 | `frontend/src/screens/main/ActivityHistoryScreen.tsx:24-48` | Tela informa que historico consolidado nao existe | Parcialmente aceitavel como transparencia; nao e funcionalidade pronta | Historico real de buscas, perfis vistos, check-ins e atividades | Criar modelo/endpoint de historico com retencao definida | Feature aparece sem dado real; baixa maturidade de produto |
+| P1 se reexibir | `frontend/src/screens/main/ActivityFavoritesScreen.tsx` | RESOLVIDO no codigo local pela EXECUCAO-014: tela nao informa lacuna/backend nem simula favoritos | Sim, se fora do hub visivel | Lista real de favoritos do usuario antes de voltar ao hub | Criar endpoint de favoritos consolidados ou estender `establishments` para listar favoritos do usuario | Risco remanescente fica fora da UI visivel |
+| P1 se reexibir | `frontend/src/screens/main/ActivityHistoryScreen.tsx` | RESOLVIDO no codigo local pela EXECUCAO-014: tela nao informa lacuna/backend nem simula historico | Sim, se fora do hub visivel | Historico real de buscas, perfis vistos, check-ins e atividades antes de voltar ao hub | Criar modelo/endpoint de historico com retencao definida | Risco remanescente fica fora da UI visivel |
 | P2 | `frontend/src/screens/main/HomeScreen.tsx:73-76` | Evento sem data retorna badge `EM BREVE` | Aceitavel como fallback visual se evento sem data for permitido; revisar contrato | Data real do evento ou estado `sem data publicada` | `searchService.searchEvents()`; backend `GET /search/events` deve retornar `date` confiavel | Pode mascarar evento cadastrado incorretamente sem data |
 | P2 | `backend/src/modules/auth/auth.service.ts:596-599` | Comentario diz `placeholder` em verificacao 2FA, mas codigo usa `user.twoFactorSecret` persistido | Aceitavel como comentario desatualizado? Nao para qualidade de producao | Comentario correto refletindo fluxo real ou ajuste se houver gap real | `authService.setupTwoFactorAuth()` e `verifyTwoFactorAuth()` | Comentario engana auditoria e manutencao; risco de alterar fluxo correto por leitura errada |
 | P0 ate smoke | `frontend/src/screens/main/MapScreen.tsx` | RESOLVIDO no codigo local pela EXECUCAO-008: item da lista e marker/callout navegam para evento/estabelecimento | Nao aplicavel ao codigo local atual; ainda nao aprovado para producao sem smoke | Navegacao real para evento/estabelecimento | Rotas `Item`/`Profile` com dados carregados por `locationService`/perfil | Risco remanescente fica no smoke de dados reais e permissao/localizacao |
@@ -995,7 +995,7 @@ Ordem de correcao desta auditoria:
 3. RESOLVIDO no codigo local pela EXECUCAO-009: `PersonalSetupScreen` persiste username, bio, cidade/localizacao e avatar; interesses ficaram fora do release por ausencia de backend canonico.
 4. RESOLVIDO no codigo local pela EXECUCAO-010: `SettingsCityScreen` usa geolocalizacao real e persiste cidade em `PUT /users/me/profile`; smoke mobile/staging pendente.
 5. RESOLVIDO parcialmente no codigo local pela EXECUCAO-011 e EXECUCAO-012: alterar senha foi implementado; dispositivos/historico, privacidade e bloqueados foram retirados do caminho visivel ou deixaram de exibir dados inventados. Ainda falta ocultar ou implementar notificacoes, idioma e raio sem contrato real.
-6. Remover CTAs de pedidos/agendamentos/reservas/assinaturas/carrinho do release ate existirem endpoints reais.
+6. RESOLVIDO parcialmente no codigo local pela EXECUCAO-014: cards de pedidos/agendamentos/reservas sairam de Activity; CTAs de assinaturas/carrinho fora de Activity continuam dependentes de escopo/backend real.
 7. Trocar `RECENT_SEARCHES` por historico real ou renomear explicitamente para sugestoes fixas.
 8. Corrigir comentario `placeholder` no 2FA backend para refletir que o secret vem de `user.twoFactorSecret`.
 
@@ -1312,9 +1312,9 @@ Regra absoluta de release: nunca deixar em producao mock, botao sem acao, alerta
 | `frontend/src/screens/main/SettingsPrivacyScreen.tsx` | Alterar privacidade/mensagens/check-ins | Controlar exposicao de dados e interacoes | Nao existe no backend atual | Nao comprovado | Sim para release profissional, mas fora do release visivel atual | Ocultar temporariamente da UI de producao - RESOLVIDO no codigo local pela EXECUCAO-012 | Criar model/migration/DTO/controller/service antes de reexibir | P1 se voltar ao escopo; P0 se reexibir local-only |
 | `frontend/src/screens/main/SettingsSecurityScreen.tsx` | Senha/2FA/sessoes/seguranca | Proteger conta | Sim para senha e 2FA; nao comprovado para sessoes/audit log | Parcial | Sim | Conectar backend existente - RESOLVIDO parcialmente pela EXECUCAO-011; sessoes fora do menu ate backend real | Smoke de senha/2FA; criar/listar/revogar sessoes somente se voltar ao escopo | P0 ate smoke para senha/2FA; P1 para sessoes ocultas |
 | `frontend/src/screens/main/SettingsAuxScreens.tsx` | Notificacoes, idioma, bloqueados, alterar senha, suporte/legal auxiliares | Ajustar preferencias e acessar suporte/legal | Alterar senha sim; bloqueados/notificacoes/idioma/raio/contas ocultos; demais parcial/nao comprovado | Parcial/nao comprovado | Parcial | Classificar item a item; alterar senha RESOLVIDO pela EXECUCAO-011; bloqueados oculto pela EXECUCAO-012; notificacoes/idioma/raio/contas ocultos pela EXECUCAO-013 | Remover fallback local, conectar preferencias reais, suporte real e legal real | P1; P0 para itens visiveis fake |
-| `frontend/src/screens/main/ActivityScreen.tsx` | Central de atividade | Ver historico/favoritos/interacoes reais | Parcial/nao comprovado | Parcial | Sim se tab/entrada visivel | Criar backend novo e conectar ou manter fora do release | Definir cards com contadores reais e rotas funcionais; sem card morto | P1; P0 se exibe dado falso |
-| `frontend/src/screens/main/ActivityFavoritesScreen.tsx` | Favoritos | Ver itens favoritados reais | Nao comprovado | Nao comprovado | Sim se recurso visivel | Criar model/migration/DTO/controller/service e conectar frontend | Model favoritos, endpoints listar/adicionar/remover, empty state real | P1; P0 se visivel fake |
-| `frontend/src/screens/main/ActivityHistoryScreen.tsx` | Historico | Ver itens visitados/acoes recentes | Nao comprovado | Nao comprovado | Nao necessariamente | Manter fora do release ou criar backend novo | Se mantido, implementar tracking real; se nao, ocultar entrada em producao | P1 se visivel; P2 se oculto |
+| `frontend/src/screens/main/ActivityScreen.tsx` | Central de atividade | Ver historico/favoritos/interacoes reais | Nao comprovado para recursos; estado vazio nao exige backend | Parcial | Sim se tab/entrada visivel | Manter estado vazio sem cards falsos - RESOLVIDO no codigo local pela EXECUCAO-014 | Criar backend novo antes de reexibir cards/contadores/rotas | P1 se voltar ao escopo; P0 se exibe dado falso |
+| `frontend/src/screens/main/ActivityFavoritesScreen.tsx` | Favoritos | Ver itens favoritados reais | Nao comprovado | Nao comprovado | Sim se recurso visivel | Fora do hub visivel - RESOLVIDO no codigo local pela EXECUCAO-014 | Model favoritos, endpoints listar/adicionar/remover, empty state real antes de reexibir | P1 se voltar ao escopo |
+| `frontend/src/screens/main/ActivityHistoryScreen.tsx` | Historico | Ver itens visitados/acoes recentes | Nao comprovado | Nao comprovado | Nao necessariamente | Fora do hub visivel - RESOLVIDO no codigo local pela EXECUCAO-014 | Se mantido, implementar tracking real; se nao, manter fora da UI de producao | P1 se visivel; P2 se oculto |
 | `frontend/src/screens/main/CatalogScreen.tsx` | Catalogo | Ver produtos reais de estabelecimento | Sim via `GET /establishments/:id/products`; eventos entram por Home/Item | Sim products/events | Sim | Conectado ao backend existente no codigo local | `MOCK_CATALOGS` removido; rota sem `establishmentId` mostra estado honesto; validar smoke | P0 ate smoke |
 | `frontend/src/screens/main/ItemScreen.tsx` | Detalhe de item | Ver produto/evento real e agir | Sim via `GET /products/:id` e `GET /events/:id`; acoes de presenca usam backend | Sim products/events | Sim se catalogo/home abrem item | Conectado ao backend existente no codigo local | `item-fallback` e CTA generico removidos; validar 404/empty e device real | P0 ate smoke |
 | `frontend/src/screens/main/SearchScreen.tsx` | `RECENT_SEARCHES` | Reusar buscas recentes reais | Nao comprovado | Pode ser local storage aceitavel se declarado; backend nao obrigatorio | Sim se exibido | Corrigir contrato ou persistir local sem fingir backend | Declarar local-only honesto ou criar endpoint/preferencia; nao exibir sugestoes fake como reais | P1; P0 se parece dado real |
@@ -1969,6 +1969,38 @@ Status:
 
 - RESOLVIDO no codigo local para o caminho visivel de producao.
 - Pendente de produto/backend futuro: GPS como preferencia persistida, raio de busca, preferencias de notificacao, idioma, contas vinculadas e desativacao temporaria so devem voltar ao menu com contratos reais.
+
+### EXECUCAO-014 - Activity sem cards futuros e sem textos de auditoria na UI - 2026-05-02
+
+Objetivo executado:
+
+- Fechar o P1/P0 local em que `ActivityScreen` expunha cards `coming_soon`, alerta `Em breve` e recursos comerciais sem backend.
+- Remover textos de auditoria/proximo passo/backend de Favoritos e Historico dentro da UI.
+
+Arquivos alterados:
+
+- `frontend/src/screens/main/ActivityScreen.tsx`
+- `frontend/src/screens/main/ActivityFavoritesScreen.tsx`
+- `frontend/src/screens/main/ActivityHistoryScreen.tsx`
+- `PLANO_CORRECAO_PRODUCAO_MEU_AGITO.md`
+
+Implementacao:
+
+- `ActivityScreen` foi reduzida a estado vazio simples, sem cards de Pedidos, Agendamentos, Reservas, Favoritos ou Historico.
+- `Alert.alert('Em breve')`, `coming_soon` e cards sem backend foram removidos.
+- `ActivityFavoritesScreen` e `ActivityHistoryScreen` deixaram de mostrar textos de auditoria/backend/roadmap e passaram a estados vazios simples.
+- As rotas continuam registradas, mas nao ficam acessiveis pelo hub de Activity ate existirem contratos reais.
+
+Validacao executada:
+
+- `cd frontend && npx tsc --noEmit`: OK.
+- `cd frontend && npm run lint`: OK.
+- Varredura em `ActivityScreen.tsx`, `ActivityFavoritesScreen.tsx` e `ActivityHistoryScreen.tsx` para `coming_soon`, `Em breve`, `STATUS REAL`, `backend`, `fake`, `mock`, `fora do escopo`, `MVP`, `proximo passo`, `lacuna`, `contrato`, `TODO`, `FIXME`, `console.log`, `onPress={() => {}}`, `Pedidos`, `Agendamentos` e `Reservas`: sem ocorrencias.
+
+Status:
+
+- RESOLVIDO no codigo local para o caminho visivel de producao.
+- Pendente de produto/backend futuro: favoritos, historico, pedidos, agendamentos e reservas so devem voltar ao hub com endpoints/telas reais.
 
 Resumo de bloqueadores absolutos antes de deploy publico real:
 

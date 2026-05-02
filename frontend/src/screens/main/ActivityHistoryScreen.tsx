@@ -22,35 +22,10 @@ export default function ActivityHistoryScreen() {
       </View>
 
       <View style={styles.content}>
-        <View style={styles.hero}>
-          <Text style={styles.heroBadge}>STATUS REAL</Text>
-          <Text style={styles.heroTitle}>Historico consolidado ainda nao existe no backend</Text>
-          <Text style={styles.heroText}>
-            Os dados locais fixos que simulavam check-ins, buscas e vistos foram removidos. O
-            produto ainda nao tem um contrato unico de historico capaz de sustentar esta tela com
-            consistencia de producao.
-          </Text>
+        <View style={styles.emptyCard}>
+          <Text style={styles.emptyTitle}>Nenhum historico disponivel</Text>
+          <Text style={styles.emptyText}>As atividades recentes aparecerao aqui.</Text>
         </View>
-
-        <View style={styles.card}>
-          <Text style={styles.cardTitle}>Lacuna confirmada</Text>
-          <Text style={styles.cardText}>
-            Nao foi encontrado endpoint canonico para consolidar buscas recentes, perfis vistos,
-            check-ins ou atividades equivalentes nesta area.
-          </Text>
-        </View>
-
-        <View style={styles.card}>
-          <Text style={styles.cardTitle}>Proximo passo correto</Text>
-          <Text style={styles.cardText}>
-            Definir primeiro o modelo oficial de historico e sua retencao. So depois vale ligar a
-            interface, para evitar uma tela bonita sustentada por comportamento inventado.
-          </Text>
-        </View>
-
-        <TouchableOpacity style={styles.primaryAction} onPress={() => navigation.goBack()}>
-          <Text style={styles.primaryActionText}>Voltar</Text>
-        </TouchableOpacity>
       </View>
     </SafeAreaView>
   );
@@ -99,61 +74,23 @@ const styles = StyleSheet.create({
   content: {
     flex: 1,
     padding: spacing.md,
-    gap: spacing.md,
   },
-  hero: {
+  emptyCard: {
     borderWidth: 1,
     borderColor: colors.border,
-    borderRadius: 16,
+    borderRadius: 12,
     backgroundColor: colors.surface,
     padding: spacing.md,
-    gap: spacing.sm,
   },
-  heroBadge: {
-    color: colors.primary,
-    fontSize: fontSize.xs,
-    fontWeight: '800',
-    textTransform: 'uppercase',
-  },
-  heroTitle: {
+  emptyTitle: {
     color: colors.text,
-    fontSize: fontSize.lg,
+    fontSize: fontSize.md,
     fontWeight: '800',
   },
-  heroText: {
+  emptyText: {
     color: colors.textSecondary,
     fontSize: fontSize.sm,
     lineHeight: 20,
-  },
-  card: {
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 14,
-    backgroundColor: colors.surface,
-    padding: spacing.md,
-    gap: spacing.xs,
-  },
-  cardTitle: {
-    color: colors.text,
-    fontSize: fontSize.md,
-    fontWeight: '800',
-  },
-  cardText: {
-    color: colors.textSecondary,
-    fontSize: fontSize.sm,
-    lineHeight: 19,
-  },
-  primaryAction: {
-    marginTop: 'auto',
-    minHeight: 48,
-    borderRadius: 12,
-    backgroundColor: colors.primary,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  primaryActionText: {
-    color: colors.text,
-    fontSize: fontSize.md,
-    fontWeight: '800',
+    marginTop: spacing.sm,
   },
 });

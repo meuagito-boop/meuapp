@@ -817,3 +817,23 @@ Status da validacao ponta a ponta:
 
 - o P0/P1 local "Settings com GPS/raio/notificacoes/idioma/desativar local-only" fica RESOLVIDO no codigo para o caminho visivel.
 - continua pendente de produto/backend futuro: GPS como preferencia persistida, raio de busca, preferencias de notificacao, idioma, contas vinculadas e desativacao temporaria so devem voltar ao menu com contratos reais.
+
+## Atualizacao complementar - 2026-05-02 (America/Sao_Paulo) - Activity sem cards futuros
+
+### Correcao aplicada
+
+- `ActivityScreen` foi reduzida a estado vazio simples.
+- Cards de Pedidos, Agendamentos, Reservas, Favoritos e Historico sairam do hub de Activity.
+- `Alert.alert('Em breve')` e `coming_soon` foram removidos.
+- `ActivityFavoritesScreen` e `ActivityHistoryScreen` deixaram de mostrar textos de auditoria/backend/roadmap e passaram a estados vazios simples.
+
+### Validacao executada
+
+- `cd frontend && npx tsc --noEmit`: OK.
+- `cd frontend && npm run lint`: OK.
+- Varredura em `ActivityScreen.tsx`, `ActivityFavoritesScreen.tsx` e `ActivityHistoryScreen.tsx` para `coming_soon`, `Em breve`, `STATUS REAL`, `backend`, `fake`, `mock`, `fora do escopo`, `MVP`, `proximo passo`, `lacuna`, `contrato`, `TODO`, `FIXME`, `console.log`, `onPress={() => {}}`, `Pedidos`, `Agendamentos` e `Reservas`: sem ocorrencias.
+
+### Leitura correta apos esta rodada
+
+- o P1/P0 local "Activity com cards futuros/Em breve/textos de auditoria na UI" fica RESOLVIDO no codigo para o caminho visivel.
+- continua pendente de produto/backend futuro: favoritos, historico, pedidos, agendamentos e reservas so devem voltar ao hub com endpoints/telas reais.

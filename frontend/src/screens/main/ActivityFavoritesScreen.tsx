@@ -22,34 +22,10 @@ export default function ActivityFavoritesScreen() {
       </View>
 
       <View style={styles.content}>
-        <View style={styles.hero}>
-          <Text style={styles.heroBadge}>STATUS REAL</Text>
-          <Text style={styles.heroTitle}>Favoritos ainda nao sincronizados nesta tela</Text>
-          <Text style={styles.heroText}>
-            O app ja permite favoritar estabelecimento no perfil publico, mas esta tela ainda nao
-            consome uma lista consolidada do backend. Os dados fake anteriores foram removidos para
-            nao mascarar a lacuna.
-          </Text>
+        <View style={styles.emptyCard}>
+          <Text style={styles.emptyTitle}>Nenhum favorito disponivel</Text>
+          <Text style={styles.emptyText}>Os itens favoritados aparecerao aqui.</Text>
         </View>
-
-        <View style={styles.card}>
-          <Text style={styles.cardTitle}>O que existe hoje</Text>
-          <Text style={styles.cardText}>
-            Favoritar e desfavoritar estabelecimento pelo endpoint real do modulo `establishments`.
-          </Text>
-        </View>
-
-        <View style={styles.card}>
-          <Text style={styles.cardTitle}>O que falta para fechar</Text>
-          <Text style={styles.cardText}>
-            Um endpoint dedicado para listar favoritos do usuario com contrato consumivel por esta
-            tela, ou uma estrategia oficial para derivar essa lista sem duplicar regra de negocio.
-          </Text>
-        </View>
-
-        <TouchableOpacity style={styles.primaryAction} onPress={() => navigation.goBack()}>
-          <Text style={styles.primaryActionText}>Voltar</Text>
-        </TouchableOpacity>
       </View>
     </SafeAreaView>
   );
@@ -98,61 +74,23 @@ const styles = StyleSheet.create({
   content: {
     flex: 1,
     padding: spacing.md,
-    gap: spacing.md,
   },
-  hero: {
+  emptyCard: {
     borderWidth: 1,
     borderColor: colors.border,
-    borderRadius: 16,
+    borderRadius: 12,
     backgroundColor: colors.surface,
     padding: spacing.md,
-    gap: spacing.sm,
   },
-  heroBadge: {
-    color: colors.primary,
-    fontSize: fontSize.xs,
-    fontWeight: '800',
-    textTransform: 'uppercase',
-  },
-  heroTitle: {
+  emptyTitle: {
     color: colors.text,
-    fontSize: fontSize.lg,
+    fontSize: fontSize.md,
     fontWeight: '800',
   },
-  heroText: {
+  emptyText: {
     color: colors.textSecondary,
     fontSize: fontSize.sm,
     lineHeight: 20,
-  },
-  card: {
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 14,
-    backgroundColor: colors.surface,
-    padding: spacing.md,
-    gap: spacing.xs,
-  },
-  cardTitle: {
-    color: colors.text,
-    fontSize: fontSize.md,
-    fontWeight: '800',
-  },
-  cardText: {
-    color: colors.textSecondary,
-    fontSize: fontSize.sm,
-    lineHeight: 19,
-  },
-  primaryAction: {
-    marginTop: 'auto',
-    minHeight: 48,
-    borderRadius: 12,
-    backgroundColor: colors.primary,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  primaryActionText: {
-    color: colors.text,
-    fontSize: fontSize.md,
-    fontWeight: '800',
+    marginTop: spacing.sm,
   },
 });
