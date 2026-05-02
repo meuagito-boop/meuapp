@@ -857,3 +857,26 @@ Status da validacao ponta a ponta:
 
 - o P1 local "Search com buscas recentes fixas" fica RESOLVIDO no codigo.
 - continua pendente de produto/backend futuro: historico real de busca so deve voltar com storage/endpoint real ou sugestao editorial explicitamente definida.
+
+## Atualizacao complementar - 2026-05-02 (America/Sao_Paulo) - Notificacoes sem placeholders e com roteamento por entidade
+
+### Correcao aplicada
+
+- `NotificationsScreen` deixou de exibir `??` e `?` como placeholders visuais.
+- Avatares de tipo agora usam labels textuais curtos (`SO`, `ES`, `PD`, `SI`).
+- Clique em notificacao de conversa abre `MainTabs -> Chat -> ChatDetail` com `conversationId` e `recipientName`.
+- Clique em notificacao de estabelecimento abre `Profile` com `establishmentId`.
+- Clique em notificacao de produto abre `Item` com `template: produto` e `productId`.
+- Clique em notificacao de evento abre `Item` com `template: evento` e `item.id`.
+- `relatedUserId` nao foi roteado para `Profile`, porque o destino atual nao carrega perfil publico por `userId`; isso segue documentado como pendencia de produto/frontend/backend.
+
+### Validacao executada
+
+- `cd frontend && npx tsc --noEmit`: OK.
+- `cd frontend && npm run lint`: OK.
+- Varredura em `NotificationsScreen.tsx` para `??`, `mock`, `fake`, `dummy`, `sample`, `TODO`, `FIXME`, `Em breve`, `coming soon`, `placeholder` e `console.log`: apenas `??` de nullish coalescing em `item.isRead ?? false`, sem placeholder visual.
+
+### Leitura correta apos esta rodada
+
+- o P1 local "Notifications com placeholders visuais e perda de parametros de conversa/entidade" fica RESOLVIDO parcialmente no codigo.
+- continua pendente: smoke com payload real em staging/device e decisao/implementacao de perfil publico por `relatedUserId` se esse tipo de notificacao entrar no MVP.

@@ -41,34 +41,93 @@ interface NotificationItem {
   relatedPostId?: string | null;
 }
 
+type NormalizedEntityType =
+  | 'conversation'
+  | 'establishment'
+  | 'product'
+  | 'produto'
+  | 'event'
+  | 'evento'
+  | 'post';
+
 const TYPE_META: Record<
   string,
   { avatar: string; badge: string; badgeColor: string; normalizedType: NotificationItem['type'] }
 > = {
   social: {
-    avatar: '??',
+    avatar: 'SO',
     badge: 'S',
     badgeColor: '#E8640A',
     normalizedType: 'social',
   },
   establishment: {
-    avatar: '??',
+    avatar: 'ES',
     badge: 'E',
     badgeColor: '#27AE60',
     normalizedType: 'establishment',
   },
   order: {
-    avatar: '??',
+    avatar: 'PD',
     badge: 'P',
     badgeColor: '#2A9FD8',
     normalizedType: 'order',
   },
   system: {
-    avatar: '??',
+    avatar: 'SI',
     badge: 'M',
     badgeColor: '#E8640A',
     normalizedType: 'system',
   },
+};
+
+const getPayloadString = (
+  payload: Record<string, unknown> | null | undefined,
+  key: string,
+): string | null => {
+  const value = payload?.[key];
+
+  if (typeof value !== 'string') {
+    return null;
+  }
+
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : null;
+};
+
+const normalizeEntityType = (value?: string | null): NormalizedEntityType | null => {
+  const normalized = value?.trim().toLowerCase();
+
+  if (
+    normalized === 'conversation' ||
+    normalized === 'establishment' ||
+    normalized === 'product' ||
+    normalized === 'produto' ||
+    normalized === 'event' ||
+    normalized === 'evento' ||
+    normalized === 'post'
+  ) {
+    return normalized;
+  }
+
+  return null;
+};
+
+const getNotificationEntityId = (
+  notification: NotificationItem,
+  payloadKeys: string[] = [],
+): string | null => {
+  if (notification.entityId?.trim()) {
+    return notification.entityId.trim();
+  }
+
+  for (const key of payloadKeys) {
+    const payloadValue = getPayloadString(notification.payload, key);
+    if (payloadValue) {
+      return payloadValue;
+    }
+  }
+
+  return getPayloadString(notification.payload, 'entityId');
 };
 
 const mapApiNotification = (item: ApiNotificationItem): NotificationItem => {
@@ -229,18 +288,68 @@ export default function NotificationsScreen() {
         }
       }
 
-      if (notification.relatedPostId) {
+      const entityType = normalizeEntityType(notification.entityType);
+      const conversationId =
+        getPayloadString(notification.payload, 'conversationId') ||
+        (entityType === 'conversation'
+          ? getNotificationEntityId(notification, ['conversationId'])
+          : null);
+      const entityId = getNotificationEntityId(notification, ['id']);
+
+      if (notification.relatedPostId || entityType === 'post') {
         navigation.navigate('MainTabs', { screen: 'Feed' });
         return;
       }
 
-      if (notification.entityType === 'conversation' || notification.payload?.conversationId) {
-        navigation.navigate('MainTabs', { screen: 'Chat' });
+      if (conversationId) {
+        const recipientName =
+          getPayloadString(notification.payload, 'recipientName') ||
+          getPayloadString(notification.payload, 'senderName') ||
+          notification.title;
+
+        navigation.navigate('MainTabs', {
+          screen: 'Chat',
+          params: {
+            screen: 'ChatDetail',
+            params: {
+              conversationId,
+              recipientName,
+            },
+          },
+        });
         return;
       }
 
-      if (notification.relatedUserId) {
-        navigation.navigate('MainTabs', { screen: 'Profile' });
+      if (entityType === 'establishment' && entityId) {
+        navigation.navigate('MainTabs', {
+          screen: 'Profile',
+          params: {
+            type: 'establishment',
+            establishmentId: entityId,
+          },
+        });
+        return;
+      }
+
+      if ((entityType === 'product' || entityType === 'produto') && entityId) {
+        navigation.navigate('Item', {
+          template: 'produto',
+          productId: entityId,
+        });
+        return;
+      }
+
+      if ((entityType === 'event' || entityType === 'evento') && entityId) {
+        navigation.navigate('Item', {
+          template: 'evento',
+          item: {
+            id: entityId,
+            name: notification.title,
+            description: notification.text,
+            category: 'Evento',
+            price: 'Consulte',
+          },
+        });
         return;
       }
 
@@ -302,7 +411,7 @@ export default function NotificationsScreen() {
 
   const emptyState = () => (
     <View style={styles.emptyContainer}>
-      <Text style={styles.emptyIcon}>??</Text>
+      <Text style={styles.emptyIcon}>N</Text>
       <Text style={styles.emptyTitle}>Nenhuma notificacao ainda</Text>
       <Text style={styles.emptySubtitle}>
         {error || 'Voce recebera notificacoes sobre atividades relevantes'}
@@ -315,7 +424,7 @@ export default function NotificationsScreen() {
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()}>
           <View style={styles.backButton}>
-            <Text style={styles.backIcon}>?</Text>
+            <Text style={styles.backIcon}>{'<'}</Text>
           </View>
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Notificacoes</Text>
@@ -331,7 +440,7 @@ export default function NotificationsScreen() {
       {hasUnread && (
         <View style={styles.unreadCounter}>
           <Text style={styles.unreadCounterText}>
-            ?? <Text style={styles.unreadCounterNumber}>{unreadCount}</Text> novas notificacoes
+            <Text style={styles.unreadCounterNumber}>{unreadCount}</Text> novas notificacoes
           </Text>
         </View>
       )}
