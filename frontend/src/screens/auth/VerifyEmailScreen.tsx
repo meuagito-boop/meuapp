@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   Alert,
   KeyboardAvoidingView,
@@ -9,7 +9,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { useNavigation, ParamListBase } from '@react-navigation/native';
+import { useNavigation, ParamListBase, RouteProp, useRoute } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 import { Button, Input } from '@components';
@@ -17,12 +17,27 @@ import { colors } from '@constants/colors';
 import { fontSize, spacing } from '@constants/design';
 import { useAuth } from '@hooks/useAuth';
 
+type VerifyEmailRouteParams = {
+  token?: string;
+};
+
 export default function VerifyEmailScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<ParamListBase>>();
+  const route = useRoute<RouteProp<ParamListBase, string>>();
   const { verifyEmail, resendVerificationEmail, isLoading, clearError } = useAuth();
+  const routeToken = useMemo(() => {
+    const params = route.params as VerifyEmailRouteParams | undefined;
+    return typeof params?.token === 'string' ? params.token.trim() : '';
+  }, [route.params]);
 
   const [email, setEmail] = useState('');
   const [token, setToken] = useState('');
+
+  useEffect(() => {
+    if (routeToken.length > 0) {
+      setToken(routeToken);
+    }
+  }, [routeToken]);
 
   const handleResend = async () => {
     if (!email.trim()) {

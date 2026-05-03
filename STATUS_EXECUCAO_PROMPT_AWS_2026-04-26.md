@@ -1172,3 +1172,25 @@ Status da validacao ponta a ponta:
 
 - o P0 local "logs estruturados sem redacao central de senha/token/secret" fica RESOLVIDO no codigo.
 - continua pendente: validar logs reais em staging/CloudWatch com falhas de auth, email, push, upload e requests 4xx/5xx.
+
+## Atualizacao complementar - 2026-05-02 (America/Sao_Paulo) - Deep links de e-mail para verificacao e reset
+
+### Correcao aplicada
+
+- `frontend/app.json` registrou o scheme `meuagito`.
+- `NavigationContainer` passou a receber config `linking` fora do modo web preview.
+- Criado `frontend/src/screens/navigation/linking.ts` com rotas `verify-email` e `reset-password`.
+- `VerifyEmailScreen` e `ForgotPasswordScreen` agora leem `route.params.token` e preenchem o campo de codigo quando abertos por deep link.
+- `backend/.env.example` documenta uso de `FRONTEND_URL=meuagito://` para links de e-mail mobile em staging/prod.
+- `README.md` e plano foram atualizados com o fluxo de links de e-mail.
+
+### Validacao executada
+
+- `cd frontend && npx jest src/screens/navigation/linking.test.ts --runInBand`: OK, 1 teste.
+- `cd frontend && npx tsc --noEmit`: OK.
+- `cd frontend && npm run lint`: OK.
+
+### Leitura correta apos esta rodada
+
+- o P0 local "email link aponta para rota sem deep link mobile configurado" fica RESOLVIDO no codigo.
+- continuam pendentes: validar deep links em device real, SES real e `FRONTEND_URL` staging/prod.

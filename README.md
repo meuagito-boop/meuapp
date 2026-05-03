@@ -276,6 +276,7 @@ Ja existe no codigo:
 - `ApiClient` com Axios, Bearer token, refresh automatico e SecureStore;
 - resolucao de API por `EXPO_PUBLIC_API_URL`; em dev ha fallback local, em release a env e obrigatoria;
 - canal de suporte por `EXPO_PUBLIC_SUPPORT_EMAIL`; em release a env e obrigatoria para abrir contato real;
+- deep link mobile por `meuagito://` para abrir verificacao de e-mail e reset de senha no app;
 - registro de push token apos login/onboarding somente quando `EXPO_PUBLIC_ENABLE_PUSH_REGISTRATION=true`;
 - `WebPreviewNavigator` para preview web de telas.
 
@@ -380,6 +381,13 @@ Tokens principais:
 3. App navega para `TwoFactorLoginScreen`.
 4. Usuario envia codigo TOTP.
 5. Backend valida e retorna tokens definitivos.
+
+### Links de e-mail
+
+1. Backend monta links com `FRONTEND_URL`.
+2. Em staging/prod mobile, `FRONTEND_URL` deve apontar para `meuagito://`.
+3. App registra o scheme `meuagito` e configura rotas `verify-email` e `reset-password`.
+4. `VerifyEmailScreen` e `ForgotPasswordScreen` recebem `token` por deep link e preenchem o campo de codigo.
 
 ### Feed social
 

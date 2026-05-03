@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Platform } from 'react-native';
 
 import RootNavigator from '@screens/navigation/RootNavigator';
+import { navigationLinking } from '@screens/navigation/linking';
 import { WebPreviewNavigator } from '@screens/dev/WebPreviewNavigator';
 import { pushRegistrationService } from '@services/push/PushRegistrationService';
 import { authStore } from '@stores/authStore';
@@ -67,7 +68,7 @@ export default function App() {
 
   return (
     <QueryClientProvider client={queryClient}>
-      <NavigationContainer>
+      <NavigationContainer linking={previewScreenName === null ? navigationLinking : undefined}>
         {previewScreenName !== null ? (
           <WebPreviewNavigator previewScreenName={previewScreenName} />
         ) : (

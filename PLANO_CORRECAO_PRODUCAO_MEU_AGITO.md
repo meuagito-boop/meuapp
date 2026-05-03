@@ -470,7 +470,7 @@ Criterio de aceite:
 | `frontend/src/utils/runtimeApiUrl.ts` | RESOLVIDO no codigo local pela EXECUCAO-025: release build nao cai mais para `https://api.meuagito.com` sem `EXPO_PUBLIC_API_URL` | Definir `EXPO_PUBLIC_API_URL` real no build staging/prod e validar chamadas |
 | `frontend/app.json` + `frontend/src/services/push/PushRegistrationService.ts` | RESOLVIDO parcialmente no codigo local pela EXECUCAO-026: push nao usa Firebase/google-services e registro automatico fica desligado por default ate estrategia Android/iOS real | Definir push via SNS/APNs e alternativa Android compativel com a decisao de nao usar Firebase, ou manter `EXPO_PUBLIC_ENABLE_PUSH_REGISTRATION` desabilitado no primeiro release |
 | `frontend/src/screens/main/MapScreen.tsx` | RESOLVIDO no codigo local pela EXECUCAO-008: item da lista e callout de marker navegam para `Item`/`Profile` | Validar smoke de mapa/lista com evento e estabelecimento reais |
-| `frontend/src/App.tsx:70-76` | `NavigationContainer` nao recebe config `linking` | Implementar deep links se push/e-mail/link externo precisarem abrir telas internas |
+| `frontend/src/App.tsx` + `frontend/src/screens/navigation/linking.ts` + `frontend/app.json` | RESOLVIDO no codigo local pela EXECUCAO-031: `NavigationContainer` recebeu config `linking` e o app registrou scheme `meuagito` | Validar em device/staging links `meuagito://verify-email?token=...` e `meuagito://reset-password?token=...` |
 | `frontend/src/screens/auth/SignUpScreen.tsx` | RESOLVIDO no codigo local pela EXECUCAO-007: `SignUp` sem `profileType` mostra estado acionavel para escolher tipo de conta | Validar smoke abrindo `SignUp` direto e fluxo normal por `ProfileSelection` |
 | `frontend/src/screens/auth/PersonalSetupScreen.tsx` | RESOLVIDO no codigo local pela EXECUCAO-009: GPS deixou de definir `Sao Paulo, SP` fixo e usa `GeolocationService` + reverse geocode | Validar permissao/localizacao em device real |
 | `frontend/src/screens/auth/PersonalSetupScreen.tsx` | RESOLVIDO no codigo local pela EXECUCAO-009: avatar do setup pessoal usa picker/upload real | Validar S3/CloudFront em staging |
@@ -690,9 +690,9 @@ Matriz de telas:
 | Onboarding introdutorio | Sim | Sim | Sim, auth flow | Conteudo estatico local | Nao | Slides/emoji estaticos e mojibake | Parcial | `RootNavigator.tsx:57`, `OnboardingScreen.tsx:23-59`; corrigir encoding e validar se intro estatica e aceitavel |
 | Login | Sim | Sim | Sim | Real | Sim | Nao encontrado | Sim em codigo; depende smoke | `RootNavigator.tsx:58`, `LoginScreen.tsx:23`, `AuthService.ts:76-77` |
 | SignUp | Sim | Sim | Sim | Real | Sim | Nao encontrado | Sim em codigo; depende smoke/SES | `RootNavigator.tsx:60`, `SignUpScreen.tsx:36`, `AuthService.ts:69-70` |
-| ForgotPassword | Sim | Sim | Sim | Real | Sim | Nao encontrado | Parcial ate SES real | `RootNavigator.tsx:61`, `ForgotPasswordScreen.tsx:22`, `AuthService.ts:135-143` |
+| ForgotPassword | Sim | Sim; deep link configurado pela EXECUCAO-031 | Sim | Real | Sim | Nao encontrado | Parcial ate SES/smoke real | `RootNavigator.tsx`, `ForgotPasswordScreen.tsx`, `AuthService.ts`; token por rota `meuagito://reset-password?token=...` |
 | TwoFactorLogin | Sim | Sim | Sim | Real | Sim | Nao encontrado | Sim em codigo; depende smoke | `RootNavigator.tsx:59`, `TwoFactorLoginScreen.tsx:30`, `AuthService.ts:84` |
-| VerifyEmail | Sim | Sim | Sim | Real | Sim | Nao encontrado | Parcial ate SES real | `RootNavigator.tsx:62`, `VerifyEmailScreen.tsx:22`, `AuthService.ts:164-172` |
+| VerifyEmail | Sim | Sim; deep link configurado pela EXECUCAO-031 | Sim | Real | Sim | Nao encontrado | Parcial ate SES/smoke real | `RootNavigator.tsx`, `VerifyEmailScreen.tsx`, `AuthService.ts`; token por rota `meuagito://verify-email?token=...` |
 | ProfileSelection | Sim | Sim | Sim | Selecao local | Nao | Opcoes estaticas e mojibake | Parcial | `RootNavigator.tsx:63`, `ProfileSelectionScreen.tsx:15-49`; corrigir encoding |
 | PersonalSetup | Sim | Sim | Sim | Real no codigo local; smoke pendente | Sim | Nao encontrado no codigo local apos EXECUCAO-009; interesses fora do release por ausencia de backend | Sim em codigo; depende smoke | `RootNavigator.tsx:64`, `PersonalSetupScreen.tsx`, `UserService.checkUsernameAvailability()`, `GET /users/username/availability`, `PUT /users/me`, `PUT /users/me/profile`, `POST /users/me/avatar`; validar staging/device |
 | BusinessSetup | Sim | Sim | Sim | Real | Sim | Nao encontrado | Sim em codigo; depende smoke | `RootNavigator.tsx:65`, `BusinessSetupScreen.tsx:219`, `278-358` |
@@ -2551,6 +2551,45 @@ Status:
 
 - RESOLVIDO no codigo local: logs estruturados passam por redacao central antes de sair para console/CloudWatch.
 - Pendente para producao: validar logs reais em staging/CloudWatch com falhas de auth, email, push, upload e requests 4xx/5xx.
+
+### EXECUCAO-031 - Deep links de e-mail para verificacao e reset - 2026-05-02
+
+Objetivo executado:
+
+- Fechar a lacuna em que e-mails geravam links `/verify-email?token=...` e `/reset-password?token=...`, mas o app nao tinha scheme/linking nem leitura de token por rota.
+- Preparar o app para abrir links de verificacao e reset por `meuagito://`.
+
+Arquivos alterados:
+
+- `frontend/app.json`
+- `frontend/src/App.tsx`
+- `frontend/src/screens/navigation/linking.ts`
+- `frontend/src/screens/navigation/linking.test.ts`
+- `frontend/src/screens/auth/VerifyEmailScreen.tsx`
+- `frontend/src/screens/auth/ForgotPasswordScreen.tsx`
+- `backend/.env.example`
+- `README.md`
+- `PLANO_CORRECAO_PRODUCAO_MEU_AGITO.md`
+- `STATUS_EXECUCAO_PROMPT_AWS_2026-04-26.md`
+
+Implementacao:
+
+- `app.json` registrou `scheme: "meuagito"`.
+- `NavigationContainer` recebeu `navigationLinking` fora do modo web preview.
+- Criada config de linking para `verify-email`, `reset-password` e rotas top-level de item/catalogo/notificacoes.
+- `VerifyEmailScreen` e `ForgotPasswordScreen` leem `route.params.token` e preenchem o campo de codigo.
+- `backend/.env.example` documenta que `FRONTEND_URL` pode usar `meuagito://` em staging/prod para links de e-mail mobile.
+
+Validacao executada:
+
+- `cd frontend && npx jest src/screens/navigation/linking.test.ts --runInBand`: OK, 1 teste.
+- `cd frontend && npx tsc --noEmit`: OK.
+- `cd frontend && npm run lint`: OK.
+
+Status:
+
+- RESOLVIDO no codigo local: deep link mobile de verificacao/reset esta configurado.
+- Pendente para producao: validar em device real com `meuagito://verify-email?token=...`, `meuagito://reset-password?token=...`, SES real e `FRONTEND_URL` staging/prod.
 
 Resumo de bloqueadores absolutos antes de deploy publico real:
 
