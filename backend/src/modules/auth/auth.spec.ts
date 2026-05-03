@@ -4,7 +4,7 @@ import { AuthController } from './auth.controller';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
-import { ConflictException, UnauthorizedException } from '@nestjs/common';
+import { BadRequestException, ConflictException, UnauthorizedException } from '@nestjs/common';
 import { NotificationsService } from '../notifications/notifications.service';
 import { EmailService } from '@common/email/email.service';
 import * as bcrypt from 'bcryptjs';
@@ -107,6 +107,8 @@ describe('AuthService', () => {
         password: 'SecurePassword123!',
         passwordConfirm: 'SecurePassword123!',
         profileType: ProfileType.USER,
+        termsAccepted: true,
+        privacyPolicyAccepted: true,
       };
 
       jest.spyOn(prismaService.user, 'findUnique').mockResolvedValue(null);
@@ -143,6 +145,16 @@ describe('AuthService', () => {
       expect(prismaService.user.findUnique).toHaveBeenCalledWith({
         where: { email: signUpDto.email.toLowerCase() },
       });
+      expect(prismaService.user.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            termsAcceptedAt: expect.any(Date),
+            termsVersion: '1.0.0',
+            privacyPolicyAcceptedAt: expect.any(Date),
+            privacyPolicyVersion: '1.0.0',
+          }),
+        })
+      );
     });
 
     it('should throw ConflictException if email already exists', async () => {
@@ -153,11 +165,29 @@ describe('AuthService', () => {
         birthDate: '1990-01-01',
         password: 'SecurePassword123!',
         passwordConfirm: 'SecurePassword123!',
+        termsAccepted: true,
+        privacyPolicyAccepted: true,
       };
 
       jest.spyOn(prismaService.user, 'findUnique').mockResolvedValue(mockUser);
 
       await expect(service.signup(signUpDto)).rejects.toThrow(ConflictException);
+    });
+
+    it('should reject signup without legal consent', async () => {
+      const signUpDto: SignUpDto = {
+        email: 'new@example.com',
+        firstName: 'New',
+        lastName: 'User',
+        birthDate: '1990-01-01',
+        password: 'SecurePassword123!',
+        passwordConfirm: 'SecurePassword123!',
+        termsAccepted: false,
+        privacyPolicyAccepted: true,
+      };
+
+      await expect(service.signup(signUpDto)).rejects.toThrow(BadRequestException);
+      expect(prismaService.user.findUnique).not.toHaveBeenCalled();
     });
   });
 
@@ -350,6 +380,8 @@ describe('AuthController', () => {
         birthDate: '1990-01-01',
         password: 'SecurePassword123!',
         passwordConfirm: 'SecurePassword123!',
+        termsAccepted: true,
+        privacyPolicyAccepted: true,
       };
 
       jest.spyOn(authService, 'signup').mockResolvedValue({

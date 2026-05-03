@@ -14,6 +14,8 @@ export interface SignupRequest {
   password: string;
   passwordConfirm: string;
   profileType: 'USER' | 'ESTABLISHMENT';
+  termsAccepted: boolean;
+  privacyPolicyAccepted: boolean;
 }
 
 export interface AuthResponse {

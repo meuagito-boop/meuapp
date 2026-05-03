@@ -365,8 +365,8 @@ Tokens principais:
 ### Cadastro, login e onboarding
 
 1. App abre no fluxo auth.
-2. Usuario cadastra com dados obrigatorios e `profileType`.
-3. Backend cria `User`, gera tokens e dispara e-mail quando habilitado.
+2. Usuario cadastra com dados obrigatorios, `profileType` e aceite de Termos/Politica.
+3. Backend cria `User`, grava data/versao dos consentimentos legais, gera tokens e dispara e-mail quando habilitado.
 4. App salva tokens no SecureStore.
 5. Usuario completa setup pessoal ou empresarial.
 6. Conta `ESTABLISHMENT` cria pagina real de estabelecimento.
@@ -599,6 +599,7 @@ Documentos principais:
 - Backend modular e bem separado por dominio.
 - Prisma/PostgreSQL com modelos principais do MVP.
 - Auth com JWT, refresh token e 2FA.
+- Cadastro com aceite legal persistido por versao de Termos e Politica.
 - Modelo `USER` / `ESTABLISHMENT` alinhado.
 - Estabelecimento owner-only implementado.
 - Feed social real com endpoint dedicado.

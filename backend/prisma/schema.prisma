@@ -48,6 +48,12 @@ model User {
   isActive          Boolean    @default(true)
   lastLogin         DateTime?
 
+  // Consentimentos legais
+  termsAcceptedAt         DateTime?
+  termsVersion            String?
+  privacyPolicyAcceptedAt DateTime?
+  privacyPolicyVersion    String?
+
   // LGPD / Soft Delete
   isDeleted         Boolean    @default(false)
   deletedAt         DateTime?

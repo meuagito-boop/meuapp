@@ -31,6 +31,8 @@ export interface SignupPayload {
   birthDate: string; // YYYY-MM-DD
   password: string;
   profileType: AccountType;
+  termsAccepted: boolean;
+  privacyPolicyAccepted: boolean;
 }
 
 export interface SignupResult {
@@ -154,7 +156,17 @@ export const authStore = create<AuthStore>()(
       signup: async (payload) => {
         set({ isLoading: true, error: null });
         try {
-          const { email, name, firstName, lastName, birthDate, password, profileType } = payload;
+          const {
+            email,
+            name,
+            firstName,
+            lastName,
+            birthDate,
+            password,
+            profileType,
+            termsAccepted,
+            privacyPolicyAccepted,
+          } = payload;
           const response = (await authService.signup({
             email,
             name,
@@ -164,6 +176,8 @@ export const authStore = create<AuthStore>()(
             password,
             passwordConfirm: password,
             profileType,
+            termsAccepted,
+            privacyPolicyAccepted,
           })) as AuthApiResponse;
 
           const user = normalizeUser(response);

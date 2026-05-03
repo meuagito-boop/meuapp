@@ -21,6 +21,7 @@ import { AccountType } from '@common/enums/account-type.enum';
 import { NotificationsService } from '../notifications/notifications.service';
 import { EmailService } from '@common/email/email.service';
 import { logStructured } from '@common/logging/structured-log';
+import { LEGAL_DOCUMENTS } from '../legal/legal-documents';
 import { SignUpDto } from './dtos/sign-up.dto';
 import { LoginDto } from './dtos/login.dto';
 import { JwtPayload } from './interfaces/jwt-payload.interface';
@@ -38,6 +39,10 @@ export class AuthService {
 
   async signup(signUpDto: SignUpDto) {
     try {
+      if (signUpDto.termsAccepted !== true || signUpDto.privacyPolicyAccepted !== true) {
+        throw new BadRequestException('Terms of use and privacy policy must be accepted');
+      }
+
       const birthDate = this.parseBirthDate(signUpDto.birthDate);
 
       if (!this.isAtLeast18(birthDate)) {
@@ -68,6 +73,7 @@ export class AuthService {
 
       // Hash password
       const hashedPassword = await bcrypt.hash(signUpDto.password, 10);
+      const legalAcceptedAt = new Date();
 
       // Create user
       const user = await this.prismaService.user.create({
@@ -82,6 +88,10 @@ export class AuthService {
           emailVerified: false,
           twoFactorEnabled: false,
           lastLogin: new Date(),
+          termsAcceptedAt: legalAcceptedAt,
+          termsVersion: LEGAL_DOCUMENTS.termsOfUse.version,
+          privacyPolicyAcceptedAt: legalAcceptedAt,
+          privacyPolicyVersion: LEGAL_DOCUMENTS.privacyPolicy.version,
         },
       });
 

@@ -1,4 +1,13 @@
-import { IsDateString, IsEmail, IsEnum, IsOptional, IsString, MinLength } from 'class-validator';
+import {
+  Equals,
+  IsBoolean,
+  IsDateString,
+  IsEmail,
+  IsEnum,
+  IsOptional,
+  IsString,
+  MinLength,
+} from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { AccountType } from '@common/enums/account-type.enum';
 
@@ -67,4 +76,20 @@ export class SignUpDto {
   @IsEnum(AccountType)
   @IsOptional()
   profileType?: AccountType;
+
+  @ApiProperty({
+    example: true,
+    description: 'Explicit acceptance of the current terms of use',
+  })
+  @IsBoolean()
+  @Equals(true)
+  termsAccepted: boolean;
+
+  @ApiProperty({
+    example: true,
+    description: 'Explicit acceptance of the current privacy policy',
+  })
+  @IsBoolean()
+  @Equals(true)
+  privacyPolicyAccepted: boolean;
 }

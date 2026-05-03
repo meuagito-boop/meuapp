@@ -905,7 +905,7 @@ Tabela service/endpoints:
 
 | Service frontend | Chamada | Endpoint backend | Status | Incompatibilidade | Correcao |
 |---|---|---|---|---|---|
-| `AuthService.ts:69-77` | `POST /auth/signup`, `POST /auth/login` | `AuthController` `@Post('signup')` e `@Post('login')` em `backend/src/modules/auth/auth.controller.ts:28-68` | OK estatico | Payloads batem com `SignUpDto` e `LoginDto`; rota publica | Manter e validar em smoke mobile |
+| `AuthService.ts:69-79` | `POST /auth/signup`, `POST /auth/login` | `AuthController` `@Post('signup')` e `@Post('login')` em `backend/src/modules/auth/auth.controller.ts:28-68` | OK estatico; EXECUCAO-028 adicionou aceite legal ao signup | Payload de cadastro envia `termsAccepted` e `privacyPolicyAccepted`; backend persiste versoes atuais de Termos/Politica | Manter e validar cadastro/smoke mobile com migration aplicada |
 | `AuthService.ts:83-88` | `POST /auth/verify-2fa-login` com `userId`, `code`, `tempToken` | `AuthController` `@Post('verify-2fa-login')` em `auth.controller.ts:299` | OK estatico | Nenhuma incompatibilidade confirmada | Validar fluxo com usuario 2FA real |
 | `AuthService.ts:94-103` + `ApiClient.ts` | `POST /auth/refresh` com `Authorization: Bearer <refreshToken>` | `AuthController` `@Post('refresh')` + `RefreshTokenGuard` em `auth.controller.ts:93-116`; strategy le bearer em `refresh-token.strategy.ts:11-16` | OK no codigo local; smoke pendente | EXECUCAO-005 preservou `Authorization` explicito no request interceptor e bloqueou retry automatico em `/auth/refresh` quando o refresh falha | Validar expiracao/refresh/logout em smoke mobile/staging |
 | `ApiClient.ts:231-270` | Refresh automatico em 401 via axios cru `POST /auth/refresh` | Mesmo endpoint `POST /auth/refresh` | OK estatico | Esse caminho nao passa pelo interceptor e envia bearer de refresh corretamente | Reaproveitar esse caminho tambem no `AuthService.refreshToken` |
@@ -1235,8 +1235,8 @@ Correcao necessaria quando falhar: remover dependencia de seed do fluxo, criar e
 
 | Item | Status atual | Evidencia/validacao necessaria | Classificacao | Bloqueia producao? |
 |---|---|---|---|---|
-| Politica de privacidade | Parcial | Backend legal existe em `backend/src/modules/legal`; validar link/tela mobile e conteudo final juridico | Parcial | Sim |
-| Termos de uso | Parcial | Backend legal existe; validar aceite no cadastro/onboarding e versao exibida | Parcial | Sim |
+| Politica de privacidade | Parcial; aceite persistido no cadastro pela EXECUCAO-028 | Backend legal existe em `backend/src/modules/legal`; signup grava `privacyPolicyAcceptedAt` e `privacyPolicyVersion`; falta validar conteudo final juridico, link mobile e smoke | Parcial | Sim |
+| Termos de uso | Parcial; aceite persistido no cadastro pela EXECUCAO-028 | Backend legal existe; signup exige `termsAccepted=true` e grava `termsAcceptedAt`/`termsVersion`; falta validar versao exibida e smoke | Parcial | Sim |
 | Exclusao de conta | OK no codigo local; pendente smoke/LGPD final | Tela envia senha; backend valida senha e revoga refresh tokens; falta validar device/staging e politica de retencao/anonimizacao | Parcial ate smoke/legal final | Sim |
 | Suporte/contato | Pendente | Definir email/canal real, tela/link de contato e monitoramento de caixa | Pendente | Sim |
 | Consentimento de localizacao | Parcial | App pede permissao nativa; validar texto, negacao de permissao e uso sem crash | Parcial | Sim |
@@ -1244,7 +1244,7 @@ Correcao necessaria quando falhar: remover dependencia de seed do fluxo, criar e
 | E-mail transacional | Parcial | SES preparado, mas precisa envio real em staging/producao para verificacao/reset/suporte | Parcial | Sim |
 | Tratamento de dados pessoais | Pendente | Mapear dados coletados, finalidade, retencao, exclusao e acesso; registrar no plano legal | Pendente | Sim |
 | Logs sem dados sensiveis | Parcial | Validar request logs, error logs e audit logs sem senha, token, refresh token, Authorization, secret ou payload sensivel | Parcial | Sim |
-| Consentimento/versionamento | Pendente | Registrar versao de termos/politica aceita pelo usuario quando necessario | Pendente | Sim para release publico |
+| Consentimento/versionamento | RESOLVIDO no codigo local pela EXECUCAO-028; smoke pendente | `User` ganhou `termsAcceptedAt`, `termsVersion`, `privacyPolicyAcceptedAt`, `privacyPolicyVersion`; `SignUpDto` exige aceite explicito | Parcial ate migration/smoke | Sim para release publico |
 
 #### Build mobile real de release
 
@@ -1327,7 +1327,7 @@ Regra absoluta de release: nunca deixar em producao mock, botao sem acao, alerta
 | `frontend/src/screens/main/SearchScreen.tsx` | Historico/buscas recentes | Reusar buscas recentes reais | Nao existe no codigo local apos EXECUCAO-015 | Pode ser local storage aceitavel se declarado; backend nao obrigatorio | Sim se exibido | Manter fora da UI ate haver historico real | Criar endpoint/storage real antes de reexibir | P1 se voltar ao escopo; P0 se parece dado real |
 | `frontend/src/screens/main/MapScreen.tsx` | Item clicavel no mapa/lista | Abrir perfil/item do lugar/evento | Sim via eventos/estabelecimentos e rotas `Item`/`Profile` | Sim para establishment/event/product | Sim | Conectado ao backend existente no codigo local pela EXECUCAO-008 | Validar evento, estabelecimento, mapa e lista em smoke mobile/staging | P0 ate smoke |
 | `frontend/src/screens/main/NotificationsScreen.tsx` | Roteamento ao tocar notificacao | Abrir conversa, perfil, item ou entidade relacionada | RESOLVIDO no codigo local pela EXECUCAO-016/017: conversa, usuario, estabelecimento, produto e evento usam rotas reais | Sim | Sim se notificacoes visiveis | Conectado ao backend existente | Validar payload real, nested route do chat, perfil publico e entidades em smoke | P1 ate smoke |
-| `frontend/src/screens/main/SettingsDeleteAccountScreen.tsx` | Excluir conta com senha | Apagar conta real com confirmacao segura | OK no codigo local; smoke/LGPD final pendente | Sim User/Auth | Sim | Contrato corrigido no codigo local | Backend valida senha e revoga refresh tokens; ainda validar device/staging e retencao/anonimizacao LGPD | P0 ate smoke/legal final |
+| `frontend/src/screens/main/SettingsDeleteAccountScreen.tsx` | Excluir conta com senha | Apagar conta real com confirmacao segura | OK no codigo local; smoke/LGPD final pendente | Sim User/Auth | Sim | Contrato corrigido no codigo local | Backend valida senha e revoga refresh tokens; cadastro agora registra consentimentos pela EXECUCAO-028; ainda validar device/staging e retencao/anonimizacao LGPD | P0 ate smoke/legal final |
 | `SettingsLinkedAccounts` / `frontend/src/screens/main/SettingsAuxScreens.tsx` | Contas vinculadas | Conectar/desconectar provedores externos | Nao comprovado | Nao comprovado | Nao para MVP se login social nao existir | Manter fora do release por escopo ou ocultar temporariamente | Ocultar ate existir produto/backend real; nao mostrar tela fake | P1 se visivel; P2 se oculto |
 
 #### Checklist adicional de go/no-go
@@ -1486,7 +1486,7 @@ A matriz do PROMPT-008 continua valida. Complemento obrigatorio: antes de oculta
 | Build mobile release real | Ainda pendente EAS/processo equivalente/device real | Gerar APK/AAB, validar env e smoke em device |
 | SES/SNS/S3/Redis reais | Codigo existe, ambiente real nao validado | Validar providers em staging AWS |
 | E2E e smoke com banco vazio | e2e depende postgres-test; banco zerado precisa smoke | Subir DB teste/staging limpo e validar estados vazios |
-| Seguranca/LGPD minima | Delete com senha resolvido no codigo local; termos, privacidade, suporte, retencao LGPD e logs sensiveis ainda parciais | Fechar legal/suporte/retencao/log redaction e smoke de delete |
+| Seguranca/LGPD minima | Delete com senha resolvido no codigo local; cadastro agora exige e persiste aceite de termos/politica pela EXECUCAO-028; suporte, conteudo juridico final, retencao LGPD e logs sensiveis ainda parciais | Fechar legal/suporte/retencao/log redaction e smoke de delete/signup |
 
 ##### P1 - NECESSARIO PARA RELEASE PROFISSIONAL
 
@@ -2434,6 +2434,49 @@ Status:
 - RESOLVIDO no codigo local: gestao owner basica de produtos esta conectada a endpoints reais.
 - Pendente de smoke: criar, editar, arquivar e enviar imagem principal em staging/device; validar 403 para nao owner e S3/CloudFront real.
 
+### EXECUCAO-028 - Consentimento legal persistido no cadastro - 2026-05-02
+
+Objetivo executado:
+
+- Fechar parte do P0 LGPD/legal em que o app exigia aceite visual de Termos/Politica, mas o backend nao recebia nem persistia esse aceite.
+- Registrar data e versao dos documentos legais aceitos por novos usuarios sem exigir seed ou dado manual.
+
+Arquivos alterados:
+
+- `backend/prisma/schema.prisma`
+- `backend/prisma/migrations/20260502190000_add_user_legal_consents/migration.sql`
+- `backend/src/modules/auth/dtos/sign-up.dto.ts`
+- `backend/src/modules/auth/auth.service.ts`
+- `backend/src/modules/auth/auth.spec.ts`
+- `frontend/src/screens/auth/SignUpScreen.tsx`
+- `frontend/src/services/api/AuthService.ts`
+- `frontend/src/stores/authStore.ts`
+- `README.md`
+- `PLANO_CORRECAO_PRODUCAO_MEU_AGITO.md`
+- `STATUS_EXECUCAO_PROMPT_AWS_2026-04-26.md`
+
+Implementacao:
+
+- `User` recebeu `termsAcceptedAt`, `termsVersion`, `privacyPolicyAcceptedAt` e `privacyPolicyVersion`.
+- Migration SQL adicionada para aplicar os campos em bancos existentes sem quebrar usuarios antigos.
+- `SignUpDto` passou a exigir `termsAccepted=true` e `privacyPolicyAccepted=true`.
+- `AuthService.signup()` valida o consentimento mesmo em chamada direta ao service e grava as versoes atuais de `LEGAL_DOCUMENTS`.
+- Mobile envia o aceite real no payload de cadastro somente depois do checkbox obrigatorio.
+
+Validacao executada:
+
+- `cd backend && npx prisma generate`: OK.
+- `cd backend && npx jest src/modules/auth/auth.spec.ts --runInBand`: OK, 13 testes.
+- `cd backend && npm run build`: OK.
+- `cd backend && npm run lint`: OK.
+- `cd frontend && npx tsc --noEmit`: OK.
+- `cd frontend && npm run lint`: OK.
+
+Status:
+
+- RESOLVIDO no codigo local: novos cadastros exigem e persistem aceite legal versionado.
+- Pendente para producao: aplicar migration em staging/prod, validar signup em device/staging, revisar conteudo juridico final, definir canal de suporte monitorado e fechar politica de retencao/anonimizacao.
+
 Resumo de bloqueadores absolutos antes de deploy publico real:
 
 1. AWS real ponta a ponta: ECS/ECR/RDS/ElastiCache/S3/CloudFront/ALB/ACM/Secrets.
@@ -2442,5 +2485,6 @@ Resumo de bloqueadores absolutos antes de deploy publico real:
 4. SES real validado para verificacao/reset.
 5. Push real validado em device sem Firebase, ou push formalmente fora do primeiro release.
 6. Smoke mobile manual completo.
-7. Remocao/correcao dos mocks P0 do PROMPT-006.
-8. Build final backend e mobile com env de producao, sem `localhost`.
+7. Conteudo juridico final, suporte real, retencao/anonimizacao LGPD e logs sem vazamento sensivel.
+8. Remocao/correcao dos mocks P0 do PROMPT-006.
+9. Build final backend e mobile com env de producao, sem `localhost`.

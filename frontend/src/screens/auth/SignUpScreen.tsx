@@ -211,6 +211,8 @@ export default function SignUpScreen() {
       birthDate: isoBirthDate,
       password,
       profileType,
+      termsAccepted: true,
+      privacyPolicyAccepted: true,
     });
 
     if (!result.success) {

@@ -1101,3 +1101,28 @@ Status da validacao ponta a ponta:
 
 - o P1 local "backend de gestao de produtos sem UI owner" fica RESOLVIDO no codigo.
 - continua pendente: smoke de criar, editar, arquivar e enviar imagem principal em staging/device; validar 403 para nao owner e S3/CloudFront real.
+
+## Atualizacao complementar - 2026-05-02 (America/Sao_Paulo) - Consentimento legal persistido no cadastro
+
+### Correcao aplicada
+
+- `User` recebeu campos de consentimento legal: `termsAcceptedAt`, `termsVersion`, `privacyPolicyAcceptedAt` e `privacyPolicyVersion`.
+- Criada migration `20260502190000_add_user_legal_consents`.
+- `SignUpDto` passou a exigir `termsAccepted=true` e `privacyPolicyAccepted=true`.
+- `AuthService.signup()` valida consentimento tambem em chamada direta ao service e grava as versoes atuais de `LEGAL_DOCUMENTS`.
+- Mobile envia os aceites no payload de signup apos o checkbox obrigatorio.
+- `README.md` e plano foram atualizados para registrar que o aceite legal versionado esta resolvido no codigo local.
+
+### Validacao executada
+
+- `cd backend && npx prisma generate`: OK.
+- `cd backend && npx jest src/modules/auth/auth.spec.ts --runInBand`: OK, 13 testes.
+- `cd backend && npm run build`: OK.
+- `cd backend && npm run lint`: OK.
+- `cd frontend && npx tsc --noEmit`: OK.
+- `cd frontend && npm run lint`: OK.
+
+### Leitura correta apos esta rodada
+
+- o P0 local "cadastro exige aceite visual, mas backend nao registra consentimento/versionamento" fica RESOLVIDO no codigo.
+- continuam pendentes: aplicar migration em staging/prod, validar signup em device/staging, revisar conteudo juridico final, definir suporte monitorado e fechar retencao/anonimizacao LGPD.
