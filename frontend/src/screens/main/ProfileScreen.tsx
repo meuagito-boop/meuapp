@@ -305,6 +305,17 @@ export default function ProfileScreen() {
     });
   };
 
+  const handleOpenProductManagement = () => {
+    if (!establishment || !isOwnerEstablishmentView) {
+      return;
+    }
+
+    navigation.getParent()?.navigate('ProductManagement', {
+      establishmentId: establishment.id,
+      establishmentName: establishment.name,
+    });
+  };
+
   const handleOpenProduct = (product: CatalogProduct) => {
     if (!establishment) {
       return;
@@ -630,6 +641,11 @@ export default function ProfileScreen() {
               <TouchableOpacity style={styles.catalogButton} onPress={handleOpenCatalog}>
                 <Text style={styles.catalogButtonText}>Abrir vitrine publica</Text>
               </TouchableOpacity>
+              {isOwnerEstablishmentView ? (
+                <TouchableOpacity style={styles.catalogButton} onPress={handleOpenProductManagement}>
+                  <Text style={styles.catalogButtonText}>Gerenciar vitrine</Text>
+                </TouchableOpacity>
+              ) : null}
             </View>
           </View>
         ) : null}

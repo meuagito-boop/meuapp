@@ -403,7 +403,8 @@ Tokens principais:
 3. Perfil publico carrega estabelecimento real.
 4. Catalogo carrega produtos reais via `/establishments/:id/products`.
 5. Item carrega produto real via `/products/:id`.
-6. Upload de logo/capa/galeria/produto passa pela camada de media.
+6. Dono do estabelecimento acessa `Gerenciar vitrine` no perfil owner para criar, editar, arquivar e enviar imagem principal de produto.
+7. Upload de logo/capa/galeria/produto passa pela camada de media.
 
 ### Eventos
 
@@ -602,7 +603,7 @@ Documentos principais:
 - Estabelecimento owner-only implementado.
 - Feed social real com endpoint dedicado.
 - Discovery com distancia real e filtro `openNow`.
-- Produtos/vitrine publica ligados ao backend.
+- Produtos/vitrine publica e gestao owner basica ligados ao backend.
 - Media service com S3/CloudFront como alvo.
 - Chat REST + Socket.IO com Redis adapter.
 - Notificacoes in-app e push token integrados.

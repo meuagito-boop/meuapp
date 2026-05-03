@@ -32,6 +32,7 @@ import SettingsCityScreen from '@screens/main/SettingsCityScreen';
 import NotificationsScreen from '@screens/main/NotificationsScreen';
 import CatalogScreen from '@screens/main/CatalogScreen';
 import ItemScreen from '@screens/main/ItemScreen';
+import ProductManagementScreen from '@screens/main/ProductManagementScreen';
 import {
   Settings2FAScreen,
   SettingsAboutScreen,
@@ -204,6 +205,7 @@ function MainAppStack() {
       <MainStack.Screen name="Notifications" component={NotificationsScreen} />
       <MainStack.Screen name="Catalog" component={CatalogScreen} />
       <MainStack.Screen name="Item" component={ItemScreen} />
+      <MainStack.Screen name="ProductManagement" component={ProductManagementScreen} />
     </MainStack.Navigator>
   );
 }

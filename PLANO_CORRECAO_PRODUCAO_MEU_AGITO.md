@@ -278,15 +278,17 @@ Telas criticas:
 Evidencias:
 
 - `backend/src/modules/products/products.controller.ts:56-112` possui endpoints para criar, atualizar, arquivar e enviar midia de produto.
-- `frontend/src/services/api/CatalogService.ts:22-27` possui apenas leitura de produtos.
+- Historico anterior: `frontend/src/services/api/CatalogService.ts:22-27` possuia apenas leitura de produtos.
+- Status atualizado em 2026-05-02: `CatalogService` recebeu criar, editar, arquivar e upload de imagem principal pela EXECUCAO-027.
 
 Problema:
 
-- Ha superficie backend de gestao de produtos sem tela owner correspondente pronta para producao.
+- RESOLVIDO no codigo local pela EXECUCAO-027: a superficie backend de gestao de produtos tem tela owner basica no mobile.
+- Pendencias remanescentes: smoke em staging/device, S3/CloudFront real para imagem principal e validar UX com banco vazio.
 
 Correcao:
 
-- Criar tela de gestao de catalogo/produtos para owner ou declarar explicitamente fora do primeiro release e bloquear acesso.
+- Validar a tela `ProductManagementScreen` em staging/device com dono do estabelecimento, erro 403, criacao, edicao, arquivamento e upload real.
 
 ### Infra - AWS, banco, Redis, SES, SNS, S3 e CloudFront
 
@@ -383,7 +385,7 @@ Criterio de aceite:
 2. RESOLVIDO no codigo local pela EXECUCAO-002/024: Catalog usa `establishmentId` real ou mostra estado vazio honesto.
 3. RESOLVIDO no codigo local pela EXECUCAO-002/023: remover `item-fallback` do fluxo publico.
 4. RESOLVIDO no codigo local pela EXECUCAO-002/023: remover botoes de pedido/reserva/agenda/assinatura fora do MVP.
-5. Criar tela owner para criar/editar/arquivar produto se gestao de catalogo fizer parte do release.
+5. RESOLVIDO no codigo local pela EXECUCAO-027: criar tela owner para criar/editar/arquivar produto e enviar imagem principal.
 
 Criterio de aceite:
 
@@ -464,7 +466,7 @@ Criterio de aceite:
 | `frontend/src/services/api/UserService.ts` | RESOLVIDO no codigo local: Delete account envia senha para `DELETE /users/me` | Validar smoke mobile/staging |
 | `backend/src/modules/users/users.controller.ts` + `backend/src/modules/users/users.service.ts` | RESOLVIDO no codigo local: backend valida senha e revoga refresh tokens antes do soft delete | Validar senha correta/incorreta e tokens |
 | `frontend/src/screens/main/NotificationsScreen.tsx` | RESOLVIDO no codigo local pela EXECUCAO-016: placeholders `??`/`?` visiveis removidos | Validar smoke visual em device |
-| `backend/src/modules/products/products.controller.ts:56-112` | Gestao de produtos existe no backend sem UI owner pronta | Criar tela owner ou remover do release |
+| `backend/src/modules/products/products.controller.ts` + `frontend/src/screens/main/ProductManagementScreen.tsx` | RESOLVIDO no codigo local pela EXECUCAO-027: gestao owner de produtos tem tela conectada a criar/editar/arquivar/upload | Validar smoke staging/device com dono do estabelecimento e S3/CloudFront real |
 | `frontend/src/utils/runtimeApiUrl.ts` | RESOLVIDO no codigo local pela EXECUCAO-025: release build nao cai mais para `https://api.meuagito.com` sem `EXPO_PUBLIC_API_URL` | Definir `EXPO_PUBLIC_API_URL` real no build staging/prod e validar chamadas |
 | `frontend/app.json` + `frontend/src/services/push/PushRegistrationService.ts` | RESOLVIDO parcialmente no codigo local pela EXECUCAO-026: push nao usa Firebase/google-services e registro automatico fica desligado por default ate estrategia Android/iOS real | Definir push via SNS/APNs e alternativa Android compativel com a decisao de nao usar Firebase, ou manter `EXPO_PUBLIC_ENABLE_PUSH_REGISTRATION` desabilitado no primeiro release |
 | `frontend/src/screens/main/MapScreen.tsx` | RESOLVIDO no codigo local pela EXECUCAO-008: item da lista e callout de marker navegam para `Item`/`Profile` | Validar smoke de mapa/lista com evento e estabelecimento reais |
@@ -651,7 +653,7 @@ Tabela de problemas exigida pelo prompt:
 | `frontend/src/services/api/UserService.ts` + `backend/src/modules/users/users.controller.ts` + `backend/src/modules/users/users.service.ts` | RESOLVIDO no codigo local: exclusao envia senha, valida `bcrypt.compare` e revoga refresh tokens | Pendente smoke | Garantia de seguranca passa a existir no backend | `frontend/src/services/api/UserService.ts`; `backend/src/modules/users/users.controller.ts`; `backend/src/modules/users/users.service.ts`; `delete-account.dto.ts` | Validar senha correta/incorreta, logout e refresh apos delete em staging/device | P0 ate smoke |
 | `frontend/src/screens/main/NotificationsScreen.tsx` | RESOLVIDO no codigo local pela EXECUCAO-016: tela nao tem mais placeholders `??` e `?` visiveis | Resolvido; smoke pendente | UI final deixa de exibir marcador quebrado | `frontend/src/screens/main/NotificationsScreen.tsx`; varredura local encontrou apenas `??` de nullish coalescing | Validar smoke visual em device/staging | P1 ate smoke |
 | Telas Settings restantes | RESOLVIDO no codigo local ate o caminho visivel: textos tocados foram normalizados e rotas auxiliares sem backend sairam do `SettingsStack` pela EXECUCAO-018 | Resolvido; smoke pendente | Release nao deve expor telas auxiliares incompletas | `SettingsScreen.tsx`; `SettingsSecurityScreen.tsx`; `RootNavigator.tsx` | Validar smoke de Settings e reexibir auxiliares somente com backend real | P1 ate smoke |
-| `backend/src/modules/products/products.controller.ts` | Endpoints de gestao de produtos existem, mas frontend atual so le catalogo/produto | Criado parcialmente | Owner nao consegue gerir catalogo completo pelo app | `backend/src/modules/products/products.controller.ts:56-112`; `frontend/src/services/api/CatalogService.ts:22-27` | Criar UI owner ou remover escopo do release | P1 |
+| `backend/src/modules/products/products.controller.ts` + `frontend/src/services/api/CatalogService.ts` + `frontend/src/screens/main/ProductManagementScreen.tsx` | RESOLVIDO no codigo local pela EXECUCAO-027: frontend usa criar/editar/arquivar/upload de produto | Pendente smoke | Dono do estabelecimento consegue manter vitrine pelo app em codigo; falta validar device/staging | `ProductManagementScreen.tsx`; `CatalogService.createProduct/updateProduct/archiveProduct/uploadProductMedia()` | Validar owner correto, erro 403, upload S3/CloudFront e vitrine atualizada | P1 ate smoke |
 
 Achados que nao viraram bloqueio nesta rodada:
 
@@ -914,7 +916,7 @@ Tabela service/endpoints:
 | `UserService.ts:57-70` | Multipart `POST /users/me/avatar` campo `file` | `UsersController` `@Post('me/avatar')` + `FileInterceptor('file')` em `users.controller.ts:236-267` | OK estatico | Depende de storage real para producao | Validar S3/CloudFront e smoke de upload |
 | `UserService.ts:73-101` | follow/unfollow, followers/following, search `GET /users`, delete `DELETE /users/me` | Endpoints equivalentes em `users.controller.ts:121-169`, `267-309` | OK no codigo local; smoke pendente | Delete account envia senha e backend valida antes do soft delete | Validar em device/staging com senha correta/incorreta e refresh token revogado |
 | `CatalogService.ts:22-28` | `GET /establishments/:id/products`, `GET /products/:id` | `ProductsController` `@Get('establishments/:id/products')`, `@Get('products/:id')` em `products.controller.ts:42-54` | OK no codigo local; smoke pendente | Leitura existe e EXECUCAO-002 removeu fallback fake de Catalog/Item | Validar Catalog/Item com estabelecimento/produto real em staging/device |
-| `Sem service frontend` | Criar/editar/arquivar/upload de produto | `ProductsController` `POST/PUT/DELETE /establishments/:id/products...` e `POST .../media` em `products.controller.ts:56-145` | Endpoint existente nao usado | Owner nao consegue gerir catalogo completo pelo service mobile atual | Criar metodos no `CatalogService` e telas owner, ou retirar gestao de produtos do release |
+| `CatalogService.ts` + `ProductManagementScreen.tsx` | Criar/editar/arquivar/upload de produto | `ProductsController` `POST/PUT/DELETE /establishments/:id/products...` e `POST .../media` em `products.controller.ts:56-145` | RESOLVIDO no codigo local pela EXECUCAO-027 | Falta smoke real | Validar owner, upload e refresh da vitrine em staging/device |
 | `ChatService.ts:72-181` | Conversas, mensagens, editar/deletar, marcar lida, busca, unread, arquivar | `ChatController` endpoints equivalentes em `chat.controller.ts:44-205` | OK estatico | JSON `{ recipientId }`, `{ content }` e multipart `content` + `file` batem com controller/DTO | Validar anexos reais e push/chat realtime no smoke |
 | `FeedService.ts` | `POST /posts` com `content` e `imageUrls` | `FeedController` `@Post()` em `feed.controller.ts:51-73`; `CreatePostDto` em `create-post.dto.ts:12-56` | OK no codigo local; smoke pendente | EXECUCAO-006 removeu `video` de `CreatePostRequest`, `feedStore.createPost` e payload de `POST /posts` | Validar criar post com e sem imagem em staging/device |
 | `FeedService.ts:158-174` | Multipart `POST /posts/media?postId=...` campo `file` | `FeedController` `@Post('media')` em `feed.controller.ts:76-107` | OK estatico | Query `postId` e opcional; nao e rota inexistente | Manter e validar S3/CloudFront |
@@ -937,7 +939,7 @@ Ordem exata de correcao desta auditoria:
 2. RESOLVIDO no codigo local pela EXECUCAO-004: `UserService.updateProfile` usa `PUT /users/me/profile` e dados de conta foram separados em `updateAccount`.
 3. RESOLVIDO no codigo local pela EXECUCAO-006: contrato de post foi alinhado removendo `video` do frontend.
 4. Remover fallback fake do catalogo quando nao houver `establishmentId`, porque os endpoints reais de leitura existem.
-5. Decidir se gestao owner de produtos entra no release; se entrar, criar metodos no service e telas conectadas.
+5. RESOLVIDO no codigo local pela EXECUCAO-027: gestao owner de produtos entra no caminho atual com metodos no service e tela conectada.
 6. Decidir se endpoints genericos de media/public-profile/stats/is-following/liked/likes/comment-edit ficam no release; conectar ou declarar fora do escopo.
 7. Fechar variaveis SNS/S3/CloudFront/SES e validar upload, push, e-mail e refresh token em smoke mobile real.
 
@@ -2394,6 +2396,43 @@ Status:
 
 - RESOLVIDO parcialmente no codigo local: push incompleto nao e mais acionado automaticamente por default.
 - Pendente de produto/infra: decidir se push entra no primeiro release; se entrar, validar token nativo Android sem Firebase ou declarar alternativa, APNs/iOS, SNS platform ARNs e smoke em dispositivo real.
+
+### EXECUCAO-027 - Gestao owner basica de produtos conectada - 2026-05-02
+
+Objetivo executado:
+
+- Fechar a lacuna em que o backend tinha endpoints de gestao de produtos, mas o mobile so consumia leitura publica.
+- Permitir que a conta dona do estabelecimento gerencie a vitrine pelo app sem mocks.
+
+Arquivos alterados:
+
+- `frontend/src/services/api/CatalogService.ts`
+- `frontend/src/screens/main/ProductManagementScreen.tsx`
+- `frontend/src/screens/main/ProfileScreen.tsx`
+- `frontend/src/screens/navigation/RootNavigator.tsx`
+- `README.md`
+- `PLANO_CORRECAO_PRODUCAO_MEU_AGITO.md`
+- `STATUS_EXECUCAO_PROMPT_AWS_2026-04-26.md`
+
+Implementacao:
+
+- `CatalogService` recebeu `createProduct`, `updateProduct`, `archiveProduct` e `uploadProductMedia`.
+- Criada `ProductManagementScreen` com lista real, estado de loading, erro, vazio, formulario de criacao/edicao, arquivamento com confirmacao e upload de imagem principal por `expo-image-picker` + multipart.
+- `RootNavigator` registrou `ProductManagement`.
+- `ProfileScreen`, somente no perfil owner do estabelecimento, exibe `Gerenciar vitrine` e navega para a nova tela.
+- `README.md` passou a registrar gestao owner basica de vitrine.
+
+Validacao executada:
+
+- `cd frontend && npx tsc --noEmit`: OK.
+- `cd frontend && npm run lint`: OK.
+- `cd backend && npx jest src/modules/products/products.spec.ts --runInBand`: OK, 5 testes.
+- Varredura em `ProductManagementScreen.tsx` para `mock`, `fake`, `dummy`, `sample`, `TODO`, `FIXME`, `Em breve`, `coming soon`, `console.log` e `onPress={() => {}}`: sem ocorrencias.
+
+Status:
+
+- RESOLVIDO no codigo local: gestao owner basica de produtos esta conectada a endpoints reais.
+- Pendente de smoke: criar, editar, arquivar e enviar imagem principal em staging/device; validar 403 para nao owner e S3/CloudFront real.
 
 Resumo de bloqueadores absolutos antes de deploy publico real:
 

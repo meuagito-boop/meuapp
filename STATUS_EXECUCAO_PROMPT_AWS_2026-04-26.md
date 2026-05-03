@@ -1079,3 +1079,25 @@ Status da validacao ponta a ponta:
 
 - o P1/P0 condicional "app solicita permissao/registra push automaticamente antes de validar estrategia sem Firebase" fica RESOLVIDO parcialmente no codigo.
 - continua pendente: decidir se push entra no primeiro release; se entrar, validar token nativo Android sem Firebase ou alternativa, APNs/iOS, SNS platform ARNs e smoke em dispositivo real.
+
+## Atualizacao complementar - 2026-05-02 (America/Sao_Paulo) - Gestao owner basica de produtos conectada
+
+### Correcao aplicada
+
+- `CatalogService` recebeu metodos reais para criar, editar, arquivar e enviar imagem principal de produto.
+- Criada `ProductManagementScreen` com lista real, formulario de criacao/edicao, arquivamento com confirmacao e upload via `expo-image-picker` + multipart.
+- `RootNavigator` registrou a rota `ProductManagement`.
+- `ProfileScreen` exibe `Gerenciar vitrine` apenas no perfil owner do estabelecimento.
+- `README.md` e plano foram atualizados para marcar a lacuna owner de produtos como resolvida em codigo.
+
+### Validacao executada
+
+- `cd frontend && npx tsc --noEmit`: OK.
+- `cd frontend && npm run lint`: OK.
+- `cd backend && npx jest src/modules/products/products.spec.ts --runInBand`: OK, 5 testes.
+- Varredura em `ProductManagementScreen.tsx` para `mock`, `fake`, `dummy`, `sample`, `TODO`, `FIXME`, `Em breve`, `coming soon`, `console.log` e `onPress={() => {}}`: sem ocorrencias.
+
+### Leitura correta apos esta rodada
+
+- o P1 local "backend de gestao de produtos sem UI owner" fica RESOLVIDO no codigo.
+- continua pendente: smoke de criar, editar, arquivar e enviar imagem principal em staging/device; validar 403 para nao owner e S3/CloudFront real.
