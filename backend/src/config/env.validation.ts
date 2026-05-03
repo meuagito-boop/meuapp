@@ -7,6 +7,7 @@ const VALID_PUSH_PROVIDERS = new Set(['none', 'sns']);
 const VALID_EMAIL_PROVIDERS = new Set(['none', 'ses']);
 const VALID_LOG_LEVELS = new Set(['debug', 'info', 'warn', 'error']);
 const VALID_XRAY_CONTEXT_MISSING = new Set(['RUNTIME_ERROR', 'IGNORE_ERROR', 'LOG_ERROR']);
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 function parseBoolean(value: string | undefined, fallback: boolean = false): boolean {
   if (value == null) {
@@ -72,6 +73,16 @@ function validateUrlWhenProvided(value: string | undefined, key: string, errors:
   }
 }
 
+function validateEmailWhenProvided(value: string | undefined, key: string, errors: string[]) {
+  if (!value || value.trim().length === 0) {
+    return;
+  }
+
+  if (!EMAIL_PATTERN.test(value.trim())) {
+    errors.push(`${key} must be a valid email address.`);
+  }
+}
+
 export function validateEnvironment(rawEnv: RawEnv): RawEnv {
   const env = rawEnv as NodeJS.ProcessEnv;
   const errors: string[] = [];
@@ -93,6 +104,14 @@ export function validateEnvironment(rawEnv: RawEnv): RawEnv {
   requireWhen(true, env, 'REFRESH_TOKEN_SECRET', errors);
   requireWhen(isProduction, env, 'CORS_ORIGIN', errors, 'CORS_ORIGIN is required in production.');
   requireWhen(isProduction, env, 'PORT', errors, 'PORT is required in production.');
+  requireWhen(
+    isProduction,
+    env,
+    'SUPPORT_EMAIL',
+    errors,
+    'SUPPORT_EMAIL is required in production.'
+  );
+  validateEmailWhenProvided(env.SUPPORT_EMAIL, 'SUPPORT_EMAIL', errors);
   if (isProduction && env.CORS_ORIGIN?.trim() === '*') {
     errors.push('CORS_ORIGIN cannot be "*" in production.');
   }

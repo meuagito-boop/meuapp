@@ -19,7 +19,8 @@ export interface LegalDocument {
 
 const EFFECTIVE_DATE = '2026-04-22';
 const LAST_UPDATED = '2026-04-22';
-const CONTACT_EMAIL = 'support@meuagito.com';
+const DEFAULT_CONTACT_EMAIL = 'support@meuagito.com';
+const CONTACT_EMAIL = process.env.SUPPORT_EMAIL?.trim() || DEFAULT_CONTACT_EMAIL;
 
 export const LEGAL_DOCUMENTS: Record<LegalDocumentKey, LegalDocument> = {
   privacyPolicy: {

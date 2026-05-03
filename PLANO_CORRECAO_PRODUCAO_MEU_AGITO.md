@@ -929,7 +929,7 @@ Tabela service/endpoints:
 | `NotificationsService.ts:69-105` | Listar, unread, push tokens, test push, read/read-all/delete | `NotificationsController` endpoints em `notifications.controller.ts:29-100` | OK estatico | Payload de push bate com `RegisterPushTokenDto`; rotas protegidas por JWT | Smoke autenticado |
 | `PushRegistrationService.ts:70-74` | `POST /notifications/push-tokens` com `platform`, `deviceToken`, `platformApplicationArn?` | `NotificationsService.registerPushToken` chama SNS em `notifications.service.ts:182-243`; provider comum exige SNS em `common/notification/notification.service.ts:73-92` | Parcial para producao | Se `PUSH_PROVIDER=sns` nao inicializar, ou faltar ARN SNS no app/backend, registro falha com `SNS push is not available` ou ARN required | Fechar `AWS_SNS_REGION`, ARNs backend e `EXPO_PUBLIC_AWS_SNS_PLATFORM_APPLICATION_ARN_*`; validar em device |
 | `SearchService.ts:123-177` | `GET /search/establishments/events/posts/users/autocomplete/global/trending` | `SearchController` endpoints em `search.controller.ts:48-465` | OK estatico | `searchEstablishments` exige latitude/longitude pelo tipo frontend e backend; `global` e protegido por JWT | Smoke com parametros reais; conectar metodos nao usados pela UI se ficarem no release |
-| `frontend/src/services/legal/LegalLinks.ts:6-31` | `GET /legal/terms-of-use`, `GET /legal/privacy-policy` via `Linking.openURL` | `LegalController` em `legal.controller.ts:8-28` | OK estatico | Nao usa `apiClient`; abre URL externa do backend | Validar DNS/API base em build real |
+| `frontend/src/services/legal/LegalLinks.ts` | `GET /legal/terms-of-use`, `GET /legal/privacy-policy` via `Linking.openURL`; suporte via `mailto:` | `LegalController` em `legal.controller.ts:8-28`; suporte usa env `EXPO_PUBLIC_SUPPORT_EMAIL` apos EXECUCAO-029 | OK estatico | Nao usa `apiClient`; abre URL externa do backend e canal de suporte configurado | Validar DNS/API base e e-mail de suporte real no build |
 | `Sem service frontend` | `GET /legal/*.json`, `GET /health`, `POST/GET /media/...` generico | `LegalController`, `HealthController`, `MediaController` | Endpoint existente nao usado | Endpoints existem sem consumo mobile direto | Definir se sao internos/operacionais ou criar consumo real |
 | `ApiClient.ts:294-365`, `ApiClient.ts:417-450` | Todas as chamadas REST | Todos os endpoints chamados por services | Parcial | Tratamento de erro e generico: loga status e rethrow; services quase nao traduzem erro por fluxo | Padronizar erro por dominio nos fluxos criticos antes do smoke final |
 
@@ -1238,7 +1238,7 @@ Correcao necessaria quando falhar: remover dependencia de seed do fluxo, criar e
 | Politica de privacidade | Parcial; aceite persistido no cadastro pela EXECUCAO-028 | Backend legal existe em `backend/src/modules/legal`; signup grava `privacyPolicyAcceptedAt` e `privacyPolicyVersion`; falta validar conteudo final juridico, link mobile e smoke | Parcial | Sim |
 | Termos de uso | Parcial; aceite persistido no cadastro pela EXECUCAO-028 | Backend legal existe; signup exige `termsAccepted=true` e grava `termsAcceptedAt`/`termsVersion`; falta validar versao exibida e smoke | Parcial | Sim |
 | Exclusao de conta | OK no codigo local; pendente smoke/LGPD final | Tela envia senha; backend valida senha e revoga refresh tokens; falta validar device/staging e politica de retencao/anonimizacao | Parcial ate smoke/legal final | Sim |
-| Suporte/contato | Pendente | Definir email/canal real, tela/link de contato e monitoramento de caixa | Pendente | Sim |
+| Suporte/contato | Parcial; env obrigatoria/configuravel pela EXECUCAO-029 | Backend legal usa `SUPPORT_EMAIL`; mobile usa `EXPO_PUBLIC_SUPPORT_EMAIL`; falta validar dominio/canal monitorado e smoke de abertura | Parcial ate smoke/canal real | Sim |
 | Consentimento de localizacao | Parcial | App pede permissao nativa; validar texto, negacao de permissao e uso sem crash | Parcial | Sim |
 | Consentimento de push | Pendente/parcial | Definir push sem Firebase, pedir permissao no momento correto e registrar token real se push entrar no release | Pendente | Sim se push no release |
 | E-mail transacional | Parcial | SES preparado, mas precisa envio real em staging/producao para verificacao/reset/suporte | Parcial | Sim |
@@ -1318,7 +1318,7 @@ Regra absoluta de release: nunca deixar em producao mock, botao sem acao, alerta
 | `frontend/src/screens/main/SettingsCityScreen.tsx` | Alterar cidade/preferencia | Salvar cidade real usada em home/busca | Sim: `PUT /users/me/profile` com `location` | Sim via User/Profile | Sim se cidade afeta descoberta | Conectar ao backend existente - RESOLVIDO no codigo local pela EXECUCAO-010 | Smoke mobile/staging, permissao GPS, cidade manual, DB vazio e reflexo nos fluxos de descoberta | P0 ate smoke |
 | `frontend/src/screens/main/SettingsPrivacyScreen.tsx` | Alterar privacidade/mensagens/check-ins | Controlar exposicao de dados e interacoes | Nao existe no backend atual | Nao comprovado | Sim para release profissional, mas fora do release visivel atual | Ocultar temporariamente da UI de producao - RESOLVIDO no codigo local pela EXECUCAO-012 | Criar model/migration/DTO/controller/service antes de reexibir | P1 se voltar ao escopo; P0 se reexibir local-only |
 | `frontend/src/screens/main/SettingsSecurityScreen.tsx` | Senha/2FA/sessoes/seguranca | Proteger conta | Sim para senha e 2FA; nao comprovado para sessoes/audit log | Parcial | Sim | Conectar backend existente - RESOLVIDO parcialmente pela EXECUCAO-011; sessoes fora do menu ate backend real | Smoke de senha/2FA; criar/listar/revogar sessoes somente se voltar ao escopo | P0 ate smoke para senha/2FA; P1 para sessoes ocultas |
-| `frontend/src/screens/main/SettingsAuxScreens.tsx` | Notificacoes, idioma, bloqueados, alterar senha, suporte/legal auxiliares | Ajustar preferencias e acessar suporte/legal | Alterar senha sim; bloqueados/notificacoes/idioma/raio/contas ocultos; demais parcial/nao comprovado | Parcial/nao comprovado | Parcial | Classificar item a item; alterar senha RESOLVIDO pela EXECUCAO-011; bloqueados oculto pela EXECUCAO-012; notificacoes/idioma/raio/contas ocultos pela EXECUCAO-013 | Remover fallback local, conectar preferencias reais, suporte real e legal real | P1; P0 para itens visiveis fake |
+| `frontend/src/screens/main/SettingsAuxScreens.tsx` | Notificacoes, idioma, bloqueados, alterar senha, suporte/legal auxiliares | Ajustar preferencias e acessar suporte/legal | Alterar senha sim; suporte configuravel pela EXECUCAO-029; bloqueados/notificacoes/idioma/raio/contas ocultos; demais parcial/nao comprovado | Parcial/nao comprovado | Parcial | Classificar item a item; alterar senha RESOLVIDO pela EXECUCAO-011; bloqueados oculto pela EXECUCAO-012; notificacoes/idioma/raio/contas ocultos pela EXECUCAO-013; suporte nao fica mais hardcoded em release | Validar suporte real; remover fallback local, conectar preferencias reais e legal real quando escopo exigir | P1; P0 para itens visiveis fake |
 | `frontend/src/screens/main/ActivityScreen.tsx` | Central de atividade | Ver historico/favoritos/interacoes reais | Nao comprovado para recursos; estado vazio nao exige backend | Parcial | Sim se tab/entrada visivel | Manter estado vazio sem cards falsos - RESOLVIDO no codigo local pela EXECUCAO-014 | Criar backend novo antes de reexibir cards/contadores/rotas | P1 se voltar ao escopo; P0 se exibe dado falso |
 | `frontend/src/screens/main/ActivityFavoritesScreen.tsx` | Favoritos | Ver itens favoritados reais | Nao comprovado | Nao comprovado | Sim se recurso visivel | Fora do hub visivel - RESOLVIDO no codigo local pela EXECUCAO-014 | Model favoritos, endpoints listar/adicionar/remover, empty state real antes de reexibir | P1 se voltar ao escopo |
 | `frontend/src/screens/main/ActivityHistoryScreen.tsx` | Historico | Ver itens visitados/acoes recentes | Nao comprovado | Nao comprovado | Nao necessariamente | Fora do hub visivel - RESOLVIDO no codigo local pela EXECUCAO-014 | Se mantido, implementar tracking real; se nao, manter fora da UI de producao | P1 se visivel; P2 se oculto |
@@ -1486,7 +1486,7 @@ A matriz do PROMPT-008 continua valida. Complemento obrigatorio: antes de oculta
 | Build mobile release real | Ainda pendente EAS/processo equivalente/device real | Gerar APK/AAB, validar env e smoke em device |
 | SES/SNS/S3/Redis reais | Codigo existe, ambiente real nao validado | Validar providers em staging AWS |
 | E2E e smoke com banco vazio | e2e depende postgres-test; banco zerado precisa smoke | Subir DB teste/staging limpo e validar estados vazios |
-| Seguranca/LGPD minima | Delete com senha resolvido no codigo local; cadastro agora exige e persiste aceite de termos/politica pela EXECUCAO-028; suporte, conteudo juridico final, retencao LGPD e logs sensiveis ainda parciais | Fechar legal/suporte/retencao/log redaction e smoke de delete/signup |
+| Seguranca/LGPD minima | Delete com senha resolvido no codigo local; cadastro exige/persiste aceite pela EXECUCAO-028; suporte configuravel/obrigatorio em release pela EXECUCAO-029; conteudo juridico final, retencao LGPD e logs sensiveis ainda parciais | Fechar conteudo legal, retencao/log redaction e smoke de delete/signup/suporte |
 
 ##### P1 - NECESSARIO PARA RELEASE PROFISSIONAL
 
@@ -2477,6 +2477,48 @@ Status:
 - RESOLVIDO no codigo local: novos cadastros exigem e persistem aceite legal versionado.
 - Pendente para producao: aplicar migration em staging/prod, validar signup em device/staging, revisar conteudo juridico final, definir canal de suporte monitorado e fechar politica de retencao/anonimizacao.
 
+### EXECUCAO-029 - Suporte configuravel e obrigatorio em release - 2026-05-02
+
+Objetivo executado:
+
+- Remover a dependencia de suporte hardcoded como criterio de producao.
+- Exigir canal de suporte configurado no backend em `NODE_ENV=production` e no mobile em build de release.
+- Manter fallback somente para desenvolvimento local.
+
+Arquivos alterados:
+
+- `backend/src/config/env.validation.ts`
+- `backend/src/config/env.validation.spec.ts`
+- `backend/src/modules/legal/legal-documents.ts`
+- `backend/.env.example`
+- `frontend/src/services/legal/LegalLinks.ts`
+- `frontend/src/services/legal/LegalLinks.test.ts`
+- `frontend/.env.example`
+- `README.md`
+- `PLANO_CORRECAO_PRODUCAO_MEU_AGITO.md`
+- `STATUS_EXECUCAO_PROMPT_AWS_2026-04-26.md`
+
+Implementacao:
+
+- `SUPPORT_EMAIL` passa a ser exigido pelo backend em producao e validado como e-mail quando informado.
+- Documentos legais usam `SUPPORT_EMAIL` no contato do controlador, com fallback local para dev/test.
+- Mobile resolve suporte por `EXPO_PUBLIC_SUPPORT_EMAIL`; release sem env falha explicitamente, dev usa fallback local.
+- Criado `frontend/.env.example` com `EXPO_PUBLIC_API_URL`, `EXPO_PUBLIC_SUPPORT_EMAIL` e flags de push.
+
+Validacao executada:
+
+- `cd backend && npx jest src/config/env.validation.spec.ts --runInBand`: OK, 5 testes.
+- `cd backend && npm run build`: OK.
+- `cd backend && npm run lint`: OK.
+- `cd frontend && npx jest src/services/legal/LegalLinks.test.ts --runInBand`: OK, 4 testes.
+- `cd frontend && npx tsc --noEmit`: OK.
+- `cd frontend && npm run lint`: OK.
+
+Status:
+
+- RESOLVIDO no codigo local: suporte deixou de depender de e-mail fixo em release.
+- Pendente para producao: definir e monitorar caixa/canal real, configurar envs staging/prod, validar abertura do `mailto:` em device e validar conteudo juridico final.
+
 Resumo de bloqueadores absolutos antes de deploy publico real:
 
 1. AWS real ponta a ponta: ECS/ECR/RDS/ElastiCache/S3/CloudFront/ALB/ACM/Secrets.
@@ -2485,6 +2527,6 @@ Resumo de bloqueadores absolutos antes de deploy publico real:
 4. SES real validado para verificacao/reset.
 5. Push real validado em device sem Firebase, ou push formalmente fora do primeiro release.
 6. Smoke mobile manual completo.
-7. Conteudo juridico final, suporte real, retencao/anonimizacao LGPD e logs sem vazamento sensivel.
+7. Conteudo juridico final, canal de suporte monitorado, retencao/anonimizacao LGPD e logs sem vazamento sensivel.
 8. Remocao/correcao dos mocks P0 do PROMPT-006.
 9. Build final backend e mobile com env de producao, sem `localhost`.

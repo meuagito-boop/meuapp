@@ -275,6 +275,7 @@ Ja existe no codigo:
 - Zustand stores;
 - `ApiClient` com Axios, Bearer token, refresh automatico e SecureStore;
 - resolucao de API por `EXPO_PUBLIC_API_URL`; em dev ha fallback local, em release a env e obrigatoria;
+- canal de suporte por `EXPO_PUBLIC_SUPPORT_EMAIL`; em release a env e obrigatoria para abrir contato real;
 - registro de push token apos login/onboarding somente quando `EXPO_PUBLIC_ENABLE_PUSH_REGISTRATION=true`;
 - `WebPreviewNavigator` para preview web de telas.
 
@@ -512,13 +513,14 @@ Variavel principal do app:
 
 ```bash
 EXPO_PUBLIC_API_URL=http://localhost:3001
+EXPO_PUBLIC_SUPPORT_EMAIL=support@meuagito.com
 ```
 
-Se `EXPO_PUBLIC_API_URL` nao estiver definida, o app usa fallback local em dev e `https://api.meuagito.com` em build nao-dev.
+Se `EXPO_PUBLIC_API_URL` nao estiver definida, o app usa fallback local somente em dev. Em build nao-dev, `EXPO_PUBLIC_API_URL` e obrigatoria. Para suporte, `EXPO_PUBLIC_SUPPORT_EMAIL` tambem deve estar definida no build de release.
 
 ## 12. Variaveis de ambiente
 
-Use `backend/.env.example` e `backend/.env.test.example` como base.
+Use `backend/.env.example`, `backend/.env.test.example` e `frontend/.env.example` como base.
 
 ### Backend core
 
@@ -542,7 +544,8 @@ Use `backend/.env.example` e `backend/.env.test.example` como base.
 | CloudFront | `USE_CLOUDFRONT`, `CLOUDFRONT_BASE_URL` |
 | SES | `ENABLE_EMAIL`, `EMAIL_PROVIDER=ses`, `AWS_SES_REGION`, `AWS_SES_FROM_EMAIL` |
 | SNS | `PUSH_PROVIDER=sns`, `AWS_SNS_REGION`, ARNs de platform application |
-| Mobile API/push | `EXPO_PUBLIC_API_URL`, `EXPO_PUBLIC_ENABLE_PUSH_REGISTRATION`, `EXPO_PUBLIC_AWS_SNS_PLATFORM_APPLICATION_ARN_ANDROID`, `EXPO_PUBLIC_AWS_SNS_PLATFORM_APPLICATION_ARN_IOS` |
+| Suporte/legal | `SUPPORT_EMAIL`, `EXPO_PUBLIC_SUPPORT_EMAIL` |
+| Mobile API/push | `EXPO_PUBLIC_API_URL`, `EXPO_PUBLIC_SUPPORT_EMAIL`, `EXPO_PUBLIC_ENABLE_PUSH_REGISTRATION`, `EXPO_PUBLIC_AWS_SNS_PLATFORM_APPLICATION_ARN_ANDROID`, `EXPO_PUBLIC_AWS_SNS_PLATFORM_APPLICATION_ARN_IOS` |
 | Observabilidade | `APP_NAME`, `LOG_LEVEL`, `AWS_CLOUDWATCH_*`, `AWS_XRAY_*`, `SENTRY_*` |
 
 ## 13. Testes e validacao registrada

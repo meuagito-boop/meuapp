@@ -1126,3 +1126,28 @@ Status da validacao ponta a ponta:
 
 - o P0 local "cadastro exige aceite visual, mas backend nao registra consentimento/versionamento" fica RESOLVIDO no codigo.
 - continuam pendentes: aplicar migration em staging/prod, validar signup em device/staging, revisar conteudo juridico final, definir suporte monitorado e fechar retencao/anonimizacao LGPD.
+
+## Atualizacao complementar - 2026-05-02 (America/Sao_Paulo) - Suporte configuravel e obrigatorio em release
+
+### Correcao aplicada
+
+- Backend passa a exigir `SUPPORT_EMAIL` em `NODE_ENV=production`.
+- `SUPPORT_EMAIL` e validado como e-mail quando informado.
+- Documentos legais usam `SUPPORT_EMAIL` como contato do controlador, com fallback somente local/dev.
+- Mobile resolve suporte por `EXPO_PUBLIC_SUPPORT_EMAIL`; build de release sem essa env falha explicitamente ao tentar abrir suporte.
+- Criado `frontend/.env.example` com API URL, suporte e flags publicas de push.
+- `README.md` e plano foram atualizados para registrar o suporte configuravel.
+
+### Validacao executada
+
+- `cd backend && npx jest src/config/env.validation.spec.ts --runInBand`: OK, 5 testes.
+- `cd backend && npm run build`: OK.
+- `cd backend && npm run lint`: OK.
+- `cd frontend && npx jest src/services/legal/LegalLinks.test.ts --runInBand`: OK, 4 testes.
+- `cd frontend && npx tsc --noEmit`: OK.
+- `cd frontend && npm run lint`: OK.
+
+### Leitura correta apos esta rodada
+
+- o P0 local "suporte/contato hardcoded sem env de producao" fica RESOLVIDO no codigo.
+- continuam pendentes: definir caixa/canal real monitorado, configurar envs em staging/prod, validar abertura do suporte em device e revisar conteudo juridico final.

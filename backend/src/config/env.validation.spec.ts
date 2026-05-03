@@ -47,6 +47,17 @@ describe('validateEnvironment', () => {
     expect(message).toContain('STORAGE_PROVIDER=s3 is required in production.');
     expect(message).toContain('EMAIL_PROVIDER=ses is required in production.');
     expect(message).toContain('PUSH_PROVIDER=sns is required in production.');
+    expect(message).toContain('SUPPORT_EMAIL is required in production.');
+  });
+
+  it('rejects invalid support email when provided', () => {
+    const message = validationError({
+      ...baseEnv,
+      NODE_ENV: 'development',
+      SUPPORT_EMAIL: 'not-an-email',
+    });
+
+    expect(message).toContain('SUPPORT_EMAIL must be a valid email address.');
   });
 
   it('requires CloudFront URL and SNS platform application ARN in production', () => {
@@ -55,6 +66,7 @@ describe('validateEnvironment', () => {
       NODE_ENV: 'production',
       CORS_ORIGIN: 'https://app.meuagito.com',
       PORT: '3001',
+      SUPPORT_EMAIL: 'suporte@meuagito.com',
       ENABLE_REDIS: 'true',
       REDIS_URL: 'redis://redis.internal:6379',
       STORAGE_PROVIDER: 's3',
@@ -84,6 +96,7 @@ describe('validateEnvironment', () => {
       NODE_ENV: 'production',
       CORS_ORIGIN: 'https://app.meuagito.com',
       PORT: '3001',
+      SUPPORT_EMAIL: 'suporte@meuagito.com',
       ENABLE_REDIS: 'true',
       REDIS_URL: 'redis://redis.internal:6379',
       STORAGE_PROVIDER: 's3',
