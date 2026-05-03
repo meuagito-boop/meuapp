@@ -1151,3 +1151,24 @@ Status da validacao ponta a ponta:
 
 - o P0 local "suporte/contato hardcoded sem env de producao" fica RESOLVIDO no codigo.
 - continuam pendentes: definir caixa/canal real monitorado, configurar envs em staging/prod, validar abertura do suporte em device e revisar conteudo juridico final.
+
+## Atualizacao complementar - 2026-05-02 (America/Sao_Paulo) - Redacao central de logs sensiveis
+
+### Correcao aplicada
+
+- `logStructured` passou a sanitizar o contexto antes de serializar para console/CloudWatch.
+- Chaves sensiveis como senha, token, refresh token, Authorization, cookie, secret, api key e chaves AWS sao redigidas como `[REDACTED]`.
+- Strings com `Bearer <token>` e padroes `token=...`/`password=...` tambem sao redigidas.
+- O sanitizador cobre objetos aninhados, arrays, datas e referencia circular.
+- `README.md` e plano foram atualizados para registrar que a redacao central existe no codigo local.
+
+### Validacao executada
+
+- `cd backend && npx jest src/common/logging/structured-log.spec.ts src/common/audit/audit-log.service.spec.ts --runInBand`: OK, 5 testes.
+- `cd backend && npm run build`: OK.
+- `cd backend && npm run lint`: OK.
+
+### Leitura correta apos esta rodada
+
+- o P0 local "logs estruturados sem redacao central de senha/token/secret" fica RESOLVIDO no codigo.
+- continua pendente: validar logs reais em staging/CloudWatch com falhas de auth, email, push, upload e requests 4xx/5xx.

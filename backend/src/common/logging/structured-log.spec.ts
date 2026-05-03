@@ -61,4 +61,27 @@ describe('logStructured', () => {
     expect(console.log).not.toHaveBeenCalled();
     expect(console.debug).not.toHaveBeenCalled();
   });
+
+  it('redacts sensitive keys and bearer tokens from log context', () => {
+    process.env.LOG_LEVEL = 'debug';
+
+    logStructured('info', 'security.event', {
+      password: 'plain-password',
+      authorization: 'Bearer access-token-value',
+      nested: {
+        refreshToken: 'refresh-token-value',
+        details: 'retry with token=abc123 and password=secret123',
+      },
+      items: [{ apiKey: 'api-key-value' }],
+    });
+
+    expect(console.log).toHaveBeenCalledTimes(1);
+    const payload = JSON.parse((console.log as jest.Mock).mock.calls[0][0] as string);
+
+    expect(payload.password).toBe('[REDACTED]');
+    expect(payload.authorization).toBe('[REDACTED]');
+    expect(payload.nested.refreshToken).toBe('[REDACTED]');
+    expect(payload.nested.details).toBe('retry with token=[REDACTED] and password=[REDACTED]');
+    expect(payload.items[0].apiKey).toBe('[REDACTED]');
+  });
 });

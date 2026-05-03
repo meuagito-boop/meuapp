@@ -219,7 +219,7 @@ Ja desenvolvido:
 - checagens de ownership em recursos sensiveis;
 - rate limit global com Redis em producao;
 - validacao de DTOs;
-- logs sem dump intencional de token/segredo;
+- logs estruturados com redacao central de senha, token, Authorization e segredos;
 - `AuditLog` para acoes criticas com contexto HTTP.
 
 ### Midia e storage
@@ -612,7 +612,7 @@ Documentos principais:
 - Chat REST + Socket.IO com Redis adapter.
 - Notificacoes in-app e push token integrados.
 - SES/SNS preparados como providers AWS.
-- AuditLog e logs estruturados.
+- AuditLog e logs estruturados com redacao de campos sensiveis.
 - Docker Compose local funcional.
 - Baseline de lint/build/test documentada como aprovada.
 

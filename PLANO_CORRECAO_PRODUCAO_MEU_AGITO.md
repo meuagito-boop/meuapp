@@ -1107,13 +1107,13 @@ Checklist por area:
 | Delete account com senha | OK no codigo local; pendente smoke | Testar exclusao | Smoke settings + teste backend | Backend valida senha, bloqueia senha incorreta e revoga refresh tokens | Sim ate smoke |
 | Privacidade/settings | Pendente PROMPT-006 | Smoke settings | Testar switches/telas | Tela nao promete privacidade nao aplicada | Sim se telas ficarem no release |
 | Swagger/public docs | Parcial | Verificar prod | `curl /api/docs` | Desabilitado/protegido em prod publica | Nao, mas recomendado |
-| Logs sensiveis | Parcial | Revisar logs em auth/email/push | Teste com falha auth/email | Tokens/senhas nao aparecem em logs | Sim |
+| Logs sensiveis | RESOLVIDO no codigo local pela EXECUCAO-030; smoke/CloudWatch pendente | Revisar logs em auth/email/push | Testes de `logStructured` e smoke com falha auth/email | Tokens/senhas nao aparecem em logs | Sim ate smoke/CloudWatch |
 
 #### 9. Observabilidade
 
 | Item | Status atual | Como validar | Comando ou teste necessario | Criterio para considerar pronto | Bloqueia deploy? |
 |---|---|---|---|---|---|
-| Logs estruturados | Implementado | Gerar requests e erros | `GET /health`, login invalido, endpoint 404 | Logs com requestId/status sem dados sensiveis | Sim |
+| Logs estruturados | Implementado com redacao central pela EXECUCAO-030 | Gerar requests e erros | `GET /health`, login invalido, endpoint 404, teste unitario de redacao | Logs com requestId/status sem senha/token/secret | Sim ate CloudWatch/smoke |
 | CloudWatch | Pendente no README | Ver logs em log group real | Deploy ECS + CloudWatch Logs | Logs chegam com retention definida | Sim |
 | X-Ray | Preparado por env | Ativar e ver trace | `AWS_XRAY_ENABLED=true` no ambiente alvo | Trace aparece para requests principais ou decisao de nao usar documentada | Nao, se CloudWatch supre MVP |
 | Alarmes/runbook | Pendente AWS | Conferir alarmes | Console/IaC | Alarmes para 5xx, CPU/mem, RDS, Redis e ALB | Sim para producao publica |
@@ -1243,7 +1243,7 @@ Correcao necessaria quando falhar: remover dependencia de seed do fluxo, criar e
 | Consentimento de push | Pendente/parcial | Definir push sem Firebase, pedir permissao no momento correto e registrar token real se push entrar no release | Pendente | Sim se push no release |
 | E-mail transacional | Parcial | SES preparado, mas precisa envio real em staging/producao para verificacao/reset/suporte | Parcial | Sim |
 | Tratamento de dados pessoais | Pendente | Mapear dados coletados, finalidade, retencao, exclusao e acesso; registrar no plano legal | Pendente | Sim |
-| Logs sem dados sensiveis | Parcial | Validar request logs, error logs e audit logs sem senha, token, refresh token, Authorization, secret ou payload sensivel | Parcial | Sim |
+| Logs sem dados sensiveis | RESOLVIDO no codigo local pela EXECUCAO-030; CloudWatch/smoke pendente | `logStructured` sanitiza chaves sensiveis, bearer token e padroes `token=`/`password=`; `AuditLogService` ja sanitizava `changes` | Parcial ate smoke/CloudWatch | Sim |
 | Consentimento/versionamento | RESOLVIDO no codigo local pela EXECUCAO-028; smoke pendente | `User` ganhou `termsAcceptedAt`, `termsVersion`, `privacyPolicyAcceptedAt`, `privacyPolicyVersion`; `SignUpDto` exige aceite explicito | Parcial ate migration/smoke | Sim para release publico |
 
 #### Build mobile real de release
@@ -1429,7 +1429,7 @@ Dependencia principal: mobile release -> ALB/HTTPS -> ECS Fargate -> RDS/Redis/S
 | Secrets hardcoded | OK no versionado principal | `backend/.env` fora do Git; docs exigem Secrets/SSM | Varredura final antes de release e rotacao se qualquer segredo apareceu localmente | Sim |
 | DTOs | OK/parcial | DTOs com class-validator existem em auth/feed/search/events/establishments/products/notifications | Validar contratos frontend/backend pendentes do plano | Sim para fluxos P0 |
 | Tratamento de erro | Parcial | `GlobalExceptionFilter` existe | Smoke erros reais sem 500 generico indevido e sem dados sensiveis | Sim |
-| Logs estruturados | OK/parcial | `logStructured` e `HttpLoggingInterceptor` existem | Validar CloudWatch e ausencia de senha/token nos logs | Sim |
+| Logs estruturados | OK no codigo local pela EXECUCAO-030; runtime AWS pendente | `logStructured` sanitiza contexto; `HttpLoggingInterceptor` usa logger central | Validar CloudWatch e ausencia de senha/token nos logs reais | Sim |
 | Rate limit real | OK/parcial | `RedisThrottlerStorage` e `ThrottlerGuard` globais | Validar Redis/ElastiCache real e limites por rota critica | Sim |
 | Trust proxy | OK/parcial | `backend/src/main.ts` le `TRUST_PROXY` | Definir valor correto atras do ALB em staging/prod | Sim |
 | Health check expandido | OK no codigo; pendente staging | `backend/src/modules/health/health.service.ts` valida DB, Redis obrigatorio quando `ENABLE_REDIS=true`/production, e storage via `StorageService.getHealthStatus`; `backend/src/modules/media/storage.service.ts` valida local/S3 e permite `HeadBucket` por `HEALTHCHECK_VERIFY_STORAGE=true` | Validar `/health` no ALB/ECS com RDS, ElastiCache e S3 reais | Sim para ALB/producao |
@@ -1486,7 +1486,7 @@ A matriz do PROMPT-008 continua valida. Complemento obrigatorio: antes de oculta
 | Build mobile release real | Ainda pendente EAS/processo equivalente/device real | Gerar APK/AAB, validar env e smoke em device |
 | SES/SNS/S3/Redis reais | Codigo existe, ambiente real nao validado | Validar providers em staging AWS |
 | E2E e smoke com banco vazio | e2e depende postgres-test; banco zerado precisa smoke | Subir DB teste/staging limpo e validar estados vazios |
-| Seguranca/LGPD minima | Delete com senha resolvido no codigo local; cadastro exige/persiste aceite pela EXECUCAO-028; suporte configuravel/obrigatorio em release pela EXECUCAO-029; conteudo juridico final, retencao LGPD e logs sensiveis ainda parciais | Fechar conteudo legal, retencao/log redaction e smoke de delete/signup/suporte |
+| Seguranca/LGPD minima | Delete com senha resolvido no codigo local; cadastro exige/persiste aceite pela EXECUCAO-028; suporte configuravel/obrigatorio em release pela EXECUCAO-029; logs sensiveis com redacao central pela EXECUCAO-030; conteudo juridico final e retencao LGPD ainda parciais | Fechar conteudo legal, retencao/anonimizacao e smoke de delete/signup/suporte/logs |
 
 ##### P1 - NECESSARIO PARA RELEASE PROFISSIONAL
 
@@ -2519,6 +2519,39 @@ Status:
 - RESOLVIDO no codigo local: suporte deixou de depender de e-mail fixo em release.
 - Pendente para producao: definir e monitorar caixa/canal real, configurar envs staging/prod, validar abertura do `mailto:` em device e validar conteudo juridico final.
 
+### EXECUCAO-030 - Redacao central de logs sensiveis - 2026-05-02
+
+Objetivo executado:
+
+- Reduzir o risco de vazamento de senha, token, Authorization, cookie, secret e chaves em logs estruturados.
+- Manter `AuditLogService` como sanitizador de audit changes e adicionar protecao central ao `logStructured`.
+
+Arquivos alterados:
+
+- `backend/src/common/logging/structured-log.ts`
+- `backend/src/common/logging/structured-log.spec.ts`
+- `README.md`
+- `PLANO_CORRECAO_PRODUCAO_MEU_AGITO.md`
+- `STATUS_EXECUCAO_PROMPT_AWS_2026-04-26.md`
+
+Implementacao:
+
+- `logStructured` agora sanitiza recursivamente o contexto antes de serializar.
+- Chaves como `password`, `token`, `accessToken`, `refreshToken`, `authorization`, `cookie`, `secret`, `apiKey`, `privateKey`, `S3_SECRET_ACCESS_KEY` e equivalentes sao redigidas como `[REDACTED]`.
+- Strings com `Bearer <token>` e padroes `token=...`/`password=...` tambem sao redigidas.
+- O sanitizador trata `Date`, arrays, objetos aninhados e referencia circular.
+
+Validacao executada:
+
+- `cd backend && npx jest src/common/logging/structured-log.spec.ts src/common/audit/audit-log.service.spec.ts --runInBand`: OK, 5 testes.
+- `cd backend && npm run build`: OK.
+- `cd backend && npm run lint`: OK.
+
+Status:
+
+- RESOLVIDO no codigo local: logs estruturados passam por redacao central antes de sair para console/CloudWatch.
+- Pendente para producao: validar logs reais em staging/CloudWatch com falhas de auth, email, push, upload e requests 4xx/5xx.
+
 Resumo de bloqueadores absolutos antes de deploy publico real:
 
 1. AWS real ponta a ponta: ECS/ECR/RDS/ElastiCache/S3/CloudFront/ALB/ACM/Secrets.
@@ -2527,6 +2560,6 @@ Resumo de bloqueadores absolutos antes de deploy publico real:
 4. SES real validado para verificacao/reset.
 5. Push real validado em device sem Firebase, ou push formalmente fora do primeiro release.
 6. Smoke mobile manual completo.
-7. Conteudo juridico final, canal de suporte monitorado, retencao/anonimizacao LGPD e logs sem vazamento sensivel.
+7. Conteudo juridico final, canal de suporte monitorado, retencao/anonimizacao LGPD e validacao CloudWatch sem vazamento sensivel.
 8. Remocao/correcao dos mocks P0 do PROMPT-006.
 9. Build final backend e mobile com env de producao, sem `localhost`.
