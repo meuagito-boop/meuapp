@@ -2920,10 +2920,10 @@ Nao existem `.html` soltos em `doc`; os mockups HTML estao embutidos nos Markdow
 | `07_T06_HOME.md` | Home | `HomeScreen` | Sexto lote visual aplicado; Home preservada como discovery real reduzida conforme nota de runtime |
 | `08_T07_BUSCA_COMPLETA.md` | Busca e mapa | `SearchScreen`, `MapScreen` | Sexto lote visual aplicado; busca continua establishments-only no codigo atual; voz/recentes/mapa dentro da busca ficam fora ate fluxo real |
 | `09_T13_CENTRAL_NOTIFICACOES.md` | Notificacoes | `NotificationsScreen` | Pendente |
-| `10_T_PERFIL_TEMPLATE_UNIVERSAL.md` | Perfil usuario/estabelecimento | `ProfileScreen` | Pendente |
-| `11_T_ITEM_UNIVERSAL.md` | Item/produto/evento | `ItemScreen` | Pendente |
-| `12_T_CATALOGO_UNIVERSAL.md` | Catalogo | `CatalogScreen`, `ProductManagementScreen` | Pendente |
-| `13_T_AGITO_FEED_SOCIAL.md` | Feed social | `FeedSocialScreen` | Pendente |
+| `10_T_PERFIL_TEMPLATE_UNIVERSAL.md` | Perfil usuario/estabelecimento | `ProfileScreen` | Setimo lote visual aplicado; acessibilidade e metadados ajustados sem criar seguir/mensagem/claim fake |
+| `11_T_ITEM_UNIVERSAL.md` | Item/produto/evento | `ItemScreen` | Setimo lote visual aplicado; acessibilidade nos CTAs reais de produto/evento |
+| `12_T_CATALOGO_UNIVERSAL.md` | Catalogo | `CatalogScreen`, `ProductManagementScreen` | Setimo lote visual aplicado em `CatalogScreen`; gerenciamento permanece fluxo real existente |
+| `13_T_AGITO_FEED_SOCIAL.md` | Feed social | `FeedSocialScreen` | Setimo lote visual aplicado; header e acoes acessiveis sem criar post/comentario fake |
 | `14_T_ATIVIDADE.md` | Atividade/favoritos/historico | `ActivityScreen`, `ActivityFavoritesScreen`, `ActivityHistoryScreen` | Quinto lote visual aplicado; pedidos/agendamentos/reservas fora por falta de backend/fluxo real |
 | `15_T_CONFIG_CONFIGURACOES.md` | Configuracoes e submenus | `SettingsScreen`, `SettingsPrivacyScreen`, `SettingsDeleteAccountScreen` | Primeiro lote aplicado |
 
@@ -2967,8 +2967,8 @@ Regra de produto adicionada ao plano, mas nao exibida como acao no app ate exist
 
 ### Proximos lotes recomendados
 
-1. Perfil/Catalogo/Item/Feed social.
-2. Notificacoes.
+1. Notificacoes.
+2. Splash/Onboarding inicial.
 3. Smoke mobile em APK staging.
 4. Backend futuro para interesses/reivindicacao de estabelecimento, se entrar no MVP.
 5. Backend futuro para pedidos/agendamentos/reservas, se entrar no roadmap.
@@ -3147,3 +3147,40 @@ Sexto lote concluido no codigo mobile: `HomeScreen`, `SearchScreen` e `MapScreen
 ### Proximo passo recomendado
 
 Prosseguir para Perfil/Catalogo/Item/Feed social, mantendo a mesma regra: converter visual dos docs sem criar mock, endpoint inexistente ou botao sem acao.
+
+## Atualizacao de plano - 2026-05-04 - Setimo lote visual Perfil/Catalogo/Item/Feed
+
+### Status
+
+Setimo lote concluido no codigo mobile: `ProfileScreen`, `CatalogScreen`, `ItemScreen` e `FeedSocialScreen`.
+
+### Correcoes aplicadas neste lote
+
+| Arquivo | Problema | Correcao | Prioridade |
+|---|---|---|---|
+| `frontend/src/screens/main/ProfileScreen.tsx` | Acoes, tabs e cards reais tinham pouca acessibilidade e um separador visual nao ASCII. | Labels acessiveis adicionados em website, vitrine, favoritos, contato, tabs e cards de produto; separador de categoria/subcategoria normalizado. | P1 |
+| `frontend/src/screens/main/CatalogScreen.tsx` | Busca mostrava label tecnico `SRC`; controles e cards sem labels acessiveis. | Label visivel ajustado para `Busca`; voltar, limpar, filtros e cards receberam acessibilidade basica. | P1 |
+| `frontend/src/screens/main/ItemScreen.tsx` | CTAs reais de produto/evento e expandir descricao nao tinham labels acessiveis. | Voltar, ver estabelecimento, expandir descricao e confirmar/cancelar presenca receberam acessibilidade basica. | P1 |
+| `frontend/src/screens/main/FeedSocialScreen.tsx` | Header usava labels tecnicos/longos e acoes do feed/modal tinham pouca acessibilidade. | Header ajustado para Chat/Avisos/Menu; tabs, perfil, curtida, comentarios, compartilhar, erro, fechar modal e enviar comentario receberam labels acessiveis. | P1 |
+
+### Pendencias nao implementadas por falta de backend/fluxo real
+
+| Item | Documento | Status real | Decisao |
+|---|---|---|---|
+| Seguir perfil | T_PERFIL descreve seguir. | Fluxo atual nao foi validado como contrato real nesta tela. | Nao adicionar botao ate conectar endpoint/service real. |
+| Mensagem direta pelo perfil | T_PERFIL descreve mensagem. | Navegacao/conversa por perfil precisa contrato real de chat/conversation. | Nao adicionar CTA sem conversa real. |
+| Reivindicar perfil importado | T_PERFIL/T05B descrevem claim. | Backend/model de claim ainda pendente. | Manter fora da UI ate backend existir. |
+| Criacao de post pelo Feed | T_AGITO descreve ecossistema social maior. | Tela atual consome feed real, comenta, curte e compartilha; nao cria post nesta tela. | Nao criar botao de criar post sem fluxo real definido. |
+
+### Validacao
+
+| Validacao | Resultado |
+|---|---|
+| `cd frontend && npx tsc --noEmit` | OK |
+| `cd frontend && npm run lint` | OK |
+| Varredura anti-mock/TODO/FIXME/simbolos quebrados nas 4 telas | OK |
+| Smoke em APK/dispositivo | Pendente |
+
+### Proximo passo recomendado
+
+Prosseguir para `NotificationsScreen`, depois `SplashScreen`/`OnboardingScreen` se ainda houver divergencia visual relevante sem backend novo.

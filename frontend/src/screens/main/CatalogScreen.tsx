@@ -178,7 +178,12 @@ export default function CatalogScreen() {
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <TouchableOpacity style={styles.circleButton} onPress={() => navigation.goBack()}>
+        <TouchableOpacity
+          style={styles.circleButton}
+          onPress={() => navigation.goBack()}
+          accessibilityRole="button"
+          accessibilityLabel="Voltar"
+        >
           <Text style={styles.circleIcon}>{'<'}</Text>
         </TouchableOpacity>
 
@@ -195,16 +200,21 @@ export default function CatalogScreen() {
       {hasRealCatalogSource ? (
         <>
           <View style={styles.searchContainer}>
-            <Text style={styles.searchIcon}>SRC</Text>
+            <Text style={styles.searchIcon}>Busca</Text>
             <TextInput
               value={query}
               onChangeText={setQuery}
               placeholder={`Buscar em ${TEMPLATE_LABEL[template].toLowerCase()}`}
               placeholderTextColor={colors.textTertiary}
               style={styles.searchInput}
+              accessibilityLabel="Buscar na vitrine"
             />
             {query.length > 0 ? (
-              <TouchableOpacity onPress={() => setQuery('')}>
+              <TouchableOpacity
+                onPress={() => setQuery('')}
+                accessibilityRole="button"
+                accessibilityLabel="Limpar busca da vitrine"
+              >
                 <Text style={styles.clearSearch}>X</Text>
               </TouchableOpacity>
             ) : null}
@@ -222,6 +232,8 @@ export default function CatalogScreen() {
                   key={category}
                   style={[styles.chip, active && styles.chipActive]}
                   onPress={() => setActiveCategory(category)}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Filtrar vitrine por ${category}`}
                 >
                   <Text style={[styles.chipText, active && styles.chipTextActive]}>{category}</Text>
                 </TouchableOpacity>
@@ -255,6 +267,8 @@ export default function CatalogScreen() {
             <TouchableOpacity
               style={styles.itemCard}
               activeOpacity={0.85}
+              accessibilityRole="button"
+              accessibilityLabel={`Abrir item ${item.name}`}
               onPress={() =>
                 navigation.navigate('Item', {
                   template,

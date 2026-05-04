@@ -496,7 +496,12 @@ export default function ProfileScreen() {
               {bio ? renderInfoRow('Bio', bio) : null}
               {location ? renderInfoRow('Localidade', location) : null}
               {website ? (
-                <TouchableOpacity style={styles.catalogButton} onPress={() => void openExternalUrl(website)}>
+                <TouchableOpacity
+                  style={styles.catalogButton}
+                  onPress={() => void openExternalUrl(website)}
+                  accessibilityRole="button"
+                  accessibilityLabel="Abrir website do perfil"
+                >
                   <Text style={styles.catalogButtonText}>Abrir website</Text>
                 </TouchableOpacity>
               ) : null}
@@ -536,6 +541,8 @@ export default function ProfileScreen() {
             style={styles.productCard}
             activeOpacity={0.85}
             onPress={() => handleOpenProduct(product)}
+            accessibilityRole="button"
+            accessibilityLabel={`Abrir item ${product.name}`}
           >
             <View style={styles.productMedia}>
               {product.imageUrl || product.mainImageUrl ? (
@@ -561,7 +568,12 @@ export default function ProfileScreen() {
           </TouchableOpacity>
         ))}
 
-        <TouchableOpacity style={styles.catalogButton} onPress={handleOpenCatalog}>
+        <TouchableOpacity
+          style={styles.catalogButton}
+          onPress={handleOpenCatalog}
+          accessibilityRole="button"
+          accessibilityLabel="Abrir vitrine completa"
+        >
           <Text style={styles.catalogButtonText}>Ver vitrine completa</Text>
         </TouchableOpacity>
       </View>
@@ -611,7 +623,7 @@ export default function ProfileScreen() {
             <Text style={styles.profileName}>{establishment.name}</Text>
             <Text style={styles.profileSubtitle}>
               {establishment.category}
-              {establishment.subcategory ? ` · ${establishment.subcategory}` : ''}
+              {establishment.subcategory ? ` - ${establishment.subcategory}` : ''}
             </Text>
             <Text style={styles.profileCaption}>
               {isOwnerEstablishmentView ? 'Sua pagina publica' : formatDistance(establishment.distanceKm)}
@@ -652,6 +664,8 @@ export default function ProfileScreen() {
               style={[styles.actionChip, isFavorite && styles.actionChipActive]}
               onPress={handleToggleFavorite}
               disabled={isUpdatingFavorite}
+              accessibilityRole="button"
+              accessibilityLabel={isFavorite ? 'Remover estabelecimento dos favoritos' : 'Salvar estabelecimento'}
             >
               <Text style={[styles.actionChipText, isFavorite && styles.actionChipTextActive]}>
                 {isFavorite ? 'Salvo' : 'Salvar'}
@@ -662,6 +676,8 @@ export default function ProfileScreen() {
             <TouchableOpacity
               style={styles.actionChip}
               onPress={() => void openExternalUrl(`tel:${establishment.phone}`)}
+              accessibilityRole="button"
+              accessibilityLabel="Ligar para o estabelecimento"
             >
               <Text style={styles.actionChipText}>Ligar</Text>
             </TouchableOpacity>
@@ -670,17 +686,26 @@ export default function ProfileScreen() {
             <TouchableOpacity
               style={styles.actionChip}
               onPress={() => void openExternalUrl(whatsappUrl)}
+              accessibilityRole="button"
+              accessibilityLabel="Abrir WhatsApp do estabelecimento"
             >
               <Text style={styles.actionChipText}>WhatsApp</Text>
             </TouchableOpacity>
           ) : null}
-          <TouchableOpacity style={styles.actionChip} onPress={handleOpenMaps}>
+          <TouchableOpacity
+            style={styles.actionChip}
+            onPress={handleOpenMaps}
+            accessibilityRole="button"
+            accessibilityLabel="Abrir rota para o estabelecimento"
+          >
             <Text style={styles.actionChipText}>Como chegar</Text>
           </TouchableOpacity>
           {establishment.website ? (
             <TouchableOpacity
               style={styles.actionChip}
               onPress={() => void openExternalUrl(establishment.website as string)}
+              accessibilityRole="button"
+              accessibilityLabel="Abrir website do estabelecimento"
             >
               <Text style={styles.actionChipText}>Website</Text>
             </TouchableOpacity>
@@ -695,6 +720,8 @@ export default function ProfileScreen() {
                 key={tab}
                 style={[styles.tabButton, active && styles.tabButtonActive]}
                 onPress={() => setActiveTab(tab)}
+                accessibilityRole="button"
+                accessibilityLabel={`Abrir aba ${tab}`}
               >
                 <Text style={[styles.tabButtonText, active && styles.tabButtonTextActive]}>{tab}</Text>
               </TouchableOpacity>
@@ -723,11 +750,21 @@ export default function ProfileScreen() {
 
             <View style={styles.infoCard}>
               <Text style={styles.cardTitle}>Acesso rapido</Text>
-              <TouchableOpacity style={styles.catalogButton} onPress={handleOpenCatalog}>
+              <TouchableOpacity
+                style={styles.catalogButton}
+                onPress={handleOpenCatalog}
+                accessibilityRole="button"
+                accessibilityLabel="Abrir vitrine publica"
+              >
                 <Text style={styles.catalogButtonText}>Abrir vitrine publica</Text>
               </TouchableOpacity>
               {isOwnerEstablishmentView ? (
-                <TouchableOpacity style={styles.catalogButton} onPress={handleOpenProductManagement}>
+                <TouchableOpacity
+                  style={styles.catalogButton}
+                  onPress={handleOpenProductManagement}
+                  accessibilityRole="button"
+                  accessibilityLabel="Gerenciar vitrine"
+                >
                   <Text style={styles.catalogButtonText}>Gerenciar vitrine</Text>
                 </TouchableOpacity>
               ) : null}

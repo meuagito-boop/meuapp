@@ -823,6 +823,49 @@ Status da validacao ponta a ponta:
 - Home, Busca e Mapa ficaram visualmente mais consistentes sem trocar backend real por dados estaticos.
 - Pendente: smoke em APK/dispositivo validando permissao de localizacao, mapa/lista, abertura de estabelecimento/evento e busca com backend staging.
 
+## Atualizacao operacional - 2026-05-04 (America/Sao_Paulo) - Setimo lote visual Perfil/Catalogo/Item/Feed
+
+### Referencias usadas
+
+- `doc/02_UX_FLUXOS/10_T_PERFIL_TEMPLATE_UNIVERSAL.md`: perfil usuario/estabelecimento.
+- `doc/02_UX_FLUXOS/11_T_ITEM_UNIVERSAL.md`: detalhe de produto/evento/item.
+- `doc/02_UX_FLUXOS/12_T_CATALOGO_UNIVERSAL.md`: catalogo/vitrine.
+- `doc/02_UX_FLUXOS/13_T_AGITO_FEED_SOCIAL.md`: feed social.
+
+### Correcao aplicada
+
+- `frontend/src/screens/main/ProfileScreen.tsx`:
+  - acoes reais de website, vitrine, favoritos, contato, rota e tabs receberam acessibilidade basica;
+  - cards de produto passaram a ter label acessivel;
+  - separador visual de categoria/subcategoria foi normalizado para ASCII.
+- `frontend/src/screens/main/CatalogScreen.tsx`:
+  - label tecnico `SRC` foi trocado por `Busca`;
+  - voltar, limpar busca, chips de categoria e cards reais receberam acessibilidade basica.
+- `frontend/src/screens/main/ItemScreen.tsx`:
+  - voltar, expandir descricao, abrir estabelecimento e confirmar/cancelar presenca receberam acessibilidade basica.
+- `frontend/src/screens/main/FeedSocialScreen.tsx`:
+  - header deixou de usar labels tecnicos/longos e passou para `Chat`, `Avisos` e `Menu`;
+  - tabs, perfil do autor, curtir, comentarios, compartilhar, erro, fechar modal e enviar comentario receberam acessibilidade basica;
+  - metadado do comentario foi normalizado para ASCII.
+
+### Decisoes de escopo
+
+- Nao foram adicionados botoes de seguir, mensagem direta por perfil, reivindicacao de perfil importado ou criacao de post porque esses fluxos exigem contrato real validado.
+- Catalogo continua exibindo somente produtos reais de estabelecimento; rota sem `establishmentId` permanece estado honesto.
+- Item continua limitado a produto/evento reais; templates genericos seguem sem CTA fake.
+
+### Validacao executada
+
+- `cd frontend && npx tsc --noEmit`: OK.
+- `cd frontend && npm run lint`: OK.
+- Varredura em `ProfileScreen.tsx`, `CatalogScreen.tsx`, `ItemScreen.tsx` e `FeedSocialScreen.tsx` para `mock`, `fake`, `dummy`, `sample`, `coming soon`, `em breve`, `onPress={() => {}}`, `console.log`, `★`, `⭐`, `•`, `Â` e `â`: sem ocorrencias.
+- Varredura case-sensitive para `TODO` e `FIXME`: sem ocorrencias.
+
+### Leitura correta apos esta rodada
+
+- Perfil, Catalogo, Item e Feed ficaram mais consistentes e acessiveis sem criar funcionalidade nao existente.
+- Pendente: smoke em APK/dispositivo validando perfil de usuario/estabelecimento, vitrine real, produto/evento real, feed, comentarios e curtidas.
+
 ### Leitura correta apos esta rodada
 
 - o P0 local "AuthService.refreshToken passando pelo interceptor que injeta access token" fica RESOLVIDO no codigo.

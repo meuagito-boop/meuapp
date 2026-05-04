@@ -306,7 +306,12 @@ export default function ItemScreen() {
 
   const renderHeader = (title: string) => (
     <View style={styles.header}>
-      <TouchableOpacity style={styles.circleButton} onPress={() => navigation.goBack()}>
+      <TouchableOpacity
+        style={styles.circleButton}
+        onPress={() => navigation.goBack()}
+        accessibilityRole="button"
+        accessibilityLabel="Voltar"
+      >
         <Text style={styles.circleIcon}>{'<'}</Text>
       </TouchableOpacity>
 
@@ -335,7 +340,12 @@ export default function ItemScreen() {
           <Text style={styles.centerText}>
             {productError || 'Nao foi possivel carregar este item.'}
           </Text>
-          <TouchableOpacity style={styles.primaryAction} onPress={() => navigation.goBack()}>
+          <TouchableOpacity
+            style={styles.primaryAction}
+            onPress={() => navigation.goBack()}
+            accessibilityRole="button"
+            accessibilityLabel="Voltar"
+          >
             <Text style={styles.primaryActionText}>Voltar</Text>
           </TouchableOpacity>
         </View>
@@ -368,7 +378,11 @@ export default function ItemScreen() {
                 {product.description}
               </Text>
               {product.description.length > 180 ? (
-                <TouchableOpacity onPress={() => setExpandedDescription((current) => !current)}>
+                <TouchableOpacity
+                  onPress={() => setExpandedDescription((current) => !current)}
+                  accessibilityRole="button"
+                  accessibilityLabel={expandedDescription ? 'Mostrar menos descricao' : 'Mostrar mais descricao'}
+                >
                   <Text style={styles.linkText}>{expandedDescription ? 'Ver menos' : 'Ver mais'}</Text>
                 </TouchableOpacity>
               ) : null}
@@ -377,7 +391,12 @@ export default function ItemScreen() {
             <Text style={styles.itemDescription}>Sem descricao publicada para este item.</Text>
           )}
 
-          <TouchableOpacity style={styles.sectionCard} onPress={handleOpenEstablishment}>
+          <TouchableOpacity
+            style={styles.sectionCard}
+            onPress={handleOpenEstablishment}
+            accessibilityRole="button"
+            accessibilityLabel="Abrir estabelecimento"
+          >
             <Text style={styles.sectionLabel}>Estabelecimento</Text>
             <Text style={styles.sectionValue}>{productEstablishmentName}</Text>
           </TouchableOpacity>
@@ -396,7 +415,12 @@ export default function ItemScreen() {
         </ScrollView>
 
         <View style={styles.actionFooter}>
-          <TouchableOpacity style={styles.primaryAction} onPress={handleOpenEstablishment}>
+          <TouchableOpacity
+            style={styles.primaryAction}
+            onPress={handleOpenEstablishment}
+            accessibilityRole="button"
+            accessibilityLabel="Abrir estabelecimento"
+          >
             <Text style={styles.primaryActionText}>Ver estabelecimento</Text>
           </TouchableOpacity>
         </View>
@@ -419,7 +443,12 @@ export default function ItemScreen() {
         <View style={styles.centerState}>
           <Text style={styles.errorTitle}>Evento indisponivel</Text>
           <Text style={styles.centerText}>{eventError || 'Nao foi possivel carregar este evento.'}</Text>
-          <TouchableOpacity style={styles.primaryAction} onPress={() => navigation.goBack()}>
+          <TouchableOpacity
+            style={styles.primaryAction}
+            onPress={() => navigation.goBack()}
+            accessibilityRole="button"
+            accessibilityLabel="Voltar"
+          >
             <Text style={styles.primaryActionText}>Voltar</Text>
           </TouchableOpacity>
         </View>
@@ -454,7 +483,11 @@ export default function ItemScreen() {
             {event.description || 'Evento sem descricao publicada.'}
           </Text>
           {event.description && event.description.length > 180 ? (
-            <TouchableOpacity onPress={() => setExpandedDescription((current) => !current)}>
+            <TouchableOpacity
+              onPress={() => setExpandedDescription((current) => !current)}
+              accessibilityRole="button"
+              accessibilityLabel={expandedDescription ? 'Mostrar menos descricao' : 'Mostrar mais descricao'}
+            >
               <Text style={styles.linkText}>{expandedDescription ? 'Ver menos' : 'Ver mais'}</Text>
             </TouchableOpacity>
           ) : null}
@@ -509,6 +542,8 @@ export default function ItemScreen() {
             ]}
             disabled={isSubmittingEventAction}
             onPress={handleEventAction}
+            accessibilityRole="button"
+            accessibilityLabel={event.isAttending ? 'Cancelar presenca no evento' : 'Confirmar presenca no evento'}
           >
             <Text
               style={[
@@ -534,7 +569,12 @@ export default function ItemScreen() {
       <Text style={styles.centerText}>
         Nao foi possivel abrir este item. Acesse por uma vitrine publicada ou pela lista de eventos.
       </Text>
-      <TouchableOpacity style={styles.primaryAction} onPress={() => navigation.goBack()}>
+      <TouchableOpacity
+        style={styles.primaryAction}
+        onPress={() => navigation.goBack()}
+        accessibilityRole="button"
+        accessibilityLabel="Voltar"
+      >
         <Text style={styles.primaryActionText}>Voltar</Text>
       </TouchableOpacity>
     </View>

@@ -196,17 +196,29 @@ export default function FeedSocialScreen() {
         <Text style={styles.logoText}>M</Text>
       </View>
       <View style={styles.headerActions}>
-        <TouchableOpacity style={styles.headerAction} onPress={() => navigation.navigate('Chat')}>
-          <Text style={styles.headerActionText}>CHAT</Text>
+        <TouchableOpacity
+          style={styles.headerAction}
+          onPress={() => navigation.navigate('Chat')}
+          accessibilityRole="button"
+          accessibilityLabel="Abrir chat"
+        >
+          <Text style={styles.headerActionText}>Chat</Text>
         </TouchableOpacity>
         <TouchableOpacity
           style={styles.headerAction}
           onPress={() => navigation.navigate('Notifications')}
+          accessibilityRole="button"
+          accessibilityLabel="Abrir notificacoes"
         >
-          <Text style={styles.headerActionText}>ALERTAS</Text>
+          <Text style={styles.headerActionText}>Avisos</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={styles.headerAction} onPress={() => navigation.navigate('Settings')}>
-          <Text style={styles.headerActionText}>PAINEL</Text>
+        <TouchableOpacity
+          style={styles.headerAction}
+          onPress={() => navigation.navigate('Settings')}
+          accessibilityRole="button"
+          accessibilityLabel="Abrir configuracoes"
+        >
+          <Text style={styles.headerActionText}>Menu</Text>
         </TouchableOpacity>
       </View>
     </View>
@@ -221,6 +233,8 @@ export default function FeedSocialScreen() {
             key={tab.id}
             style={[styles.modeTab, isActive && styles.modeTabActive]}
             onPress={() => handleModeChange(tab.id)}
+            accessibilityRole="button"
+            accessibilityLabel={`Abrir feed ${tab.label}`}
           >
             <Text style={[styles.modeTabText, isActive && styles.modeTabTextActive]}>{tab.label}</Text>
           </TouchableOpacity>
@@ -238,6 +252,8 @@ export default function FeedSocialScreen() {
         <View style={styles.postHeader}>
           <TouchableOpacity
             style={[styles.avatar, isEstablishment && styles.avatarSquare]}
+            accessibilityRole="button"
+            accessibilityLabel={`Abrir perfil de ${item.author.name}`}
             onPress={() =>
               navigation.navigate('Profile', {
                 type: 'user',
@@ -276,15 +292,30 @@ export default function FeedSocialScreen() {
         </View>
 
         <View style={styles.actionsRow}>
-          <TouchableOpacity style={styles.actionButton} onPress={() => void handleToggleLike(item)}>
+          <TouchableOpacity
+            style={styles.actionButton}
+            onPress={() => void handleToggleLike(item)}
+            accessibilityRole="button"
+            accessibilityLabel={item.isLiked ? 'Remover curtida' : 'Curtir post'}
+          >
             <Text style={[styles.actionText, item.isLiked && styles.actionTextActive]}>
               {item.isLiked ? 'CURTIDO' : 'CURTIR'} {item.likesCount}
             </Text>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.actionButton} onPress={() => void openComments(item.id)}>
+          <TouchableOpacity
+            style={styles.actionButton}
+            onPress={() => void openComments(item.id)}
+            accessibilityRole="button"
+            accessibilityLabel="Abrir comentarios"
+          >
             <Text style={styles.actionText}>COMENTAR {item.commentsCount}</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.actionButton} onPress={() => void handleSharePost(item)}>
+          <TouchableOpacity
+            style={styles.actionButton}
+            onPress={() => void handleSharePost(item)}
+            accessibilityRole="button"
+            accessibilityLabel="Compartilhar post"
+          >
             <Text style={styles.actionText}>COMPARTILHAR</Text>
           </TouchableOpacity>
         </View>
@@ -305,7 +336,12 @@ export default function FeedSocialScreen() {
             ? 'Ative localizacao e publique posts com local marcado para alimentar este modo.'
             : 'Este modo ainda nao retornou conteudo para a sua conta.'}
         </Text>
-        <TouchableOpacity style={styles.emptyButton} onPress={handleRefresh}>
+        <TouchableOpacity
+          style={styles.emptyButton}
+          onPress={handleRefresh}
+          accessibilityRole="button"
+          accessibilityLabel="Recarregar feed"
+        >
           <Text style={styles.emptyButtonText}>Recarregar</Text>
         </TouchableOpacity>
       </View>
@@ -318,7 +354,12 @@ export default function FeedSocialScreen() {
       {renderModeTabs()}
 
       {error ? (
-        <TouchableOpacity style={styles.errorBanner} onPress={clearError}>
+        <TouchableOpacity
+          style={styles.errorBanner}
+          onPress={clearError}
+          accessibilityRole="button"
+          accessibilityLabel="Dispensar erro do feed"
+        >
           <Text style={styles.errorBannerText}>{error}</Text>
         </TouchableOpacity>
       ) : null}
@@ -360,9 +401,13 @@ export default function FeedSocialScreen() {
           <View style={styles.modalSheet}>
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>Comentarios</Text>
-              <TouchableOpacity onPress={closeComments}>
-                <Text style={styles.modalClose}>FECHAR</Text>
-              </TouchableOpacity>
+                <TouchableOpacity
+                  onPress={closeComments}
+                  accessibilityRole="button"
+                  accessibilityLabel="Fechar comentarios"
+                >
+                  <Text style={styles.modalClose}>FECHAR</Text>
+                </TouchableOpacity>
             </View>
 
             {selectedPost ? (
@@ -388,7 +433,7 @@ export default function FeedSocialScreen() {
                     <Text style={styles.commentAuthor}>{item.author.name}</Text>
                     <Text style={styles.commentText}>{item.content}</Text>
                     <Text style={styles.commentMeta}>
-                      {formatRelativeTime(item.createdAt)} · {item.likesCount} curtidas
+                      {formatRelativeTime(item.createdAt)} - {item.likesCount} curtidas
                     </Text>
                   </View>
                 </View>
@@ -412,6 +457,8 @@ export default function FeedSocialScreen() {
                 ]}
                 onPress={() => void submitComment()}
                 disabled={commentDraft.trim().length === 0 || isSubmittingComment}
+                accessibilityRole="button"
+                accessibilityLabel="Enviar comentario"
               >
                 <Text style={styles.commentSendText}>
                   {isSubmittingComment ? '...' : 'ENVIAR'}
