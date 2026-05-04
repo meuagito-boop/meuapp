@@ -12,7 +12,7 @@ import {
 import { ParamListBase, useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
-import { Button, Input } from '@components';
+import { Button, Input, InfoCard, SectionLabel } from '@components';
 import { colors } from '@constants/colors';
 import { componentSizes, fontSize, spacing } from '@constants/design';
 import { useAuth } from '@hooks/useAuth';
@@ -96,19 +96,14 @@ export default function LoginScreen() {
         <Text style={styles.title}>Entre ou crie sua conta</Text>
         <Text style={styles.subtitle}>Descubra o que esta rolando na sua cidade</Text>
 
-        <View style={styles.authScopeCard}>
-          <Text style={styles.authScopeTitle}>Acesso validado neste build</Text>
-          <Text style={styles.authScopeText}>
-            O fluxo publico atual usa e-mail e senha. Se sua conta tiver 2FA habilitado, o app
-            continua com o desafio do autenticador na etapa seguinte.
+        <InfoCard title="Acesso seguro" tone="orange" style={styles.securityCard}>
+          <Text style={styles.securityCardText}>
+            Entre com e-mail e senha. Contas com verificacao em duas etapas continuam na
+            validacao seguinte.
           </Text>
-        </View>
+        </InfoCard>
 
-        <View style={styles.dividerContainer}>
-          <View style={styles.dividerLine} />
-          <Text style={styles.dividerText}>continuar com e-mail</Text>
-          <View style={styles.dividerLine} />
-        </View>
+        <SectionLabel label="Acesso com e-mail" style={styles.sectionLabel} />
 
         <View style={styles.formSection}>
           <Input
@@ -140,9 +135,10 @@ export default function LoginScreen() {
         <Button
           label="Entrar"
           onPress={handleEmailLogin}
-          disabled={isSubmitting || !!emailError}
+          disabled={isSubmitting || !!emailError || !email.trim() || !password}
           loading={isSubmitting}
           fullWidth
+          size="large"
           style={styles.loginButton}
         />
 
@@ -232,41 +228,20 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginBottom: spacing.xl,
   },
-  authScopeCard: {
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 12,
-    backgroundColor: colors.surface,
-    padding: spacing.md,
-    gap: spacing.xs,
+  securityCard: {
+    marginTop: spacing.md,
   },
-  authScopeTitle: {
-    color: colors.text,
-    fontSize: fontSize.sm,
-    fontWeight: '700',
-  },
-  authScopeText: {
+  securityCardText: {
     color: colors.textSecondary,
     fontSize: fontSize.sm,
     lineHeight: 18,
   },
-  dividerContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginVertical: spacing.xxl,
-  },
-  dividerLine: {
-    flex: 1,
-    height: 1,
-    backgroundColor: colors.border,
-  },
-  dividerText: {
-    marginHorizontal: spacing.md,
-    color: colors.textTertiary,
-    fontSize: fontSize.sm,
+  sectionLabel: {
+    paddingHorizontal: 0,
+    paddingTop: spacing.xl,
   },
   formSection: {
-    marginTop: spacing.xl,
+    marginTop: spacing.sm,
   },
   errorMessage: {
     color: colors.error,

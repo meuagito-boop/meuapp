@@ -1,10 +1,7 @@
 import React, { useMemo, useState } from 'react';
-import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { SafeAreaView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useNavigation, ParamListBase } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-
-
-
 
 import { Button } from '@components';
 import { colors } from '@constants/colors';
@@ -20,15 +17,15 @@ const OPTIONS: Array<{
 }> = [
   {
     id: 'personal',
-    icon: 'P',
+    icon: 'PF',
     title: 'Conta pessoal',
-    description: 'Para descobrir e interagir com o que esta acontecendo na cidade.',
+    description: 'Para pessoas que querem explorar e interagir com a cidade.',
   },
   {
     id: 'business',
-    icon: 'E',
+    icon: 'PJ',
     title: 'Conta empresarial',
-    description: 'Para negocios que querem ser encontrados e atrair clientes.',
+    description: 'Para negocios, servicos e estabelecimentos que querem ser encontrados.',
   },
 ];
 
@@ -50,7 +47,7 @@ export default function ProfileSelectionScreen() {
   };
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container}>
       <View>
         <Text style={styles.title}>Que tipo de conta voce quer criar?</Text>
         <Text style={styles.subtitle}>Cada tipo de conta usa um e-mail proprio.</Text>
@@ -72,10 +69,11 @@ export default function ProfileSelectionScreen() {
               ]}
               onPress={() => setSelected((prev) => (prev === option.id ? null : option.id))}
               accessibilityRole="button"
+              accessibilityLabel={option.title}
               accessibilityState={{ selected: isSelected }}
             >
-              <View style={styles.iconContainer}>
-                <Text style={styles.icon}>{option.icon}</Text>
+              <View style={[styles.iconContainer, isSelected && styles.iconContainerSelected]}>
+                <Text style={[styles.icon, isSelected && styles.iconSelected]}>{option.icon}</Text>
               </View>
               <View style={styles.cardBody}>
                 <Text style={styles.cardTitle}>{option.title}</Text>
@@ -95,6 +93,7 @@ export default function ProfileSelectionScreen() {
           onPress={handleContinue}
           disabled={!canContinue}
           fullWidth
+          size="large"
         />
         <TouchableOpacity
           onPress={() => navigation.navigate('Login')}
@@ -107,7 +106,7 @@ export default function ProfileSelectionScreen() {
           Voce pode criar outra conta com um e-mail diferente a qualquer momento.
         </Text>
       </View>
-    </View>
+    </SafeAreaView>
   );
 }
 
@@ -164,7 +163,16 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   icon: {
-    fontSize: 24,
+    color: colors.textSecondary,
+    fontSize: fontSize.md,
+    fontWeight: '900',
+  },
+  iconContainerSelected: {
+    backgroundColor: 'rgba(232, 100, 10, 0.1)',
+    borderColor: 'rgba(232, 100, 10, 0.3)',
+  },
+  iconSelected: {
+    color: colors.primary,
   },
   cardBody: {
     flex: 1,

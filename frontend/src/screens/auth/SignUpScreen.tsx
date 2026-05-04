@@ -14,7 +14,7 @@ import { useNavigation, useRoute, ParamListBase, type RouteProp } from '@react-n
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 import { useAuth } from '@hooks/useAuth';
-import { Button, Input } from '@components';
+import { Button, InfoCard, Input, ScreenHeader } from '@components';
 import { colors } from '@constants/colors';
 import { spacing, fontSize } from '@constants/design';
 import { openLegalDocument } from '@services/legal/LegalLinks';
@@ -43,6 +43,11 @@ export default function SignUpScreen() {
   const nextSetupScreen =
     routeParams?.nextSetupScreen ??
     (profileType === 'ESTABLISHMENT' ? 'BusinessSetup' : 'PersonalSetup');
+  const isBusinessProfile = profileType === 'ESTABLISHMENT';
+  const profileLabel = isBusinessProfile ? 'Conta empresarial' : 'Conta pessoal';
+  const profileDescription = isBusinessProfile
+    ? 'Cadastro para negocios, servicos e estabelecimentos.'
+    : 'Cadastro para explorar e interagir com a cidade.';
 
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
@@ -240,18 +245,32 @@ export default function SignUpScreen() {
       : passwordStrength === 'media'
         ? colors.warning
         : colors.error;
+  const isCreateDisabled =
+    isSubmitting ||
+    !termsAccepted ||
+    !name.trim() ||
+    !email.trim() ||
+    !birthDate.trim() ||
+    !password ||
+    !confirmPassword ||
+    !!nameError ||
+    !!emailError ||
+    !!birthDateError ||
+    !!passwordError ||
+    !!confirmError;
 
   return (
     <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.container}>
+      <ScreenHeader title="Criar conta" onBack={() => navigation.goBack()} />
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-          <Text style={styles.backText}>Voltar</Text>
-        </TouchableOpacity>
+        <Text style={styles.title}>Preencha seus dados</Text>
+        <Text style={styles.subtitle}>Use um e-mail valido para receber a verificacao da conta.</Text>
 
-        <Text style={styles.title}>Criar conta</Text>
-        <Text style={styles.subtitle}>Preencha os dados abaixo para se cadastrar</Text>
+        <InfoCard title={profileLabel} tone="orange" style={styles.profileCard}>
+          <Text style={styles.profileCardText}>{profileDescription}</Text>
+        </InfoCard>
 
-        <View style={{ marginTop: spacing.xxl }}>
+        <View style={styles.formSection}>
           <Input
             label="Nome completo"
             placeholder="Nome e sobrenome"
@@ -296,7 +315,7 @@ export default function SignUpScreen() {
           {password && (
             <View style={styles.strengthContainer}>
               <View style={[styles.strengthBar, { backgroundColor: strengthColor }]} />
-              <Text style={[{ color: strengthColor }, { fontSize: fontSize.sm }]}>
+              <Text style={[styles.strengthText, { color: strengthColor }]}>
                 Forca: {passwordStrength === 'forte' ? 'Forte' : passwordStrength === 'media' ? 'Media' : 'Fraca'}
               </Text>
             </View>
@@ -313,7 +332,7 @@ export default function SignUpScreen() {
           />
 
           <TouchableOpacity onPress={() => setTermsAccepted(!termsAccepted)} style={styles.checkboxContainer}>
-            <View style={[styles.checkbox, termsAccepted && { backgroundColor: colors.primary }]}>
+            <View style={[styles.checkbox, termsAccepted && styles.checkboxAccepted]}>
               {termsAccepted && <Text style={styles.checkmark}>OK</Text>}
             </View>
             <Text style={styles.checkboxText}>
@@ -344,21 +363,14 @@ export default function SignUpScreen() {
         <Button
           label="Criar conta"
           onPress={handleSignUp}
-          disabled={
-            isSubmitting ||
-            !termsAccepted ||
-            !!nameError ||
-            !!emailError ||
-            !!birthDateError ||
-            !!passwordError ||
-            !!confirmError
-          }
+          disabled={isCreateDisabled}
           loading={isSubmitting}
           fullWidth
-          style={{ marginTop: spacing.xl }}
+          size="large"
+          style={styles.submitButton}
         />
 
-        <TouchableOpacity onPress={() => navigation.navigate('Login' as never)} style={{ marginTop: spacing.xl, marginBottom: spacing.xxxl }}>
+        <TouchableOpacity onPress={() => navigation.navigate('Login' as never)} style={styles.loginFooterLink}>
           <Text style={styles.footerText}>
             Ja tem conta? <Text style={styles.link}>Faca login</Text>
           </Text>
@@ -385,16 +397,8 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     paddingHorizontal: spacing.lg,
-    paddingTop: spacing.lg,
+    paddingTop: spacing.xl,
     paddingBottom: spacing.xxxl,
-  },
-  backButton: {
-    marginBottom: spacing.xl,
-  },
-  backText: {
-    color: colors.primary,
-    fontSize: fontSize.md,
-    fontWeight: '600',
   },
   title: {
     fontSize: fontSize.huge,
@@ -405,7 +409,18 @@ const styles = StyleSheet.create({
   subtitle: {
     fontSize: fontSize.md,
     color: colors.textSecondary,
-    marginBottom: spacing.xxl,
+    marginBottom: spacing.xl,
+  },
+  profileCard: {
+    marginBottom: spacing.xl,
+  },
+  profileCardText: {
+    color: colors.textSecondary,
+    fontSize: fontSize.sm,
+    lineHeight: 18,
+  },
+  formSection: {
+    marginTop: spacing.sm,
   },
   strengthContainer: {
     marginBottom: spacing.lg,
@@ -414,6 +429,10 @@ const styles = StyleSheet.create({
     height: 4,
     borderRadius: 2,
     marginBottom: spacing.sm,
+  },
+  strengthText: {
+    fontSize: fontSize.sm,
+    fontWeight: '600',
   },
   checkboxContainer: {
     flexDirection: 'row',
@@ -430,6 +449,10 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     marginTop: spacing.sm,
+  },
+  checkboxAccepted: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
   },
   checkmark: {
     color: colors.text,
@@ -452,6 +475,13 @@ const styles = StyleSheet.create({
     fontSize: fontSize.sm,
     marginTop: spacing.md,
     fontWeight: '500',
+  },
+  submitButton: {
+    marginTop: spacing.xl,
+  },
+  loginFooterLink: {
+    marginTop: spacing.xl,
+    marginBottom: spacing.xxxl,
   },
   footerText: {
     color: colors.textSecondary,

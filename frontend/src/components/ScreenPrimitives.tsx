@@ -239,7 +239,7 @@ const styles = StyleSheet.create({
     color: colors.primary,
     fontSize: fontSize.xs,
     fontWeight: '900',
-    letterSpacing: 1.4,
+    letterSpacing: 0,
     textTransform: 'uppercase',
   },
   infoCard: {
@@ -251,7 +251,7 @@ const styles = StyleSheet.create({
   infoTitle: {
     fontSize: fontSize.sm,
     fontWeight: '900',
-    letterSpacing: 0.5,
+    letterSpacing: 0,
     textTransform: 'uppercase',
   },
   infoBody: {

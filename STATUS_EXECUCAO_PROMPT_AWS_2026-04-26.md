@@ -635,6 +635,46 @@ Status da validacao ponta a ponta:
 - `cd frontend && npx tsc --noEmit`: OK.
 - `cd frontend && npm run lint`: OK.
 
+## Atualizacao operacional - 2026-05-04 (America/Sao_Paulo) - Segundo lote visual Auth e perfil
+
+### Referencias usadas
+
+- `doc/02_UX_FLUXOS/03_T03_LOGIN_CADASTRO.md`: T03 login/cadastro com e-mail, validacoes, termos, recuperacao e estados de autenticacao.
+- `doc/02_UX_FLUXOS/04_T04_ESCOLHA_PERFIL.md`: T04 escolha de conta pessoal/empresarial com cards selecionaveis e CTA fixo.
+
+### Correcao aplicada
+
+- `frontend/src/screens/auth/LoginScreen.tsx`:
+  - removido texto interno de build;
+  - aplicado `InfoCard` e `SectionLabel` para alinhar o bloco de e-mail/senha ao padrao visual dos mockups;
+  - botao `Entrar` passou a usar tamanho grande e fica desabilitado quando e-mail ou senha estao vazios.
+- `frontend/src/screens/auth/SignUpScreen.tsx`:
+  - aplicado `ScreenHeader` e `InfoCard` com o tipo de conta selecionado;
+  - removidos estilos inline principais;
+  - botao `Criar conta` passou a respeitar campos obrigatorios vazios, erros e aceite LGPD antes de habilitar.
+- `frontend/src/screens/auth/ProfileSelectionScreen.tsx`:
+  - aplicado `SafeAreaView`;
+  - cards ajustados com labels `PF`/`PJ`, estado selecionado e botao grande;
+  - preservada a navegacao real `ProfileSelection -> SignUp` usada pelo codigo atual.
+- `frontend/src/components/ScreenPrimitives.tsx`:
+  - removido letter spacing diferente de zero nos primitives para manter consistencia mobile.
+
+### Decisoes de escopo
+
+- Nao foram adicionados Google, Apple, telefone/SMS ou qualquer botao social do mockup porque nao existe fluxo real conectado no app atual.
+- A escolha de perfil continua antes do cadastro porque o backend real recebe `profileType` no signup; esta divergencia com o documento visual foi preservada para nao quebrar a integracao real.
+
+### Validacao executada
+
+- `cd frontend && npx tsc --noEmit`: OK.
+- `cd frontend && npm run lint`: OK.
+
+### Leitura correta apos esta rodada
+
+- Login, cadastro e escolha de perfil estao visualmente mais alinhados aos HTMLs embutidos nos Markdown.
+- Nao houve alteracao de backend, endpoints, DTOs, banco ou regras de autenticacao.
+- Pendente: gerar novo APK e validar manualmente no celular login, cadastro pessoal, cadastro empresarial e navegacao para setup.
+
 ### Leitura correta apos esta rodada
 
 - o P0 local "AuthService.refreshToken passando pelo interceptor que injeta access token" fica RESOLVIDO no codigo.

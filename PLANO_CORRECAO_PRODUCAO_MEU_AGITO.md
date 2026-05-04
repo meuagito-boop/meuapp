@@ -2913,8 +2913,8 @@ Nao existem `.html` soltos em `doc`; os mockups HTML estao embutidos nos Markdow
 |---|---|---|---|
 | `01_T01_SPLASH_SCREEN.md` | Splash e estados de erro | `SplashScreen` | Pendente |
 | `02_T02_ONBOARDING.md` | Onboarding inicial | `OnboardingScreen` | Pendente |
-| `03_T03_LOGIN_CADASTRO.md` | Login/cadastro/recuperacao/2FA | `LoginScreen`, `SignUpScreen`, `ForgotPasswordScreen`, `TwoFactorLoginScreen` | Pendente |
-| `04_T04_ESCOLHA_PERFIL.md` | Selecao pessoal/empresarial | `ProfileSelectionScreen` | Pendente |
+| `03_T03_LOGIN_CADASTRO.md` | Login/cadastro/recuperacao/2FA | `LoginScreen`, `SignUpScreen`, `ForgotPasswordScreen`, `TwoFactorLoginScreen` | Segundo lote aplicado em Login/SignUp; recuperacao/2FA pendentes |
+| `04_T04_ESCOLHA_PERFIL.md` | Selecao pessoal/empresarial | `ProfileSelectionScreen` | Segundo lote aplicado |
 | `05_T05A_CONFIG_CONTA_PESSOAL.md` | Setup pessoal | `PersonalSetupScreen` | Pendente |
 | `06_T05B_CADASTRO_EMPRESARIAL.md` | Setup empresarial | `BusinessSetupScreen` | Pendente |
 | `07_T06_HOME.md` | Home | `HomeScreen` | Pendente |
@@ -2967,8 +2967,44 @@ Regra de produto adicionada ao plano, mas nao exibida como acao no app ate exist
 
 ### Proximos lotes recomendados
 
-1. Autenticacao: `LoginScreen`, `SignUpScreen`, `ForgotPasswordScreen`, `ProfileSelectionScreen`.
+1. Autenticacao restante: `ForgotPasswordScreen`, `TwoFactorLoginScreen`, `VerifyEmailScreen`.
 2. Onboarding: `PersonalSetupScreen`, `BusinessSetupScreen`.
 3. Atividade: `ActivityScreen`, `ActivityFavoritesScreen`, `ActivityHistoryScreen`.
 4. Home/Busca/Mapa.
 5. Perfil/Catalogo/Item/Feed social.
+
+## Atualizacao de plano - 2026-05-04 - Segundo lote visual Auth e Perfil
+
+### Status
+
+Segundo lote concluido no codigo mobile: `LoginScreen`, `SignUpScreen` e `ProfileSelectionScreen`.
+
+### Correcoes aplicadas neste lote
+
+| Arquivo | Problema | Correcao | Prioridade |
+|---|---|---|---|
+| `frontend/src/screens/auth/LoginScreen.tsx` | Texto interno de build aparecia para usuario e a secao de e-mail nao seguia o padrao visual T03. | Substituido por card publico de acesso seguro, `SectionLabel`, botao grande e desabilitado quando faltam credenciais. | P1 |
+| `frontend/src/screens/auth/SignUpScreen.tsx` | Cadastro tinha header simples, estilos inline e CTA habilitavel mesmo com campos obrigatorios vazios. | Aplicado `ScreenHeader`, `InfoCard` do tipo de conta, estilos nomeados e regra de botao desabilitado ate campos/termos estarem preenchidos sem erro. | P1 |
+| `frontend/src/screens/auth/ProfileSelectionScreen.tsx` | Tela tinha espacamento/imports desalinhados e cards menos proximos do mockup T04. | Aplicado `SafeAreaView`, labels PF/PJ, estado visual de selecao e botao grande. | P1 |
+| `frontend/src/components/ScreenPrimitives.tsx` | Primitives criados no lote anterior usavam letter spacing diferente de zero. | Letter spacing ajustado para zero em `SectionLabel` e `InfoCard`. | P1 |
+
+### Decisoes preservadas
+
+| Item | Decisao | Motivo |
+|---|---|---|
+| Login social Google/Apple | Nao implementar neste lote | O app nao possui fluxo real conectado; adicionar botao seria fake. |
+| Telefone/SMS | Nao implementar neste lote | O app nao possui fluxo real conectado; adicionar botao seria fake. |
+| Ordem ProfileSelection antes de SignUp | Preservar | O backend real recebe `profileType` no signup; mudar agora quebraria contrato real. |
+| Backend/API | Nao alterar | Escopo deste lote e visual mobile. |
+
+### Validacao
+
+| Validacao | Resultado |
+|---|---|
+| `cd frontend && npx tsc --noEmit` | OK |
+| `cd frontend && npm run lint` | OK |
+| Smoke em APK/dispositivo | Pendente |
+
+### Proximo passo recomendado
+
+Prosseguir com o restante da autenticacao visual sem criar mock: `ForgotPasswordScreen`, `TwoFactorLoginScreen` e `VerifyEmailScreen`.
