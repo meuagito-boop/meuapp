@@ -1,7 +1,8 @@
 import { useNavigation, ParamListBase } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import React from 'react';
+import React, { useCallback, useState } from 'react';
 import {
+  Alert,
   StyleSheet,
   View,
   Text,
@@ -13,6 +14,7 @@ import {
 
 import { colors } from '@constants/colors';
 import { spacing, fontSize } from '@constants/design';
+import { useAuth } from '@hooks/useAuth';
 
 interface SettingGroup {
   id: string;
@@ -29,10 +31,43 @@ interface SettingItem {
   route?: string;
   onPress?: () => void;
   isDanger?: boolean;
+  disabled?: boolean;
 }
 
 export default function SettingsScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<ParamListBase>>();
+  const { logout } = useAuth();
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
+
+  const handleLogout = useCallback(async () => {
+    if (isLoggingOut) {
+      return;
+    }
+
+    setIsLoggingOut(true);
+    const result = await logout();
+    setIsLoggingOut(false);
+
+    if (!result.success) {
+      Alert.alert('Erro ao sair', result.error || 'Nao foi possivel encerrar a sessao.');
+    }
+  }, [isLoggingOut, logout]);
+
+  const confirmLogout = useCallback(() => {
+    Alert.alert('Sair da conta', 'Voce quer encerrar a sessao neste dispositivo?', [
+      {
+        text: 'Cancelar',
+        style: 'cancel',
+      },
+      {
+        text: 'Sair',
+        style: 'destructive',
+        onPress: () => {
+          void handleLogout();
+        },
+      },
+    ]);
+  }, [handleLogout]);
 
   const SETTINGS_GROUPS: SettingGroup[] = [
     {
@@ -45,6 +80,15 @@ export default function SettingsScreen() {
           subtitle: 'Foto, nome, e-mail e telefone',
           type: 'link',
           route: 'SettingsMyAccount',
+        },
+        {
+          id: 'logout',
+          label: isLoggingOut ? 'Saindo...' : 'Sair da conta',
+          subtitle: 'Encerrar sessao neste dispositivo',
+          type: 'action',
+          isDanger: true,
+          disabled: isLoggingOut,
+          onPress: confirmLogout,
         },
       ],
     },
@@ -116,8 +160,13 @@ export default function SettingsScreen() {
     return (
       <TouchableOpacity
         key={item.id}
-        style={[styles.settingItem, item.isDanger && styles.settingItemDanger]}
+        style={[
+          styles.settingItem,
+          item.isDanger && styles.settingItemDanger,
+          item.disabled && styles.settingItemDisabled,
+        ]}
         activeOpacity={0.7}
+        disabled={item.disabled}
         onPress={() => {
           if (item.onPress) {
             item.onPress();
@@ -246,6 +295,9 @@ const styles = StyleSheet.create({
   },
   settingItemDanger: {
     // Danger items will have red text for labels
+  },
+  settingItemDisabled: {
+    opacity: 0.6,
   },
   settingInfo: {
     flex: 1,

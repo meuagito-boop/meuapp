@@ -1530,3 +1530,30 @@ Status da validacao ponta a ponta:
 - 409 por e-mail duplicado e comportamento esperado do backend; o app deve orientar o usuario.
 - 409 por vitrine ja existente tambem e comportamento esperado; o app agora tenta recuperar a vitrine e continuar o fluxo.
 - Pendente: gerar novo APK com esta correcao e repetir smoke no celular.
+
+## Atualizacao operacional - 2026-05-04 (America/Sao_Paulo) - Logout visivel no mobile
+
+### Evidencia no codigo
+
+- `frontend/src/stores/authStore.ts` ja possuia `logout`, com:
+  - desconexao de Socket.IO;
+  - tentativa de desregistro de push token;
+  - chamada `POST /auth/logout`;
+  - limpeza local de tokens/sessao mesmo se o servidor falhar.
+- Nao havia acao visivel de logout em `frontend/src/screens/main/SettingsScreen.tsx`.
+
+### Correcao aplicada
+
+- `frontend/src/screens/main/SettingsScreen.tsx`: adicionada opcao `Sair da conta` em `Configuracoes > Conta`.
+- A acao exibe confirmacao nativa antes de encerrar sessao.
+- Durante a saida, a linha fica desabilitada e exibe `Saindo...`.
+
+### Validacao executada
+
+- `cd frontend && npx tsc --noEmit`: OK.
+- `cd frontend && npm run lint`: OK.
+
+### Leitura correta apos esta rodada
+
+- Logout agora tem ponto de acesso claro no app.
+- Pendente: gerar novo APK e validar manualmente no celular que o app volta para o fluxo de auth apos confirmar logout.

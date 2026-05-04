@@ -2860,3 +2860,41 @@ Gerar novo APK staging apontando para `http://18.228.6.219:3001`, instalar no ce
 3. Criar conta empresarial com e-mail novo.
 4. Completar vitrine empresarial.
 5. Reabrir/repetir finalizacao do onboarding empresarial e confirmar que o app reutiliza a vitrine existente em vez de travar no 409.
+
+## Atualizacao de plano - 2026-05-04 - Logout visivel no app
+
+### Status
+
+Resolvido no codigo mobile. Ainda precisa ser validado em novo APK/dispositivo.
+
+### Evidencia
+
+| Area | Evidencia no codigo | Status |
+|---|---|---|
+| Store de autenticacao | `frontend/src/stores/authStore.ts` ja implementa `logout` com chamada ao backend e limpeza local de sessao. | Implementado |
+| UI de configuracoes | `frontend/src/screens/main/SettingsScreen.tsx` nao tinha item visivel para sair da conta. | Corrigido |
+
+### Correcao aplicada
+
+| Arquivo | Problema | Correcao | Prioridade |
+|---|---|---|---|
+| `frontend/src/screens/main/SettingsScreen.tsx` | Usuario autenticado nao tinha local claro para encerrar sessao. | Adicionada acao `Sair da conta` em `Configuracoes > Conta`, com confirmacao antes de logout. | P0 |
+
+### Validacao
+
+| Validacao | Resultado |
+|---|---|
+| `cd frontend && npx tsc --noEmit` | OK |
+| `cd frontend && npm run lint` | OK |
+| Smoke em APK/dispositivo | Pendente; exige novo APK com a correcao |
+
+### Proximo passo obrigatorio
+
+No proximo APK staging:
+
+1. Entrar com uma conta real.
+2. Abrir `Configuracoes`.
+3. Tocar em `Sair da conta`.
+4. Cancelar e confirmar que permanece logado.
+5. Tocar novamente e confirmar.
+6. Validar que o app volta para o fluxo de login/cadastro e que rotas autenticadas nao ficam acessiveis sem novo login.
