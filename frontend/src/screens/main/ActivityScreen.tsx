@@ -11,6 +11,7 @@ import {
 import { ParamListBase, useFocusEffect, useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
+import { ScreenHeader } from '@components';
 import { colors } from '@constants/colors';
 import { spacing, fontSize } from '@constants/design';
 import { locationService } from '@services/api';
@@ -116,13 +117,7 @@ export default function ActivityScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
-        <View style={styles.logoBox}>
-          <Text style={styles.logoText}>M</Text>
-        </View>
-        <Text style={styles.title}>Atividade</Text>
-        <View style={styles.headerSpacer} />
-      </View>
+      <ScreenHeader title="Atividade" />
 
       <View style={styles.content}>
         {isLoading ? (
@@ -175,38 +170,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.background,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-  },
-  logoBox: {
-    width: 34,
-    height: 34,
-    borderRadius: 9,
-    backgroundColor: colors.primary,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  logoText: {
-    fontSize: 18,
-    fontWeight: '900',
-    color: colors.text,
-  },
-  title: {
-    flex: 1,
-    textAlign: 'center',
-    fontSize: fontSize.lg,
-    fontWeight: '900',
-    color: colors.text,
-  },
-  headerSpacer: {
-    width: 34,
   },
   content: {
     flex: 1,

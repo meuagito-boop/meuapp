@@ -21,6 +21,7 @@ import {
   type ActivitySearchHistoryItem,
   type ActivityViewedHistoryItem,
 } from '@services/activity/ActivityHistoryService';
+import { ScreenHeader } from '@components';
 
 type HistoryRow =
   | ActivityCheckInHistoryItem
@@ -244,33 +245,26 @@ export default function ActivityHistoryScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
-        {isEditing ? (
+      {isEditing ? (
+        <View style={styles.header}>
           <TouchableOpacity onPress={closeEditing} accessibilityRole="button">
             <Text style={styles.headerAction}>Cancelar</Text>
           </TouchableOpacity>
-        ) : (
-          <TouchableOpacity onPress={() => navigation.goBack()} accessibilityRole="button">
-            <View style={styles.backButton}>
-              <Text style={styles.backIcon}>{'<'}</Text>
-            </View>
-          </TouchableOpacity>
-        )}
 
-        <Text style={styles.headerTitle}>{isEditing ? 'Selecionar' : 'Historico'}</Text>
+          <Text style={styles.headerTitle}>Selecionar</Text>
 
-        {isEditing ? (
           <TouchableOpacity onPress={handleSelectAll} accessibilityRole="button">
             <Text style={styles.headerAction}>Tudo</Text>
           </TouchableOpacity>
-        ) : totalItems > 0 ? (
-          <TouchableOpacity onPress={() => setIsEditing(true)} accessibilityRole="button">
-            <Text style={styles.headerAction}>Editar</Text>
-          </TouchableOpacity>
-        ) : (
-          <View style={styles.headerGhost} />
-        )}
-      </View>
+        </View>
+      ) : (
+        <ScreenHeader
+          title="Historico"
+          onBack={() => navigation.goBack()}
+          rightLabel={totalItems > 0 ? 'Editar' : undefined}
+          onRightPress={totalItems > 0 ? () => setIsEditing(true) : undefined}
+        />
+      )}
 
       {isLoading ? (
         <View style={styles.centerState}>
@@ -347,21 +341,6 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
   },
-  backButton: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  backIcon: {
-    fontSize: fontSize.md,
-    color: colors.text,
-    fontWeight: '700',
-  },
   headerTitle: {
     flex: 1,
     textAlign: 'center',
@@ -376,9 +355,6 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     textAlign: 'center',
   },
-  headerGhost: {
-    width: 44,
-  },
   content: {
     padding: spacing.md,
     gap: spacing.lg,
@@ -390,7 +366,7 @@ const styles = StyleSheet.create({
     color: colors.textTertiary,
     fontSize: fontSize.xs,
     fontWeight: '800',
-    letterSpacing: 1,
+    letterSpacing: 0,
     textTransform: 'uppercase',
   },
   sectionEmpty: {

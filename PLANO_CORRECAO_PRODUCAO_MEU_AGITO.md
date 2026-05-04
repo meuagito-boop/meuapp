@@ -2924,7 +2924,7 @@ Nao existem `.html` soltos em `doc`; os mockups HTML estao embutidos nos Markdow
 | `11_T_ITEM_UNIVERSAL.md` | Item/produto/evento | `ItemScreen` | Pendente |
 | `12_T_CATALOGO_UNIVERSAL.md` | Catalogo | `CatalogScreen`, `ProductManagementScreen` | Pendente |
 | `13_T_AGITO_FEED_SOCIAL.md` | Feed social | `FeedSocialScreen` | Pendente |
-| `14_T_ATIVIDADE.md` | Atividade/favoritos/historico | `ActivityScreen`, `ActivityFavoritesScreen`, `ActivityHistoryScreen` | Pendente |
+| `14_T_ATIVIDADE.md` | Atividade/favoritos/historico | `ActivityScreen`, `ActivityFavoritesScreen`, `ActivityHistoryScreen` | Quinto lote visual aplicado; pedidos/agendamentos/reservas fora por falta de backend/fluxo real |
 | `15_T_CONFIG_CONFIGURACOES.md` | Configuracoes e submenus | `SettingsScreen`, `SettingsPrivacyScreen`, `SettingsDeleteAccountScreen` | Primeiro lote aplicado |
 
 ### Componentes criados
@@ -2967,11 +2967,11 @@ Regra de produto adicionada ao plano, mas nao exibida como acao no app ate exist
 
 ### Proximos lotes recomendados
 
-1. Atividade: `ActivityScreen`, `ActivityFavoritesScreen`, `ActivityHistoryScreen`.
-2. Home/Busca/Mapa.
-3. Perfil/Catalogo/Item/Feed social.
-4. Smoke mobile em APK staging.
-5. Backend futuro para interesses/reivindicacao de estabelecimento, se entrar no MVP.
+1. Home/Busca/Mapa.
+2. Perfil/Catalogo/Item/Feed social.
+3. Smoke mobile em APK staging.
+4. Backend futuro para interesses/reivindicacao de estabelecimento, se entrar no MVP.
+5. Backend futuro para pedidos/agendamentos/reservas, se entrar no roadmap.
 
 ## Atualizacao de plano - 2026-05-04 - Segundo lote visual Auth e Perfil
 
@@ -3075,3 +3075,38 @@ Quarto lote concluido no codigo mobile: `PersonalSetupScreen` e `BusinessSetupSc
 ### Proximo passo recomendado
 
 Prosseguir para atividade: `ActivityScreen`, `ActivityFavoritesScreen` e `ActivityHistoryScreen`.
+
+## Atualizacao de plano - 2026-05-04 - Quinto lote visual Atividade
+
+### Status
+
+Quinto lote concluido no codigo mobile: `ActivityScreen`, `ActivityFavoritesScreen` e `ActivityHistoryScreen`.
+
+### Correcoes aplicadas neste lote
+
+| Arquivo | Problema | Correcao | Prioridade |
+|---|---|---|---|
+| `frontend/src/screens/main/ActivityScreen.tsx` | Header local divergente dos primitives ja adotados. | Aplicado `ScreenHeader`, preservando cards reais de favoritos e historico. | P1 |
+| `frontend/src/screens/main/ActivityFavoritesScreen.tsx` | Header local divergente dos primitives ja adotados. | Aplicado `ScreenHeader`, preservando listagem, abertura de perfil e remocao via API. | P1 |
+| `frontend/src/screens/main/ActivityHistoryScreen.tsx` | Header normal divergente e section title com letter spacing diferente de zero. | Aplicado `ScreenHeader` no modo normal; modo edicao preservado; letter spacing ajustado para zero. | P1 |
+
+### Pendencias nao implementadas por falta de backend/fluxo real
+
+| Item | Documento | Status real | Decisao |
+|---|---|---|---|
+| Pedidos | T14 descreve fase 1.2+. | Nao ha backend/fluxo mobile real no MVP atual. | Nao exibir card fake ou "em breve" em producao. |
+| Agendamentos | T14 descreve fase 1.2+. | Nao ha backend/fluxo mobile real no MVP atual. | Nao exibir card fake ou "em breve" em producao. |
+| Reservas | T14 descreve fase 1.2+. | Nao ha backend/fluxo mobile real no MVP atual. | Nao exibir card fake ou "em breve" em producao. |
+| Favoritos de eventos/produtos | T14 cita multiplos tipos. | Codigo real atual lista favoritos de estabelecimentos via API. | Criar backend/contrato antes de ampliar UI. |
+
+### Validacao
+
+| Validacao | Resultado |
+|---|---|
+| `cd frontend && npx tsc --noEmit` | OK |
+| `cd frontend && npm run lint` | OK |
+| Smoke em APK/dispositivo | Pendente |
+
+### Proximo passo recomendado
+
+Prosseguir para Home/Busca/Mapa.

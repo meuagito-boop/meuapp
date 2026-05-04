@@ -747,6 +747,41 @@ Status da validacao ponta a ponta:
 - Pendencia de produto/backend: decidir e implementar interesses reais no onboarding pessoal antes de exibir esse passo.
 - Pendencia de produto/backend: implementar reivindicacao segura de estabelecimento importado antes de exibir modal de match.
 
+## Atualizacao operacional - 2026-05-04 (America/Sao_Paulo) - Quinto lote visual Atividade
+
+### Referencias usadas
+
+- `doc/02_UX_FLUXOS/14_T_ATIVIDADE.md`: hub de atividade, favoritos e historico.
+
+### Correcao aplicada
+
+- `frontend/src/screens/main/ActivityScreen.tsx`:
+  - header substituido por `ScreenHeader`;
+  - preservados cards reais de favoritos e historico com dados de API/service.
+- `frontend/src/screens/main/ActivityFavoritesScreen.tsx`:
+  - header substituido por `ScreenHeader`;
+  - preservada listagem real de favoritos, abertura do perfil e remocao real via API.
+- `frontend/src/screens/main/ActivityHistoryScreen.tsx`:
+  - header normal substituido por `ScreenHeader`;
+  - modo de selecao preservado com header proprio;
+  - letter spacing de secao ajustado para zero.
+
+### Decisoes de escopo
+
+- Nao foram adicionados cards visiveis de Pedidos, Agendamentos ou Reservas porque o app nao possui backend/fluxo real para essas areas. Exibir "em breve" violaria a regra de nao deixar acao fake em producao.
+- Favoritos continuam limitados a estabelecimentos porque e o fluxo real implementado hoje em `locationService`.
+- Historico continua baseado no service local existente, conforme documento T14 para Fase 1.0.
+
+### Validacao executada
+
+- `cd frontend && npx tsc --noEmit`: OK.
+- `cd frontend && npm run lint`: OK.
+
+### Leitura correta apos esta rodada
+
+- O bloco Atividade/Favoritos/Historico esta visualmente mais alinhado sem criar funcionalidades nao existentes.
+- Pendencia: smoke em APK validando abertura de favoritos, remocao e navegacao do historico.
+
 ### Leitura correta apos esta rodada
 
 - o P0 local "AuthService.refreshToken passando pelo interceptor que injeta access token" fica RESOLVIDO no codigo.
