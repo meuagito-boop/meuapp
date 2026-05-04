@@ -17,6 +17,7 @@ import { colors } from '@constants/colors';
 import { fontSize, spacing } from '@constants/design';
 import { authStore } from '@stores/authStore';
 import { locationService } from '@services/api';
+import { ApiRequestError } from '@services/api/ApiClient';
 import GeolocationService from '@services/geolocation/GeolocationService';
 
 type SetupStep = 1 | 2 | 3 | 4 | 5;
@@ -40,6 +41,9 @@ const CATEGORIES: EstablishmentCategory[] = [
   { id: 'pub', label: 'Pub', subcategories: ['Pub ingles', 'Pub com musica', 'Sports pub', 'Pub artesanal'] },
   { id: 'other', label: 'Outro', subcategories: ['Loja local', 'Servico local', 'Espaco cultural', 'Outro'] },
 ];
+
+const isOwnedEstablishmentConflict = (error: unknown): error is ApiRequestError =>
+  error instanceof ApiRequestError && error.statusCode === 409;
 
 const isValidPhone = (value: string) => value.replace(/\D/g, '').length >= 10;
 
@@ -334,23 +338,37 @@ export default function BusinessSetupScreen() {
       let establishmentId = createdEstablishmentId;
 
       if (!establishmentId) {
-        const createdEstablishment = await locationService.createEstablishment({
-          name: name.trim(),
-          description: description.trim(),
-          category: selectedCategory.id,
-          subcategory,
-          address: address.trim(),
-          phone: phone.trim(),
-          whatsapp: effectiveWhatsapp,
-          website: normalizedWebsite,
-          latitude: coordinates.latitude,
-          longitude: coordinates.longitude,
-          openingHours,
-          isPublic: true,
-        });
+        try {
+          const createdEstablishment = await locationService.createEstablishment({
+            name: name.trim(),
+            description: description.trim(),
+            category: selectedCategory.id,
+            subcategory,
+            address: address.trim(),
+            phone: phone.trim(),
+            whatsapp: effectiveWhatsapp,
+            website: normalizedWebsite,
+            latitude: coordinates.latitude,
+            longitude: coordinates.longitude,
+            openingHours,
+            isPublic: true,
+          });
 
-        establishmentId = createdEstablishment.id;
-        setCreatedEstablishmentId(establishmentId);
+          establishmentId = createdEstablishment.id;
+          setCreatedEstablishmentId(establishmentId);
+        } catch (createError) {
+          if (!isOwnedEstablishmentConflict(createError)) {
+            throw createError;
+          }
+
+          try {
+            const ownedEstablishment = await locationService.getOwnedEstablishment();
+            establishmentId = ownedEstablishment.id;
+            setCreatedEstablishmentId(establishmentId);
+          } catch {
+            throw createError;
+          }
+        }
       }
 
       await uploadPendingMedia(establishmentId);

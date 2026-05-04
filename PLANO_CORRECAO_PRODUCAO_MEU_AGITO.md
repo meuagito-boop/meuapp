@@ -2819,3 +2819,44 @@ Resumo de bloqueadores absolutos antes de deploy publico real:
 7. Conteudo juridico final, canal de suporte monitorado, retencao/anonimizacao LGPD e validacao CloudWatch sem vazamento sensivel.
 8. Remocao/correcao dos mocks P0 do PROMPT-006.
 9. Build final backend e mobile com env de producao, sem `localhost`.
+
+## Atualizacao de plano - 2026-05-04 - 409 no cadastro empresarial mobile
+
+### Status
+
+Parcialmente resolvido no codigo mobile. Ainda precisa entrar em novo APK e ser validado em dispositivo real.
+
+### Evidencia
+
+| Area | Evidencia no codigo | Status |
+|---|---|---|
+| Auth signup | `backend/src/modules/auth/auth.service.ts` rejeita e-mail duplicado com `ConflictException('Email already in use')`. | Comportamento esperado |
+| Criacao de vitrine | `backend/src/modules/establishments/establishments.service.ts` permite apenas uma vitrine ativa por conta `ESTABLISHMENT`. | Comportamento esperado |
+| Erro no mobile | `frontend/src/services/api/ApiClient.ts` relancava `AxiosError`, gerando mensagem crua como `Request failed with status code 409`. | Corrigido |
+| Onboarding empresarial | `frontend/src/screens/auth/BusinessSetupScreen.tsx` nao reaproveitava a vitrine existente apos 409. | Corrigido |
+
+### Correcao aplicada
+
+| Arquivo | Problema | Correcao | Prioridade |
+|---|---|---|---|
+| `frontend/src/services/api/ApiClient.ts` | Mensagens de erro HTTP ficavam tecnicas e pouco uteis para o usuario. | Criado `ApiRequestError` com `statusCode`, `code`, `details` e mensagens legiveis para conflitos conhecidos. | P0 |
+| `frontend/src/screens/auth/BusinessSetupScreen.tsx` | Se a conta empresarial ja tivesse vitrine ativa, o onboarding travava no 409. | Ao receber 409 na criacao, buscar `/establishments/me/owned` e continuar com a vitrine existente. | P0 |
+
+### Validacao
+
+| Validacao | Resultado |
+|---|---|
+| `cd frontend && npx tsc --noEmit` | OK |
+| `cd frontend && npm run lint` | OK |
+| Smoke externo contra API publica | Pendente nesta rodada por timeout no IP publico local e SSO AWS expirado |
+| Smoke em APK/dispositivo | Pendente; exige novo APK com a correcao |
+
+### Proximo passo obrigatorio
+
+Gerar novo APK staging apontando para `http://18.228.6.219:3001`, instalar no celular e repetir:
+
+1. Criar conta pessoal com e-mail novo.
+2. Tentar criar conta pessoal com e-mail ja usado e confirmar mensagem clara.
+3. Criar conta empresarial com e-mail novo.
+4. Completar vitrine empresarial.
+5. Reabrir/repetir finalizacao do onboarding empresarial e confirmar que o app reutiliza a vitrine existente em vez de travar no 409.

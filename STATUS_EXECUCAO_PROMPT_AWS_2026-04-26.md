@@ -1503,3 +1503,30 @@ Status da validacao ponta a ponta:
 
 - detalhe publico de produto real esta validado no backend AWS staging.
 - proximo bloco recomendado: apontar mobile para staging e executar smoke manual no app.
+
+## Atualizacao operacional - 2026-05-04 (America/Sao_Paulo) - Tratamento de 409 no cadastro empresarial mobile
+
+### Evidencia no codigo
+
+- Backend `POST /auth/signup` retorna `409 Conflict` quando o e-mail ja existe (`Email already in use`).
+- Backend `POST /establishments` retorna `409 Conflict` quando a conta `ESTABLISHMENT` ja possui uma vitrine ativa.
+- Frontend reaproveitava o `AxiosError` cru, entao a UI podia exibir apenas `Request failed with status code 409`.
+- `BusinessSetupScreen` nao tentava recuperar a vitrine existente apos um 409 de criacao de estabelecimento.
+
+### Correcao aplicada
+
+- `frontend/src/services/api/ApiClient.ts`: erros HTTP agora sao convertidos para `ApiRequestError` com `statusCode`, `code`, `details` e mensagem legivel ao usuario.
+- `frontend/src/services/api/ApiClient.ts`: `Email already in use` agora aparece como orientacao clara para usar outro e-mail ou fazer login.
+- `frontend/src/screens/auth/BusinessSetupScreen.tsx`: se `POST /establishments` retornar 409, o app busca `/establishments/me/owned` e continua o onboarding com a vitrine ja existente.
+
+### Validacao executada
+
+- `cd frontend && npx tsc --noEmit`: OK.
+- `cd frontend && npm run lint`: OK.
+- Validacao externa contra `http://18.228.6.219:3001/health`: pendente nesta rodada por timeout no acesso publico local e SSO AWS expirado.
+
+### Leitura correta apos esta rodada
+
+- 409 por e-mail duplicado e comportamento esperado do backend; o app deve orientar o usuario.
+- 409 por vitrine ja existente tambem e comportamento esperado; o app agora tenta recuperar a vitrine e continuar o fluxo.
+- Pendente: gerar novo APK com esta correcao e repetir smoke no celular.

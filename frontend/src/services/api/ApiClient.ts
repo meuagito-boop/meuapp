@@ -24,6 +24,37 @@ export interface AuthTokens {
   refreshToken: string;
 }
 
+type BackendErrorPayload = {
+  error?: string | {
+    code?: string;
+    message?: string;
+    details?: unknown;
+  };
+  message?: string | string[];
+  statusCode?: number;
+};
+
+export class ApiRequestError extends Error {
+  statusCode?: number;
+  code?: string;
+  details?: unknown;
+
+  constructor(
+    message: string,
+    options?: {
+      statusCode?: number;
+      code?: string;
+      details?: unknown;
+    },
+  ) {
+    super(message);
+    this.name = 'ApiRequestError';
+    this.statusCode = options?.statusCode;
+    this.code = options?.code;
+    this.details = options?.details;
+  }
+}
+
 class ApiClient {
   private client: AxiosInstance;
   private baseURL: string;
@@ -317,8 +348,7 @@ class ApiClient {
       const response = await this.client.get<ApiResponse<T> | T>(url, config);
       return this.unwrapResponse<T>(response.data);
     } catch (error) {
-      this.handleError(error);
-      throw error;
+      throw this.handleError(error);
     }
   }
 
@@ -334,8 +364,7 @@ class ApiClient {
       const response = await this.client.post<ApiResponse<T> | T>(url, data, config);
       return this.unwrapResponse<T>(response.data);
     } catch (error) {
-      this.handleError(error);
-      throw error;
+      throw this.handleError(error);
     }
   }
 
@@ -351,8 +380,7 @@ class ApiClient {
       const response = await this.client.put<ApiResponse<T> | T>(url, data, config);
       return this.unwrapResponse<T>(response.data);
     } catch (error) {
-      this.handleError(error);
-      throw error;
+      throw this.handleError(error);
     }
   }
 
@@ -364,8 +392,7 @@ class ApiClient {
       const response = await this.client.delete<ApiResponse<T> | T>(url, config);
       return this.unwrapResponse<T>(response.data);
     } catch (error) {
-      this.handleError(error);
-      throw error;
+      throw this.handleError(error);
     }
   }
 
@@ -381,8 +408,7 @@ class ApiClient {
       const response = await this.client.patch<ApiResponse<T> | T>(url, data, config);
       return this.unwrapResponse<T>(response.data);
     } catch (error) {
-      this.handleError(error);
-      throw error;
+      throw this.handleError(error);
     }
   }
 
@@ -427,19 +453,19 @@ class ApiClient {
 
       return this.unwrapResponse<T>(response.data);
     } catch (error) {
-      this.handleError(error);
-      throw error;
+      throw this.handleError(error);
     }
   }
 
   /**
    * Handle errors
    */
-  private handleError(error: unknown) {
+  private handleError(error: unknown): Error {
     if (axios.isAxiosError(error)) {
       if (error.response) {
         // API retornou erro
         const { status, data } = error.response;
+        const apiError = this.buildApiRequestError(status, data);
 
         logger.error(`API Error ${status}:`, data);
 
@@ -452,22 +478,93 @@ class ApiClient {
         } else if (status === 500) {
           logger.error('Erro interno do servidor');
         }
+        return apiError;
       } else if (error.request) {
         // Request foi feito mas sem resposta
         logger.error('Nenhuma resposta do servidor:', error.request);
+        return new ApiRequestError('Nao foi possivel conectar ao servidor.');
       } else {
         // Erro na configuracao da request
         logger.error('Erro na request:', error.message);
+        return new ApiRequestError(error.message || 'Erro ao preparar a requisicao.');
       }
-      return;
     }
 
     if (error instanceof Error) {
       logger.error('Erro inesperado:', error.message);
-      return;
+      return error;
     }
 
     logger.error('Erro inesperado sem detalhes');
+    return new Error('Erro inesperado sem detalhes');
+  }
+
+  private buildApiRequestError(statusCode: number, data: unknown): ApiRequestError {
+    const payload = this.isBackendErrorPayload(data) ? data : undefined;
+    const backendError =
+      payload?.error && typeof payload.error === 'object' ? payload.error : undefined;
+    const backendMessage = this.extractBackendMessage(payload);
+    const backendCode = backendError?.code;
+    const details = backendError?.details;
+    const message = this.toUserErrorMessage(statusCode, backendCode, backendMessage);
+
+    return new ApiRequestError(message, {
+      statusCode,
+      code: backendCode,
+      details,
+    });
+  }
+
+  private isBackendErrorPayload(data: unknown): data is BackendErrorPayload {
+    return data !== null && typeof data === 'object';
+  }
+
+  private extractBackendMessage(payload?: BackendErrorPayload): string | undefined {
+    if (!payload) {
+      return undefined;
+    }
+
+    if (payload.error && typeof payload.error === 'object' && payload.error.message) {
+      return payload.error.message;
+    }
+
+    if (typeof payload.error === 'string') {
+      return payload.error;
+    }
+
+    if (Array.isArray(payload.message)) {
+      return payload.message.join('; ');
+    }
+
+    return payload.message;
+  }
+
+  private toUserErrorMessage(
+    statusCode: number,
+    code?: string,
+    backendMessage?: string,
+  ): string {
+    if (backendMessage === 'Email already in use') {
+      return 'Este e-mail ja esta cadastrado. Use outro e-mail ou faca login.';
+    }
+
+    if (backendMessage === 'An ESTABLISHMENT account can manage only one active establishment') {
+      return 'Esta conta empresarial ja possui uma vitrine ativa.';
+    }
+
+    if (backendMessage === 'Only ESTABLISHMENT accounts can create an establishment page') {
+      return 'Apenas contas empresariais podem criar uma vitrine.';
+    }
+
+    if (backendMessage) {
+      return backendMessage;
+    }
+
+    if (statusCode === 409 || code === 'CONFLICT') {
+      return 'Este cadastro ja existe ou esta em conflito com uma informacao salva.';
+    }
+
+    return `Erro na API (${statusCode}).`;
   }
 
   /**
