@@ -16,6 +16,7 @@ import { useAuth } from '@hooks/useAuth';
 import { userStore } from '@stores/userStore';
 import { colors } from '@constants/colors';
 import { spacing, fontSize } from '@constants/design';
+import { Button, InfoCard, ScreenHeader } from '@components';
 
 /**
  * SettingsDeleteAccount - Sub-tela de Excluir Conta
@@ -100,43 +101,32 @@ export default function SettingsDeleteAccountScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()}>
-          <View style={styles.backButton}>
-            <Text style={styles.backIcon}>{'<'}</Text>
-          </View>
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Excluir Conta</Text>
-        <View style={styles.headerSpacer} />
-      </View>
+      <ScreenHeader title="Excluir Conta" onBack={() => navigation.goBack()} />
 
       <ScrollView
         style={styles.content}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
       >
-        <View style={styles.warningBox}>
-          <Text style={styles.warningIcon}>WARN</Text>
-          <Text style={styles.warningTitle}>Acao Permanente</Text>
+        <InfoCard title="Acao critica" tone="danger">
           <Text style={styles.warningText}>
-            Esta acao e irreversivel. A exclusao de conta e permanente e todos os seus dados serao deletados, incluindo:
+            Ao confirmar, sua conta sera marcada como excluida, suas sessoes serao encerradas e
+            voce perdera acesso ao app com este usuario.
           </Text>
           <View style={styles.warningList}>
-            <Text style={styles.warningItem}>- Perfil e dados pessoais</Text>
-            <Text style={styles.warningItem}>- Posts e comentarios</Text>
-            <Text style={styles.warningItem}>- Favoritos e historico</Text>
-            <Text style={styles.warningItem}>- Agendamentos e reservas</Text>
-            <Text style={styles.warningItem}>- Toda atividade no app</Text>
+            <Text style={styles.warningItem}>- Perfil deixa de ficar acessivel</Text>
+            <Text style={styles.warningItem}>- Tokens e sessoes sao removidos</Text>
+            <Text style={styles.warningItem}>- Conteudos ligados a conta deixam de aparecer nos fluxos reais</Text>
+            <Text style={styles.warningItem}>- Uma nova entrada exigira outro cadastro ou suporte</Text>
           </View>
-        </View>
+        </InfoCard>
 
-        <View style={styles.complianceBox}>
-          <Text style={styles.complianceIcon}>OK</Text>
-          <Text style={styles.complianceTitle}>Conformidade LGPD</Text>
+        <InfoCard title="Privacidade e seguranca" tone="orange">
           <Text style={styles.complianceText}>
-            Sua exclusao sera processada de acordo com a Lei Geral de Protecao de Dados (LGPD).
+            Use esta tela apenas se quiser encerrar o acesso a esta conta. O processamento dos
+            dados segue a Politica de Privacidade e as regras de seguranca do Meu Agito.
           </Text>
-        </View>
+        </InfoCard>
 
         <View style={styles.formGroup}>
           <Text style={styles.formTitle}>Para continuar, confirme sua acao:</Text>
@@ -195,22 +185,21 @@ export default function SettingsDeleteAccountScreen() {
 
         {requestError ? <Text style={styles.errorText}>{requestError}</Text> : null}
 
-        <TouchableOpacity
-          style={[
-            styles.deleteButton,
-            (!isValidConfirmation || isSubmitting) && styles.deleteButtonDisabled,
-          ]}
-          onPress={handleDeleteAccount}
-          disabled={!isValidConfirmation || isSubmitting}
-        >
-          <Text style={styles.deleteButtonText}>
-            {isSubmitting
+        <Button
+          label={
+            isSubmitting
               ? 'Excluindo conta...'
               : isValidConfirmation
-                ? 'Excluir minha conta definitivamente'
-                : 'Preencha os campos acima'}
-          </Text>
-        </TouchableOpacity>
+                ? 'Excluir minha conta'
+                : 'Preencha os campos acima'
+          }
+          variant="danger"
+          onPress={handleDeleteAccount}
+          disabled={!isValidConfirmation || isSubmitting}
+          loading={isSubmitting}
+          fullWidth
+          size="large"
+        />
       </ScrollView>
     </SafeAreaView>
   );
@@ -221,39 +210,6 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.background,
   },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-  },
-  backButton: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  backIcon: {
-    fontSize: 15,
-    color: colors.text,
-  },
-  headerTitle: {
-    flex: 1,
-    textAlign: 'center',
-    fontSize: fontSize.lg,
-    fontWeight: '900',
-    color: colors.text,
-  },
-  headerSpacer: {
-    width: 34,
-  },
   content: {
     flex: 1,
   },
@@ -261,25 +217,6 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.lg,
     paddingHorizontal: spacing.md,
     gap: spacing.lg,
-  },
-  warningBox: {
-    backgroundColor: 'rgba(231, 76, 60, 0.08)',
-    borderWidth: 1,
-    borderColor: 'rgba(231, 76, 60, 0.25)',
-    borderRadius: 12,
-    padding: spacing.lg,
-    gap: spacing.md,
-  },
-  warningIcon: {
-    fontSize: 24,
-    alignSelf: 'center',
-    marginBottom: spacing.sm,
-  },
-  warningTitle: {
-    fontSize: fontSize.md,
-    fontWeight: '700',
-    color: '#E74C3C',
-    textAlign: 'center',
   },
   warningText: {
     fontSize: fontSize.sm,
@@ -293,25 +230,6 @@ const styles = StyleSheet.create({
   warningItem: {
     fontSize: fontSize.sm,
     color: colors.textSecondary,
-  },
-  complianceBox: {
-    backgroundColor: 'rgba(39, 174, 96, 0.08)',
-    borderWidth: 1,
-    borderColor: 'rgba(39, 174, 96, 0.25)',
-    borderRadius: 12,
-    padding: spacing.lg,
-    gap: spacing.md,
-  },
-  complianceIcon: {
-    fontSize: 20,
-    color: '#27AE60',
-    alignSelf: 'center',
-  },
-  complianceTitle: {
-    fontSize: fontSize.md,
-    fontWeight: '700',
-    color: colors.text,
-    textAlign: 'center',
   },
   complianceText: {
     fontSize: fontSize.sm,
@@ -377,25 +295,5 @@ const styles = StyleSheet.create({
     fontSize: fontSize.sm,
     marginTop: spacing.sm,
     textAlign: 'center',
-  },
-  deleteButton: {
-    paddingVertical: spacing.lg,
-    borderRadius: 12,
-    backgroundColor: '#E74C3C',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginTop: spacing.lg,
-  },
-  deleteButtonDisabled: {
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  deleteButtonText: {
-    fontSize: fontSize.md,
-    fontWeight: '700',
-    color: colors.text,
-    textAlign: 'center',
-    paddingHorizontal: spacing.md,
   },
 });

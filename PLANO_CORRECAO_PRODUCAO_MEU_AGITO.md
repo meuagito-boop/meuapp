@@ -2898,3 +2898,77 @@ No proximo APK staging:
 4. Cancelar e confirmar que permanece logado.
 5. Tocar novamente e confirmar.
 6. Validar que o app volta para o fluxo de login/cadastro e que rotas autenticadas nao ficam acessiveis sem novo login.
+
+## Atualizacao de plano - 2026-05-04 - Refatoracao visual por HTML embutido em Markdown
+
+### Status
+
+Primeiro lote concluido no codigo mobile: Configuracoes, Privacidade e Excluir Conta. Demais telas permanecem pendentes para lotes seguintes.
+
+### Auditoria de referencias
+
+Nao existem `.html` soltos em `doc`; os mockups HTML estao embutidos nos Markdown. O grupo canonico para UI e `doc/02_UX_FLUXOS`.
+
+| Documento | Representa | Tela real Expo | Status |
+|---|---|---|---|
+| `01_T01_SPLASH_SCREEN.md` | Splash e estados de erro | `SplashScreen` | Pendente |
+| `02_T02_ONBOARDING.md` | Onboarding inicial | `OnboardingScreen` | Pendente |
+| `03_T03_LOGIN_CADASTRO.md` | Login/cadastro/recuperacao/2FA | `LoginScreen`, `SignUpScreen`, `ForgotPasswordScreen`, `TwoFactorLoginScreen` | Pendente |
+| `04_T04_ESCOLHA_PERFIL.md` | Selecao pessoal/empresarial | `ProfileSelectionScreen` | Pendente |
+| `05_T05A_CONFIG_CONTA_PESSOAL.md` | Setup pessoal | `PersonalSetupScreen` | Pendente |
+| `06_T05B_CADASTRO_EMPRESARIAL.md` | Setup empresarial | `BusinessSetupScreen` | Pendente |
+| `07_T06_HOME.md` | Home | `HomeScreen` | Pendente |
+| `08_T07_BUSCA_COMPLETA.md` | Busca e mapa | `SearchScreen`, `MapScreen` | Pendente |
+| `09_T13_CENTRAL_NOTIFICACOES.md` | Notificacoes | `NotificationsScreen` | Pendente |
+| `10_T_PERFIL_TEMPLATE_UNIVERSAL.md` | Perfil usuario/estabelecimento | `ProfileScreen` | Pendente |
+| `11_T_ITEM_UNIVERSAL.md` | Item/produto/evento | `ItemScreen` | Pendente |
+| `12_T_CATALOGO_UNIVERSAL.md` | Catalogo | `CatalogScreen`, `ProductManagementScreen` | Pendente |
+| `13_T_AGITO_FEED_SOCIAL.md` | Feed social | `FeedSocialScreen` | Pendente |
+| `14_T_ATIVIDADE.md` | Atividade/favoritos/historico | `ActivityScreen`, `ActivityFavoritesScreen`, `ActivityHistoryScreen` | Pendente |
+| `15_T_CONFIG_CONFIGURACOES.md` | Configuracoes e submenus | `SettingsScreen`, `SettingsPrivacyScreen`, `SettingsDeleteAccountScreen` | Primeiro lote aplicado |
+
+### Componentes criados
+
+| Componente | Arquivo | Uso |
+|---|---|---|
+| `ScreenHeader` | `frontend/src/components/ScreenPrimitives.tsx` | Header padronizado com logo/voltar/acao |
+| `SectionLabel` | `frontend/src/components/ScreenPrimitives.tsx` | Divisor de secao em uppercase laranja |
+| `InfoCard` | `frontend/src/components/ScreenPrimitives.tsx` | Card informativo com tons default/orange/danger/success |
+| `ActionRow` | `frontend/src/components/ScreenPrimitives.tsx` | Linha padronizada para configuracoes e menus |
+
+### Correcoes aplicadas neste lote
+
+| Arquivo | Problema | Correcao | Prioridade |
+|---|---|---|---|
+| `frontend/src/screens/main/SettingsScreen.tsx` | Lista visual pouco padronizada em relacao ao mockup de configuracoes. | Aplicado `ScreenHeader`, `SectionLabel` e `ActionRow`. | P1 |
+| `frontend/src/screens/main/SettingsPrivacyScreen.tsx` | Card e lista repetiam estilo local e divergiam do padrao. | Aplicado `InfoCard`, `SectionLabel` e `ActionRow`. | P1 |
+| `frontend/src/screens/main/SettingsDeleteAccountScreen.tsx` | Header/cards/botao divergiam do design system. | Aplicado `ScreenHeader`, `InfoCard` e `Button`. | P1 |
+| `frontend/src/components/index.ts` | Componentes novos nao eram exportados pelo barrel. | Exportados primitives e tipos. | P1 |
+
+### Hibernacao e exclusao em 3 dias
+
+Regra de produto adicionada ao plano, mas nao exibida como acao no app ate existir backend real:
+
+| Item | Decisao | Status | Prioridade |
+|---|---|---|---|
+| Hibernar conta | Conta fica inativa/oculta e reativa ao login com confirmacao. | Backend/frontend pendentes | P0 |
+| Solicitar exclusao | Marcar `PENDING_DELETION` e agendar exclusao definitiva para `agora + 3 dias`. | Backend/frontend pendentes | P0 |
+| Cancelar exclusao | Login durante prazo deve exibir decisao: cancelar ou continuar exclusao. | Backend/frontend pendentes | P0 |
+| Conta empresarial | Estabelecimento e catalogo devem ser apagados/ocultados junto com a conta. | Backend/frontend pendentes | P0 |
+| Exclusao definitiva | Usuario nunca mais acessa os dados; dados de seguranca so podem ficar minimizados/anonimizados. | Backend/job pendentes | P0 |
+
+### Validacao
+
+| Validacao | Resultado |
+|---|---|
+| `cd frontend && npx tsc --noEmit` | OK |
+| `cd frontend && npm run lint` | OK |
+| Smoke em APK/dispositivo | Pendente |
+
+### Proximos lotes recomendados
+
+1. Autenticacao: `LoginScreen`, `SignUpScreen`, `ForgotPasswordScreen`, `ProfileSelectionScreen`.
+2. Onboarding: `PersonalSetupScreen`, `BusinessSetupScreen`.
+3. Atividade: `ActivityScreen`, `ActivityFavoritesScreen`, `ActivityHistoryScreen`.
+4. Home/Busca/Mapa.
+5. Perfil/Catalogo/Item/Feed social.

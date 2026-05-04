@@ -11,3 +11,16 @@ export type { InputProps } from './Input';
 
 export { Loading } from './Loading';
 export type { LoadingProps } from './Loading';
+
+export {
+  ActionRow,
+  InfoCard,
+  ScreenHeader,
+  SectionLabel,
+} from './ScreenPrimitives';
+export type {
+  ActionRowProps,
+  InfoCardProps,
+  ScreenHeaderProps,
+  SectionLabelProps,
+} from './ScreenPrimitives';

@@ -7,13 +7,12 @@ import {
   ScrollView,
   StyleSheet,
   Text,
-  TouchableOpacity,
-  View,
 } from 'react-native';
 
 import { colors } from '@constants/colors';
-import { spacing, fontSize } from '@constants/design';
+import { spacing } from '@constants/design';
 import { openLegalDocument } from '@services/legal/LegalLinks';
+import { ActionRow, InfoCard, ScreenHeader, SectionLabel } from '@components';
 
 type PrivacyAction = {
   id: string;
@@ -62,43 +61,26 @@ export default function SettingsPrivacyScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()} accessibilityRole="button">
-          <View style={styles.backButton}>
-            <Text style={styles.backIcon}>{'<'}</Text>
-          </View>
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Privacidade</Text>
-        <View style={styles.headerSpacer} />
-      </View>
+      <ScreenHeader title="Privacidade" onBack={() => navigation.goBack()} />
 
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        <View style={styles.card}>
-          <Text style={styles.cardTitle}>Dados e consentimentos</Text>
+        <InfoCard title="Dados e consentimentos" tone="orange">
           <Text style={styles.cardText}>
             Esta area centraliza documentos legais, permissoes do dispositivo e exclusao de conta.
             Controles sociais avancados ficam fora do release atual ate existir backend compativel.
           </Text>
-        </View>
+        </InfoCard>
 
-        <View style={styles.actionList}>
-          {actions.map((item) => (
-            <TouchableOpacity
-              key={item.id}
-              style={styles.actionRow}
-              onPress={item.onPress}
-              accessibilityRole="button"
-            >
-              <View style={styles.actionText}>
-                <Text style={[styles.actionTitle, item.danger && styles.dangerText]}>
-                  {item.title}
-                </Text>
-                <Text style={styles.actionSubtitle}>{item.subtitle}</Text>
-              </View>
-              <Text style={styles.chevron}>{'>'}</Text>
-            </TouchableOpacity>
-          ))}
-        </View>
+        <SectionLabel label="Privacidade" />
+        {actions.map((item) => (
+          <ActionRow
+            key={item.id}
+            title={item.title}
+            subtitle={item.subtitle}
+            onPress={item.onPress}
+            danger={item.danger}
+          />
+        ))}
       </ScrollView>
     </SafeAreaView>
   );
@@ -109,96 +91,13 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.background,
   },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-  },
-  backButton: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  backIcon: {
-    fontSize: fontSize.md,
-    color: colors.text,
-    fontWeight: '700',
-  },
-  headerTitle: {
-    flex: 1,
-    textAlign: 'center',
-    fontSize: fontSize.lg,
-    fontWeight: '900',
-    color: colors.text,
-  },
-  headerSpacer: {
-    width: 34,
-  },
   content: {
-    padding: spacing.md,
-    gap: spacing.md,
-  },
-  card: {
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 12,
-    backgroundColor: colors.surface,
     padding: spacing.md,
     gap: spacing.sm,
   },
-  cardTitle: {
-    color: colors.text,
-    fontSize: fontSize.md,
-    fontWeight: '800',
-  },
   cardText: {
     color: colors.textSecondary,
-    fontSize: fontSize.sm,
+    fontSize: 11,
     lineHeight: 20,
-  },
-  actionList: {
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 12,
-    backgroundColor: colors.surface,
-    overflow: 'hidden',
-  },
-  actionRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.md,
-    padding: spacing.md,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-  },
-  actionText: {
-    flex: 1,
-  },
-  actionTitle: {
-    color: colors.text,
-    fontSize: fontSize.md,
-    fontWeight: '700',
-  },
-  actionSubtitle: {
-    color: colors.textSecondary,
-    fontSize: fontSize.xs,
-    marginTop: spacing.xs,
-    lineHeight: 18,
-  },
-  dangerText: {
-    color: '#E74C3C',
-  },
-  chevron: {
-    color: colors.textTertiary,
-    fontSize: fontSize.lg,
   },
 });

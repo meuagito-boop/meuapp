@@ -1557,3 +1557,50 @@ Status da validacao ponta a ponta:
 
 - Logout agora tem ponto de acesso claro no app.
 - Pendente: gerar novo APK e validar manualmente no celular que o app volta para o fluxo de auth apos confirmar logout.
+
+## Atualizacao operacional - 2026-05-04 (America/Sao_Paulo) - Auditoria visual via HTML embutido em Markdown
+
+### Referencias encontradas
+
+Nao existem arquivos `.html` soltos em `doc`. As referencias visuais estao embutidas como HTML dentro dos arquivos `.md`.
+
+Principais referencias canônicas usadas nesta rodada:
+
+| Documento | Tela/fluxo representado | Tela Expo correspondente |
+|---|---|---|
+| `doc/02_UX_FLUXOS/03_T03_LOGIN_CADASTRO.md` | Login, cadastro, recuperacao, 2FA/SMS visual | `LoginScreen`, `SignUpScreen`, `ForgotPasswordScreen`, `TwoFactorLoginScreen` |
+| `doc/02_UX_FLUXOS/04_T04_ESCOLHA_PERFIL.md` | Escolha entre conta pessoal e empresarial | `ProfileSelectionScreen` |
+| `doc/02_UX_FLUXOS/07_T06_HOME.md` | Home/feed urbano, header, busca falsa de home, cards | `HomeScreen` |
+| `doc/02_UX_FLUXOS/08_T07_BUSCA_COMPLETA.md` | Busca, filtros, resultados, mapa | `SearchScreen`, `MapScreen` |
+| `doc/02_UX_FLUXOS/09_T13_CENTRAL_NOTIFICACOES.md` | Central de notificacoes | `NotificationsScreen` |
+| `doc/02_UX_FLUXOS/10_T_PERFIL_TEMPLATE_UNIVERSAL.md` | Perfil usuario/estabelecimento | `ProfileScreen` |
+| `doc/02_UX_FLUXOS/11_T_ITEM_UNIVERSAL.md` | Detalhe de item/produto/evento | `ItemScreen` |
+| `doc/02_UX_FLUXOS/12_T_CATALOGO_UNIVERSAL.md` | Catalogo | `CatalogScreen`, `ProductManagementScreen` |
+| `doc/02_UX_FLUXOS/13_T_AGITO_FEED_SOCIAL.md` | Feed social | `FeedSocialScreen` |
+| `doc/02_UX_FLUXOS/14_T_ATIVIDADE.md` | Atividade, favoritos, historico | `ActivityScreen`, `ActivityFavoritesScreen`, `ActivityHistoryScreen` |
+| `doc/02_UX_FLUXOS/15_T_CONFIG_CONFIGURACOES.md` | Configuracoes, privacidade, seguranca, exclusao | `SettingsScreen`, `SettingsPrivacyScreen`, `SettingsSecurityScreen`, `SettingsDeleteAccountScreen`, auxiliares |
+
+### Primeiro lote aplicado
+
+- Criados componentes visuais reutilizaveis em `frontend/src/components/ScreenPrimitives.tsx`:
+  - `ScreenHeader`;
+  - `SectionLabel`;
+  - `InfoCard`;
+  - `ActionRow`.
+- Exportacao adicionada em `frontend/src/components/index.ts`.
+- `SettingsScreen` passou a usar header, divisores e linhas padronizadas conforme referencia de configuracoes.
+- `SettingsPrivacyScreen` passou a usar card informativo e linhas padronizadas.
+- `SettingsDeleteAccountScreen` teve header e cards de aviso padronizados e passou a usar `Button` real do design system.
+
+### Decisao sobre hibernacao e exclusao em 3 dias
+
+- Regra de produto definida: hibernar conta deve inativar perfil/conteudos e reativar no login.
+- Regra de produto definida: excluir conta deve agendar exclusao definitiva em 3 dias, permitindo cancelamento durante o prazo.
+- Para conta empresarial, a opcao escolhida foi apagar/ocultar estabelecimento e catalogo junto com a conta.
+- Nao foi adicionada acao falsa no app porque o backend atual ainda expõe `DELETE /users/me` como soft delete imediato.
+- Pendencia P0: implementar backend, Prisma, job e fluxo mobile real antes de exibir hibernacao ou cancelamento de exclusao no app.
+
+### Validacao executada
+
+- `cd frontend && npx tsc --noEmit`: OK.
+- `cd frontend && npm run lint`: OK.
