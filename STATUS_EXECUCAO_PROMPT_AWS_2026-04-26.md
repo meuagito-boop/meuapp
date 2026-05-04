@@ -675,6 +675,43 @@ Status da validacao ponta a ponta:
 - Nao houve alteracao de backend, endpoints, DTOs, banco ou regras de autenticacao.
 - Pendente: gerar novo APK e validar manualmente no celular login, cadastro pessoal, cadastro empresarial e navegacao para setup.
 
+## Atualizacao operacional - 2026-05-04 (America/Sao_Paulo) - Terceiro lote visual Auth restante
+
+### Referencias usadas
+
+- `doc/02_UX_FLUXOS/03_T03_LOGIN_CADASTRO.md`: T03d recuperacao de senha, validacao por codigo/e-mail e padrao visual de subtelas de autenticacao.
+
+### Correcao aplicada
+
+- `frontend/src/screens/auth/ForgotPasswordScreen.tsx`:
+  - aplicado `ScreenHeader`, `SectionLabel` e botoes grandes;
+  - adicionado estado visual de sucesso apos resposta real de `requestPasswordReset`;
+  - botoes ficam desabilitados quando faltam e-mail, codigo ou senha.
+- `frontend/src/screens/auth/VerifyEmailScreen.tsx`:
+  - aplicado `ScreenHeader`, `SectionLabel` e botoes grandes;
+  - adicionado estado visual de sucesso apos resposta real de `resendVerificationEmail`;
+  - botoes ficam desabilitados quando faltam e-mail ou codigo.
+- `frontend/src/screens/auth/TwoFactorLoginScreen.tsx`:
+  - aplicado `ScreenHeader` e `InfoCard`;
+  - preservado desafio real 2FA do `authStore`;
+  - botao principal usa tamanho grande e segue desabilitado ate 6 digitos.
+
+### Decisoes de escopo
+
+- Nao foi implementado fluxo SMS/OTP do documento porque o app atual nao tem service/backend real para SMS.
+- O 2FA atual foi tratado como fluxo real de autenticador, nao como SMS.
+- Nenhum endpoint, DTO, migration ou service foi alterado.
+
+### Validacao executada
+
+- `cd frontend && npx tsc --noEmit`: OK.
+- `cd frontend && npm run lint`: OK.
+
+### Leitura correta apos esta rodada
+
+- O bloco visual de autenticacao ficou coberto: login, cadastro, escolha de perfil, recuperacao, verificacao de e-mail e 2FA.
+- Pendente: smoke em APK no celular com backend staging real.
+
 ### Leitura correta apos esta rodada
 
 - o P0 local "AuthService.refreshToken passando pelo interceptor que injeta access token" fica RESOLVIDO no codigo.

@@ -2913,7 +2913,7 @@ Nao existem `.html` soltos em `doc`; os mockups HTML estao embutidos nos Markdow
 |---|---|---|---|
 | `01_T01_SPLASH_SCREEN.md` | Splash e estados de erro | `SplashScreen` | Pendente |
 | `02_T02_ONBOARDING.md` | Onboarding inicial | `OnboardingScreen` | Pendente |
-| `03_T03_LOGIN_CADASTRO.md` | Login/cadastro/recuperacao/2FA | `LoginScreen`, `SignUpScreen`, `ForgotPasswordScreen`, `TwoFactorLoginScreen` | Segundo lote aplicado em Login/SignUp; recuperacao/2FA pendentes |
+| `03_T03_LOGIN_CADASTRO.md` | Login/cadastro/recuperacao/2FA | `LoginScreen`, `SignUpScreen`, `ForgotPasswordScreen`, `VerifyEmailScreen`, `TwoFactorLoginScreen` | Lotes 2 e 3 aplicados; SMS/social fora por falta de fluxo real |
 | `04_T04_ESCOLHA_PERFIL.md` | Selecao pessoal/empresarial | `ProfileSelectionScreen` | Segundo lote aplicado |
 | `05_T05A_CONFIG_CONTA_PESSOAL.md` | Setup pessoal | `PersonalSetupScreen` | Pendente |
 | `06_T05B_CADASTRO_EMPRESARIAL.md` | Setup empresarial | `BusinessSetupScreen` | Pendente |
@@ -2967,11 +2967,11 @@ Regra de produto adicionada ao plano, mas nao exibida como acao no app ate exist
 
 ### Proximos lotes recomendados
 
-1. Autenticacao restante: `ForgotPasswordScreen`, `TwoFactorLoginScreen`, `VerifyEmailScreen`.
-2. Onboarding: `PersonalSetupScreen`, `BusinessSetupScreen`.
-3. Atividade: `ActivityScreen`, `ActivityFavoritesScreen`, `ActivityHistoryScreen`.
-4. Home/Busca/Mapa.
-5. Perfil/Catalogo/Item/Feed social.
+1. Onboarding: `PersonalSetupScreen`, `BusinessSetupScreen`.
+2. Atividade: `ActivityScreen`, `ActivityFavoritesScreen`, `ActivityHistoryScreen`.
+3. Home/Busca/Mapa.
+4. Perfil/Catalogo/Item/Feed social.
+5. Smoke mobile em APK staging.
 
 ## Atualizacao de plano - 2026-05-04 - Segundo lote visual Auth e Perfil
 
@@ -3008,3 +3008,37 @@ Segundo lote concluido no codigo mobile: `LoginScreen`, `SignUpScreen` e `Profil
 ### Proximo passo recomendado
 
 Prosseguir com o restante da autenticacao visual sem criar mock: `ForgotPasswordScreen`, `TwoFactorLoginScreen` e `VerifyEmailScreen`.
+
+## Atualizacao de plano - 2026-05-04 - Terceiro lote visual Auth restante
+
+### Status
+
+Terceiro lote concluido no codigo mobile: `ForgotPasswordScreen`, `VerifyEmailScreen` e `TwoFactorLoginScreen`.
+
+### Correcoes aplicadas neste lote
+
+| Arquivo | Problema | Correcao | Prioridade |
+|---|---|---|---|
+| `frontend/src/screens/auth/ForgotPasswordScreen.tsx` | Subtela ainda usava header/link local e nao tinha feedback visual persistente apos envio real. | Aplicado `ScreenHeader`, `SectionLabel`, botoes grandes e `InfoCard` de sucesso apos `requestPasswordReset`. | P1 |
+| `frontend/src/screens/auth/VerifyEmailScreen.tsx` | Subtela ainda usava header/link local e nao tinha feedback visual persistente apos reenvio real. | Aplicado `ScreenHeader`, `SectionLabel`, botoes grandes e `InfoCard` de sucesso apos `resendVerificationEmail`. | P1 |
+| `frontend/src/screens/auth/TwoFactorLoginScreen.tsx` | Desafio 2FA estava funcional, mas visualmente isolado do padrao de auth. | Aplicado `ScreenHeader`, `InfoCard` e CTA principal grande, preservando desafio real. | P1 |
+
+### Decisoes preservadas
+
+| Item | Decisao | Motivo |
+|---|---|---|
+| SMS/OTP do mockup T03 | Nao implementar | Nao existe service/backend real; seria fake em producao. |
+| 2FA atual | Manter como autenticador | E o fluxo real existente no app. |
+| E-mail de reset/verificacao | Manter API atual | Services reais ja existem no `authStore`; alteracao foi apenas visual/estado. |
+
+### Validacao
+
+| Validacao | Resultado |
+|---|---|
+| `cd frontend && npx tsc --noEmit` | OK |
+| `cd frontend && npm run lint` | OK |
+| Smoke em APK/dispositivo | Pendente |
+
+### Proximo passo recomendado
+
+Prosseguir para onboarding/configuracao inicial: `PersonalSetupScreen` e `BusinessSetupScreen`.

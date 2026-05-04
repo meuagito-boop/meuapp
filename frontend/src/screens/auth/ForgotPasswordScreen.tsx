@@ -6,13 +6,12 @@ import {
   ScrollView,
   StyleSheet,
   Text,
-  TouchableOpacity,
   View,
 } from 'react-native';
 import { useNavigation, ParamListBase, RouteProp, useRoute } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
-import { Button, Input } from '@components';
+import { Button, InfoCard, Input, ScreenHeader, SectionLabel } from '@components';
 import { colors } from '@constants/colors';
 import { fontSize, spacing } from '@constants/design';
 import { useAuth } from '@hooks/useAuth';
@@ -34,6 +33,7 @@ export default function ForgotPasswordScreen() {
   const [token, setToken] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [sentEmail, setSentEmail] = useState('');
 
   useEffect(() => {
     if (routeToken.length > 0) {
@@ -47,12 +47,14 @@ export default function ForgotPasswordScreen() {
       return;
     }
 
-    const result = await requestPasswordReset(email.trim().toLowerCase());
+    const normalizedEmail = email.trim().toLowerCase();
+    const result = await requestPasswordReset(normalizedEmail);
     if (!result.success) {
       Alert.alert('Erro', result.error || 'Nao foi possivel enviar o codigo de recuperacao.');
       return;
     }
 
+    setSentEmail(normalizedEmail);
     Alert.alert('Codigo enviado', 'Verifique seu e-mail. Cole o codigo de validacao abaixo para redefinir a senha.');
   };
 
@@ -89,18 +91,23 @@ export default function ForgotPasswordScreen() {
 
   return (
     <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.container}>
+      <ScreenHeader title="Recuperar senha" onBack={() => navigation.goBack()} />
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-          <Text style={styles.backText}>Voltar</Text>
-        </TouchableOpacity>
-
-        <Text style={styles.title}>Recuperar senha</Text>
+        <Text style={styles.title}>Redefina seu acesso</Text>
         <Text style={styles.subtitle}>
           Solicite o codigo por e-mail e depois use esse codigo para criar uma nova senha.
         </Text>
 
+        {sentEmail ? (
+          <InfoCard title="E-mail enviado" tone="success" style={styles.feedbackCard}>
+            <Text style={styles.feedbackText}>
+              Enviamos as instrucoes para {sentEmail}. Verifique sua caixa de entrada.
+            </Text>
+          </InfoCard>
+        ) : null}
+
+        <SectionLabel label="Solicitar codigo" style={styles.sectionLabel} />
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>1. Solicitar codigo</Text>
           <Input
             label="E-mail"
             placeholder="seu@email.com"
@@ -115,13 +122,15 @@ export default function ForgotPasswordScreen() {
             label="Enviar codigo por e-mail"
             onPress={handleSendCode}
             loading={isLoading}
+            disabled={isLoading || !email.trim()}
             fullWidth
+            size="large"
             style={styles.primaryButton}
           />
         </View>
 
+        <SectionLabel label="Redefinir senha" style={styles.sectionLabel} />
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>2. Redefinir senha</Text>
           <Input
             label="Codigo de validacao"
             placeholder="Cole o codigo recebido"
@@ -153,7 +162,11 @@ export default function ForgotPasswordScreen() {
             label="Redefinir senha"
             onPress={handleResetPassword}
             loading={isLoading}
+            disabled={
+              isLoading || !token.trim() || !newPassword || !confirmPassword
+            }
             fullWidth
+            size="large"
             style={styles.primaryButton}
           />
         </View>
@@ -169,16 +182,8 @@ const styles = StyleSheet.create({
   },
   content: {
     paddingHorizontal: spacing.lg,
-    paddingTop: spacing.lg,
+    paddingTop: spacing.xl,
     paddingBottom: spacing.xxxl,
-  },
-  backButton: {
-    marginBottom: spacing.xl,
-  },
-  backText: {
-    color: colors.primary,
-    fontSize: fontSize.md,
-    fontWeight: '600',
   },
   title: {
     fontSize: fontSize.huge,
@@ -192,19 +197,24 @@ const styles = StyleSheet.create({
     marginBottom: spacing.xl,
     lineHeight: 20,
   },
+  feedbackCard: {
+    marginBottom: spacing.lg,
+  },
+  feedbackText: {
+    color: colors.textSecondary,
+    fontSize: fontSize.sm,
+    lineHeight: 18,
+  },
+  sectionLabel: {
+    paddingHorizontal: 0,
+    paddingTop: spacing.md,
+  },
   section: {
-    marginTop: spacing.lg,
     borderWidth: 1,
     borderColor: colors.border,
     borderRadius: 12,
     backgroundColor: colors.surface,
     padding: spacing.md,
-  },
-  sectionTitle: {
-    color: colors.text,
-    fontSize: fontSize.md,
-    fontWeight: '700',
-    marginBottom: spacing.md,
   },
   primaryButton: {
     marginTop: spacing.sm,

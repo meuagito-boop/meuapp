@@ -6,13 +6,12 @@ import {
   ScrollView,
   StyleSheet,
   Text,
-  TouchableOpacity,
   View,
 } from 'react-native';
 import { ParamListBase, useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
-import { Button, Input } from '@components';
+import { Button, InfoCard, Input, ScreenHeader } from '@components';
 import { colors } from '@constants/colors';
 import { fontSize, spacing } from '@constants/design';
 import { useAuth } from '@hooks/useAuth';
@@ -67,11 +66,8 @@ export default function TwoFactorLoginScreen() {
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       style={styles.container}
     >
+      <ScreenHeader title="Validacao 2FA" onBack={handleCancel} />
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        <TouchableOpacity onPress={handleCancel} style={styles.backButton}>
-          <Text style={styles.backText}>Voltar ao login</Text>
-        </TouchableOpacity>
-
         <View style={styles.badge}>
           <Text style={styles.badgeText}>2FA</Text>
         </View>
@@ -81,6 +77,12 @@ export default function TwoFactorLoginScreen() {
           Digite o codigo gerado no aplicativo autenticador para concluir o acesso da conta
           {tempEmail ? ` ${tempEmail}.` : '.'}
         </Text>
+
+        <InfoCard title="Codigo do autenticador" tone="orange" style={styles.infoCard}>
+          <Text style={styles.infoCardText}>
+            Use o codigo de 6 digitos do aplicativo autenticador configurado na sua conta.
+          </Text>
+        </InfoCard>
 
         <View style={styles.card}>
           <Input
@@ -104,6 +106,7 @@ export default function TwoFactorLoginScreen() {
             loading={isLoading}
             disabled={code.trim().length !== 6}
             fullWidth
+            size="large"
             style={styles.primaryButton}
           />
 
@@ -128,16 +131,8 @@ const styles = StyleSheet.create({
   },
   content: {
     paddingHorizontal: spacing.lg,
-    paddingTop: spacing.lg,
+    paddingTop: spacing.xl,
     paddingBottom: spacing.xxxl,
-  },
-  backButton: {
-    marginBottom: spacing.xl,
-  },
-  backText: {
-    color: colors.primary,
-    fontSize: fontSize.md,
-    fontWeight: '600',
   },
   badge: {
     alignSelf: 'flex-start',
@@ -163,6 +158,14 @@ const styles = StyleSheet.create({
     fontSize: fontSize.md,
     lineHeight: 20,
     marginBottom: spacing.xl,
+  },
+  infoCard: {
+    marginBottom: spacing.lg,
+  },
+  infoCardText: {
+    color: colors.textSecondary,
+    fontSize: fontSize.sm,
+    lineHeight: 18,
   },
   card: {
     borderWidth: 1,
