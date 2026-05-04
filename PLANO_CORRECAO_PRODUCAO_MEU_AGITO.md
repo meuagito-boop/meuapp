@@ -2917,8 +2917,8 @@ Nao existem `.html` soltos em `doc`; os mockups HTML estao embutidos nos Markdow
 | `04_T04_ESCOLHA_PERFIL.md` | Selecao pessoal/empresarial | `ProfileSelectionScreen` | Segundo lote aplicado |
 | `05_T05A_CONFIG_CONTA_PESSOAL.md` | Setup pessoal | `PersonalSetupScreen` | Quarto lote visual aplicado; etapa de interesses pendente por falta de backend/fluxo real |
 | `06_T05B_CADASTRO_EMPRESARIAL.md` | Setup empresarial | `BusinessSetupScreen` | Quarto lote visual aplicado; match/reivindicacao pendente por falta de backend/fluxo real |
-| `07_T06_HOME.md` | Home | `HomeScreen` | Pendente |
-| `08_T07_BUSCA_COMPLETA.md` | Busca e mapa | `SearchScreen`, `MapScreen` | Pendente |
+| `07_T06_HOME.md` | Home | `HomeScreen` | Sexto lote visual aplicado; Home preservada como discovery real reduzida conforme nota de runtime |
+| `08_T07_BUSCA_COMPLETA.md` | Busca e mapa | `SearchScreen`, `MapScreen` | Sexto lote visual aplicado; busca continua establishments-only no codigo atual; voz/recentes/mapa dentro da busca ficam fora ate fluxo real |
 | `09_T13_CENTRAL_NOTIFICACOES.md` | Notificacoes | `NotificationsScreen` | Pendente |
 | `10_T_PERFIL_TEMPLATE_UNIVERSAL.md` | Perfil usuario/estabelecimento | `ProfileScreen` | Pendente |
 | `11_T_ITEM_UNIVERSAL.md` | Item/produto/evento | `ItemScreen` | Pendente |
@@ -2967,8 +2967,8 @@ Regra de produto adicionada ao plano, mas nao exibida como acao no app ate exist
 
 ### Proximos lotes recomendados
 
-1. Home/Busca/Mapa.
-2. Perfil/Catalogo/Item/Feed social.
+1. Perfil/Catalogo/Item/Feed social.
+2. Notificacoes.
 3. Smoke mobile em APK staging.
 4. Backend futuro para interesses/reivindicacao de estabelecimento, se entrar no MVP.
 5. Backend futuro para pedidos/agendamentos/reservas, se entrar no roadmap.
@@ -3110,3 +3110,40 @@ Quinto lote concluido no codigo mobile: `ActivityScreen`, `ActivityFavoritesScre
 ### Proximo passo recomendado
 
 Prosseguir para Home/Busca/Mapa.
+
+## Atualizacao de plano - 2026-05-04 - Sexto lote visual Home/Busca/Mapa
+
+### Status
+
+Sexto lote concluido no codigo mobile: `HomeScreen`, `SearchScreen` e `MapScreen`.
+
+### Correcoes aplicadas neste lote
+
+| Arquivo | Problema | Correcao | Prioridade |
+|---|---|---|---|
+| `frontend/src/screens/main/HomeScreen.tsx` | Header usava labels tecnicos em ingles e metadados com simbolos inconsistentes. | Labels visiveis ajustados, acessibilidade basica aplicada e nota/distancia normalizadas em texto ASCII. | P1 |
+| `frontend/src/screens/main/SearchScreen.tsx` | Controles principais tinham pouca acessibilidade e metadados de nota com simbolo. | Cards, categorias, filtros e botoes receberam labels acessiveis; placeholder limitado ao escopo real atual; nota normalizada. | P1 |
+| `frontend/src/screens/main/MapScreen.tsx` | Sem estado claro quando localizacao falhava; estilos divergiam dos tokens do app. | Aplicado `SafeAreaView`, tokens visuais, tentativa real de obter localizacao, estado vazio acionavel e acessibilidade basica. | P0 |
+
+### Pendencias nao implementadas por falta de backend/fluxo real
+
+| Item | Documento | Status real | Decisao |
+|---|---|---|---|
+| Buscas recentes na Busca | T07 descreve recentes/chips. | `SearchScreen` registra busca real em historico local, mas nao exibe chips recentes nesta tela. | Nao reintroduzir recentes fixos; voltar apenas com UX/servico real definido. |
+| Busca por voz | T07 descreve microfone. | Nao ha fluxo real de permissao/audio/transcricao conectado. | Nao adicionar botao sem acao. |
+| Busca unificada com eventos | T07 descreve lugares/eventos. | Tela atual chama `searchService.searchEstablishments()`. | Criar/conectar contrato real antes de ampliar resultados. |
+| Modo mapa dentro da Busca | T07 descreve lista/mapa no proprio T07. | Existe `MapScreen` separada com mapa real. | Nao duplicar UI ate haver decisao de produto/navegacao. |
+| Zonas completas da Home T06 | T06 tem zonas mais amplas. | Nota de runtime do documento reduz a Home ativa ao discovery real do backend. | Manter reducao; nao reintroduzir zonas dependentes de dados ausentes. |
+
+### Validacao
+
+| Validacao | Resultado |
+|---|---|
+| `cd frontend && npx tsc --noEmit` | OK |
+| `cd frontend && npm run lint` | OK |
+| Varredura `★`, `⭐`, `•`, `Â`, `â` nas telas tocadas | OK |
+| Smoke em APK/dispositivo | Pendente |
+
+### Proximo passo recomendado
+
+Prosseguir para Perfil/Catalogo/Item/Feed social, mantendo a mesma regra: converter visual dos docs sem criar mock, endpoint inexistente ou botao sem acao.

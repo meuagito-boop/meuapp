@@ -296,26 +296,43 @@ export default function HomeScreen() {
       </View>
 
       <View style={styles.headerActions}>
-        <TouchableOpacity style={styles.headerAction} onPress={() => navigation.navigate('Chat')}>
-          <Text style={styles.headerActionText}>CHAT</Text>
+        <TouchableOpacity
+          style={styles.headerAction}
+          onPress={() => navigation.navigate('Chat')}
+          accessibilityRole="button"
+          accessibilityLabel="Abrir chat"
+        >
+          <Text style={styles.headerActionText}>Chat</Text>
         </TouchableOpacity>
 
         <TouchableOpacity
           style={styles.headerAction}
           onPress={() => navigation.getParent()?.navigate('Notifications')}
+          accessibilityRole="button"
+          accessibilityLabel="Abrir notificacoes"
         >
-          <Text style={styles.headerActionText}>BELL</Text>
+          <Text style={styles.headerActionText}>Aviso</Text>
         </TouchableOpacity>
 
-        <TouchableOpacity style={styles.headerAction} onPress={() => navigation.navigate('Settings')}>
-          <Text style={styles.headerActionText}>MENU</Text>
+        <TouchableOpacity
+          style={styles.headerAction}
+          onPress={() => navigation.navigate('Settings')}
+          accessibilityRole="button"
+          accessibilityLabel="Abrir configuracoes"
+        >
+          <Text style={styles.headerActionText}>Menu</Text>
         </TouchableOpacity>
       </View>
     </View>
   );
 
   const renderSearchBar = () => (
-    <TouchableOpacity style={styles.searchBar} onPress={() => navigation.navigate('Search')}>
+    <TouchableOpacity
+      style={styles.searchBar}
+      onPress={() => navigation.navigate('Search')}
+      accessibilityRole="button"
+      accessibilityLabel="Abrir busca completa"
+    >
       <Text style={styles.searchText}>Buscar lugares, eventos e descoberta local</Text>
       <Text style={styles.searchAction}>IR</Text>
     </TouchableOpacity>
@@ -374,7 +391,7 @@ export default function HomeScreen() {
             </Text>
             <Text style={styles.cardSubtitle}>{item.categoryLabel}</Text>
             <Text style={styles.cardMeta}>
-              {formatDistance(item.distanceKm)} · ★ {item.rating.toFixed(1)}
+              {formatDistance(item.distanceKm)} - nota {item.rating.toFixed(1)}
             </Text>
           </View>
         </TouchableOpacity>
@@ -394,7 +411,7 @@ export default function HomeScreen() {
             <Text style={styles.cardSubtitle}>{item.categoryLabel}</Text>
           </View>
           <View style={styles.rankMeta}>
-            <Text style={styles.rankMetaText}>★ {item.rating.toFixed(1)}</Text>
+            <Text style={styles.rankMetaText}>nota {item.rating.toFixed(1)}</Text>
             <Text style={styles.rankMetaText}>{formatDistance(item.distanceKm)}</Text>
           </View>
         </TouchableOpacity>
@@ -521,7 +538,7 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   headerAction: {
-    width: 38,
+    width: 52,
     height: 38,
     borderRadius: 19,
     alignItems: 'center',

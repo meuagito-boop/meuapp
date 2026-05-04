@@ -782,6 +782,47 @@ Status da validacao ponta a ponta:
 - O bloco Atividade/Favoritos/Historico esta visualmente mais alinhado sem criar funcionalidades nao existentes.
 - Pendencia: smoke em APK validando abertura de favoritos, remocao e navegacao do historico.
 
+## Atualizacao operacional - 2026-05-04 (America/Sao_Paulo) - Sexto lote visual Home/Busca/Mapa
+
+### Referencias usadas
+
+- `doc/02_UX_FLUXOS/07_T06_HOME.md`: Home T06, incluindo nota de runtime que reduz a Home ativa ao discovery real sustentado pelo backend.
+- `doc/02_UX_FLUXOS/08_T07_BUSCA_COMPLETA.md`: Busca T07, filtros, resultados e mapa.
+
+### Correcao aplicada
+
+- `frontend/src/screens/main/HomeScreen.tsx`:
+  - acoes do header deixaram de usar labels tecnicos em ingles (`CHAT`, `BELL`, `MENU`) e passaram para labels visiveis simples;
+  - botoes do header e busca receberam acessibilidade basica;
+  - metadados de nota/distancia foram normalizados para texto ASCII, sem simbolos quebrados.
+- `frontend/src/screens/main/SearchScreen.tsx`:
+  - cards, categorias, filtros e botoes principais receberam acessibilidade basica;
+  - placeholder foi ajustado para o escopo real atual da tela: estabelecimentos/lugares;
+  - metadados de nota foram normalizados para texto ASCII.
+- `frontend/src/screens/main/MapScreen.tsx`:
+  - tela passou a usar `SafeAreaView` e design tokens de spacing/tipografia/borda;
+  - mapa agora tenta obter localizacao real antes de buscar eventos/estabelecimentos proximos;
+  - falha de localizacao mostra estado vazio acionavel com tentativa novamente, em vez de ficar como mapa/lista sem explicacao;
+  - lista e controles receberam acessibilidade basica;
+  - metadados de avaliacao foram normalizados para texto ASCII.
+
+### Decisoes de escopo
+
+- Nao foram adicionadas buscas recentes fixas, busca por voz, sugestoes editoriais ou modo mapa dentro de `SearchScreen`, porque esses recursos exigem fluxo real definido e nao devem voltar como mock.
+- A `HomeScreen` foi mantida no discovery real reduzido descrito no proprio documento T06; nao foram reintroduzidas zonas que dependem de dados externos/internos ainda ausentes.
+- `SearchScreen` continua usando `searchService.searchEstablishments()` porque este e o contrato real da tela hoje; busca unificada com eventos deve ser criada/conectada separadamente se entrar no MVP.
+
+### Validacao executada
+
+- `cd frontend && npx tsc --noEmit`: OK.
+- `cd frontend && npm run lint`: OK.
+- Varredura em `HomeScreen.tsx`, `SearchScreen.tsx` e `MapScreen.tsx` para `★`, `⭐`, `•`, `Â` e `â`: sem ocorrencias.
+
+### Leitura correta apos esta rodada
+
+- Home, Busca e Mapa ficaram visualmente mais consistentes sem trocar backend real por dados estaticos.
+- Pendente: smoke em APK/dispositivo validando permissao de localizacao, mapa/lista, abertura de estabelecimento/evento e busca com backend staging.
+
 ### Leitura correta apos esta rodada
 
 - o P0 local "AuthService.refreshToken passando pelo interceptor que injeta access token" fica RESOLVIDO no codigo.

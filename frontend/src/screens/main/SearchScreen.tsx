@@ -243,6 +243,8 @@ export default function SearchScreen() {
     <TouchableOpacity
       style={styles.resultCard}
       activeOpacity={0.85}
+      accessibilityRole="button"
+      accessibilityLabel={`Abrir perfil de ${item.name}`}
       onPress={() =>
         navigation.navigate('Profile', {
           type: 'establishment',
@@ -270,7 +272,7 @@ export default function SearchScreen() {
 
         <View style={styles.resultMetaRow}>
           <Text style={styles.resultMeta}>{formatDistance(item.distanceKm)}</Text>
-          <Text style={styles.resultMeta}>★ {item.rating.toFixed(1)}</Text>
+          <Text style={styles.resultMeta}>nota {item.rating.toFixed(1)}</Text>
           <Text style={styles.resultMeta}>{item.reviews} aval.</Text>
         </View>
       </View>
@@ -280,13 +282,18 @@ export default function SearchScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.iconButton}>
+        <TouchableOpacity
+          onPress={() => navigation.goBack()}
+          style={styles.iconButton}
+          accessibilityRole="button"
+          accessibilityLabel="Voltar"
+        >
           <Text style={styles.iconButtonText}>{'<'}</Text>
         </TouchableOpacity>
 
         <TextInput
           style={styles.searchInput}
-          placeholder="Buscar estabelecimentos"
+          placeholder="Buscar estabelecimentos e lugares"
           placeholderTextColor={colors.textSecondary}
           value={searchQuery}
           onChangeText={handleSearchChange}
@@ -295,7 +302,12 @@ export default function SearchScreen() {
         />
 
         {searchQuery.length > 0 || selectedCategory ? (
-          <TouchableOpacity onPress={handleClear} style={styles.iconButton}>
+          <TouchableOpacity
+            onPress={handleClear}
+            style={styles.iconButton}
+            accessibilityRole="button"
+            accessibilityLabel="Limpar busca"
+          >
             <Text style={styles.iconButtonText}>X</Text>
           </TouchableOpacity>
         ) : null}
@@ -313,6 +325,8 @@ export default function SearchScreen() {
                     key={category.id}
                     style={[styles.chip, active && styles.chipActive]}
                     onPress={() => handleCategoryPress(category.value)}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Buscar categoria ${category.label}`}
                   >
                     <Text style={[styles.chipText, active && styles.chipTextActive]}>
                       {category.label}
@@ -331,11 +345,21 @@ export default function SearchScreen() {
             style={styles.filtersRow}
             contentContainerStyle={styles.filtersContent}
           >
-            <TouchableOpacity style={styles.filterChip} onPress={() => setShowFilters((prev) => !prev)}>
+            <TouchableOpacity
+              style={styles.filterChip}
+              onPress={() => setShowFilters((prev) => !prev)}
+              accessibilityRole="button"
+              accessibilityLabel={showFilters ? 'Ocultar filtros' : 'Mostrar filtros'}
+            >
               <Text style={styles.filterChipText}>Filtros</Text>
             </TouchableOpacity>
 
-            <TouchableOpacity style={styles.filterChip} onPress={() => setOpenNow((prev) => !prev)}>
+            <TouchableOpacity
+              style={styles.filterChip}
+              onPress={() => setOpenNow((prev) => !prev)}
+              accessibilityRole="button"
+              accessibilityLabel="Alternar somente estabelecimentos abertos"
+            >
               <Text style={[styles.filterChipText, openNow && styles.filterChipTextActive]}>
                 {openNow ? 'Aberto agora' : 'Somente abertos'}
               </Text>
@@ -348,6 +372,8 @@ export default function SearchScreen() {
                   key={option.id}
                   style={[styles.filterChip, active && styles.filterChipActive]}
                   onPress={() => setOrderBy(option.value)}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Ordenar por ${option.label}`}
                 >
                   <Text style={[styles.filterChipText, active && styles.filterChipTextActive]}>
                     {option.label}
@@ -368,6 +394,8 @@ export default function SearchScreen() {
                       key={value}
                       style={[styles.optionChip, active && styles.optionChipActive]}
                       onPress={() => setRadius(value)}
+                      accessibilityRole="button"
+                      accessibilityLabel={`Buscar em raio de ${value} quilometros`}
                     >
                       <Text style={[styles.optionChipText, active && styles.optionChipTextActive]}>
                         {value}km
@@ -386,6 +414,8 @@ export default function SearchScreen() {
                       key={value}
                       style={[styles.optionChip, active && styles.optionChipActive]}
                       onPress={() => setMinRating(value)}
+                      accessibilityRole="button"
+                      accessibilityLabel={value === 0 ? 'Aceitar qualquer nota' : `Nota minima ${value}`}
                     >
                       <Text style={[styles.optionChipText, active && styles.optionChipTextActive]}>
                         {value === 0 ? 'Todas' : `${value}+`}
