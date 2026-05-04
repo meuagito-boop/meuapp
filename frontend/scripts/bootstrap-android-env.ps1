@@ -1,6 +1,6 @@
 param(
   [string]$SdkRoot = 'F:\Android\Sdk',
-  [string]$JavaHome = 'F:\Meus Programas\Android Studio\jbr',
+  [string]$JavaHome = 'F:\Android\jdk-17',
   [string]$GradleUserHome = 'F:\Android\Gradle',
   [switch]$DoNotPersist
 )
@@ -50,7 +50,8 @@ function Convert-ToGradlePath {
   return $PathValue.Replace('\', '\\').Replace(':', '\:')
 }
 
-$javaExe = Join-Path $JavaHome 'bin\java.exe'
+$javaBin = Join-Path $JavaHome 'bin'
+$javaExe = Join-Path $javaBin 'java.exe'
 if (-not (Test-Path $javaExe)) {
   throw "JAVA_HOME invalido: '$JavaHome'. Esperado: '$javaExe'."
 }
@@ -66,6 +67,7 @@ $env:GRADLE_USER_HOME = $GradleUserHome
 $cmdlineToolsBin = Join-Path $SdkRoot 'cmdline-tools\latest\bin'
 $platformToolsDir = Join-Path $SdkRoot 'platform-tools'
 
+Add-ProcessPathEntry -PathEntry $javaBin
 Add-ProcessPathEntry -PathEntry $cmdlineToolsBin
 Add-ProcessPathEntry -PathEntry $platformToolsDir
 
@@ -75,6 +77,7 @@ if (-not $DoNotPersist) {
   [Environment]::SetEnvironmentVariable('ANDROID_SDK_ROOT', $SdkRoot, 'User')
   [Environment]::SetEnvironmentVariable('GRADLE_USER_HOME', $GradleUserHome, 'User')
 
+  Add-UserPathEntry -PathEntry $javaBin
   Add-UserPathEntry -PathEntry $cmdlineToolsBin
   Add-UserPathEntry -PathEntry $platformToolsDir
 }

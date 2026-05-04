@@ -91,6 +91,23 @@ export class StorageService {
     return `${this.getPublicBaseUrl()}/media/protected/${encodeURIComponent(mediaId)}`;
   }
 
+  buildPublicMediaUrl(mediaId: string): string {
+    return `${this.getPublicBaseUrl()}/media/public/${encodeURIComponent(mediaId)}`;
+  }
+
+  shouldServePublicMediaThroughApi(provider?: string): boolean {
+    if (provider !== 'S3') {
+      return false;
+    }
+
+    const useCloudFront = parseBoolean(this.configService.get<string>('USE_CLOUDFRONT'), false);
+    const cloudFrontBaseUrl =
+      this.configService.get<string>('CLOUDFRONT_BASE_URL') ||
+      this.configService.get<string>('AWS_CLOUDFRONT_URL');
+
+    return !(useCloudFront && Boolean(cloudFrontBaseUrl?.trim()));
+  }
+
   async getHealthStatus(): Promise<StorageHealthStatus> {
     const provider = this.resolveProvider();
 

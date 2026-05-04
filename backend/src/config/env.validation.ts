@@ -1,3 +1,11 @@
+import {
+  DEPLOY_ENV_VALUES,
+  isManagedDeployment,
+  isProductionDeployment,
+  isValidDeployEnv,
+  resolveDeployEnv,
+} from './deploy-env';
+
 type RawEnv = Record<string, unknown>;
 
 const TRUTHY_VALUES = new Set(['1', 'true', 'yes', 'on']);
@@ -88,11 +96,23 @@ export function validateEnvironment(rawEnv: RawEnv): RawEnv {
   const errors: string[] = [];
 
   const nodeEnv = (env.NODE_ENV || 'development').trim();
-  const isProduction = nodeEnv === 'production';
+  const deployEnv = resolveDeployEnv(nodeEnv, env.DEPLOY_ENV);
+  const isProductionDeploy = isProductionDeployment(nodeEnv, env.DEPLOY_ENV);
+  const isManagedDeploy = isManagedDeployment(nodeEnv, env.DEPLOY_ENV);
   const logLevel = (env.LOG_LEVEL || 'info').trim().toLowerCase();
 
   if (!VALID_NODE_ENVS.has(nodeEnv)) {
     errors.push(`NODE_ENV must be one of: development, test, production (received: ${nodeEnv}).`);
+  }
+
+  if (!isValidDeployEnv(deployEnv)) {
+    errors.push(
+      `DEPLOY_ENV must be one of: ${DEPLOY_ENV_VALUES.join(', ')} (received: ${deployEnv}).`
+    );
+  }
+
+  if (isManagedDeploy && nodeEnv !== 'production') {
+    errors.push('NODE_ENV=production is required when DEPLOY_ENV=staging or production.');
   }
 
   if (!VALID_LOG_LEVELS.has(logLevel)) {
@@ -102,23 +122,29 @@ export function validateEnvironment(rawEnv: RawEnv): RawEnv {
   requireWhen(true, env, 'DATABASE_URL', errors);
   requireWhen(true, env, 'JWT_SECRET', errors);
   requireWhen(true, env, 'REFRESH_TOKEN_SECRET', errors);
-  requireWhen(isProduction, env, 'CORS_ORIGIN', errors, 'CORS_ORIGIN is required in production.');
-  requireWhen(isProduction, env, 'PORT', errors, 'PORT is required in production.');
   requireWhen(
-    isProduction,
+    isManagedDeploy,
+    env,
+    'CORS_ORIGIN',
+    errors,
+    'CORS_ORIGIN is required in staging/production.'
+  );
+  requireWhen(isManagedDeploy, env, 'PORT', errors, 'PORT is required in staging/production.');
+  requireWhen(
+    isManagedDeploy,
     env,
     'SUPPORT_EMAIL',
     errors,
-    'SUPPORT_EMAIL is required in production.'
+    'SUPPORT_EMAIL is required in staging/production.'
   );
   validateEmailWhenProvided(env.SUPPORT_EMAIL, 'SUPPORT_EMAIL', errors);
-  if (isProduction && env.CORS_ORIGIN?.trim() === '*') {
-    errors.push('CORS_ORIGIN cannot be "*" in production.');
+  if (isManagedDeploy && env.CORS_ORIGIN?.trim() === '*') {
+    errors.push('CORS_ORIGIN cannot be "*" in staging/production.');
   }
 
   const redisEnabled = parseBoolean(env.ENABLE_REDIS, false);
-  if (isProduction && !redisEnabled) {
-    errors.push('ENABLE_REDIS=true is required in production.');
+  if (isProductionDeploy && !redisEnabled) {
+    errors.push('ENABLE_REDIS=true is required when DEPLOY_ENV=production.');
   }
   requireWhen(
     redisEnabled,
@@ -134,8 +160,8 @@ export function validateEnvironment(rawEnv: RawEnv): RawEnv {
     errors.push(`EMAIL_PROVIDER must be one of: none, ses (received: ${emailProvider}).`);
   }
 
-  if (isProduction && emailProvider !== 'ses') {
-    errors.push('EMAIL_PROVIDER=ses is required in production.');
+  if (isProductionDeploy && emailProvider !== 'ses') {
+    errors.push('EMAIL_PROVIDER=ses is required when DEPLOY_ENV=production.');
   }
 
   const emailEnabled = emailExplicitlyEnabled || emailProvider === 'ses';
@@ -161,8 +187,8 @@ export function validateEnvironment(rawEnv: RawEnv): RawEnv {
     errors.push(`STORAGE_PROVIDER must be one of: none, s3 (received: ${storageProvider}).`);
   }
 
-  if (isProduction && storageProvider !== 's3') {
-    errors.push('STORAGE_PROVIDER=s3 is required in production.');
+  if (isManagedDeploy && storageProvider !== 's3') {
+    errors.push('STORAGE_PROVIDER=s3 is required when DEPLOY_ENV=staging or production.');
   }
 
   if (storageProvider === 's3') {
@@ -172,26 +198,17 @@ export function validateEnvironment(rawEnv: RawEnv): RawEnv {
     if (!readFirstNonEmpty(env, ['S3_REGION', 'AWS_REGION'])) {
       errors.push('S3_REGION (or AWS_REGION) is required for STORAGE_PROVIDER=s3.');
     }
-    if (!readFirstNonEmpty(env, ['S3_ACCESS_KEY_ID', 'AWS_ACCESS_KEY_ID'])) {
-      errors.push('S3_ACCESS_KEY_ID (or AWS_ACCESS_KEY_ID) is required for STORAGE_PROVIDER=s3.');
-    }
-    if (!readFirstNonEmpty(env, ['S3_SECRET_ACCESS_KEY', 'AWS_SECRET_ACCESS_KEY'])) {
-      errors.push(
-        'S3_SECRET_ACCESS_KEY (or AWS_SECRET_ACCESS_KEY) is required for STORAGE_PROVIDER=s3.'
-      );
-    }
-
     const useCloudFront = parseBoolean(env.USE_CLOUDFRONT, false);
     const cloudFrontBaseUrl = readFirstNonEmpty(env, ['CLOUDFRONT_BASE_URL', 'AWS_CLOUDFRONT_URL']);
-    if (isProduction && !useCloudFront) {
-      errors.push('USE_CLOUDFRONT=true is required in production.');
+    if (isProductionDeploy && !useCloudFront) {
+      errors.push('USE_CLOUDFRONT=true is required when DEPLOY_ENV=production.');
     }
     requireAnyWhen(
-      useCloudFront || isProduction,
+      useCloudFront || isProductionDeploy,
       env,
       ['CLOUDFRONT_BASE_URL', 'AWS_CLOUDFRONT_URL'],
       errors,
-      'CLOUDFRONT_BASE_URL (or AWS_CLOUDFRONT_URL) is required when USE_CLOUDFRONT is true or in production.'
+      'CLOUDFRONT_BASE_URL (or AWS_CLOUDFRONT_URL) is required when USE_CLOUDFRONT is true or DEPLOY_ENV=production.'
     );
     validateUrlWhenProvided(cloudFrontBaseUrl, 'CLOUDFRONT_BASE_URL', errors);
   }
@@ -201,21 +218,21 @@ export function validateEnvironment(rawEnv: RawEnv): RawEnv {
     errors.push(`PUSH_PROVIDER must be one of: none, sns (received: ${pushProvider}).`);
   }
 
-  if (isProduction && pushProvider !== 'sns') {
-    errors.push('PUSH_PROVIDER=sns is required in production.');
+  if (isProductionDeploy && pushProvider !== 'sns') {
+    errors.push('PUSH_PROVIDER=sns is required when DEPLOY_ENV=production.');
   }
 
   if (pushProvider === 'sns' && !readFirstNonEmpty(env, ['AWS_SNS_REGION', 'AWS_REGION'])) {
     errors.push('AWS_SNS_REGION (or AWS_REGION) is required when PUSH_PROVIDER=sns.');
   }
 
-  if (pushProvider === 'sns' && isProduction) {
+  if (pushProvider === 'sns' && isProductionDeploy) {
     requireAnyWhen(
       true,
       env,
       ['AWS_SNS_PLATFORM_APPLICATION_ARN', 'AWS_SNS_PLATFORM_APPLICATION_ARN_ANDROID'],
       errors,
-      'AWS_SNS_PLATFORM_APPLICATION_ARN (or AWS_SNS_PLATFORM_APPLICATION_ARN_ANDROID) is required in production when PUSH_PROVIDER=sns.'
+      'AWS_SNS_PLATFORM_APPLICATION_ARN (or AWS_SNS_PLATFORM_APPLICATION_ARN_ANDROID) is required when DEPLOY_ENV=production and PUSH_PROVIDER=sns.'
     );
   }
 

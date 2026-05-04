@@ -164,8 +164,8 @@ export function SettingsLanguageScreen() {
 export function SettingsAboutScreen() {
   return (
     <SettingsScaffold
-      title="Sobre"
-      description="Informacoes legais e canais de suporte."
+      title="Sobre o Meu Agito"
+      description="Informacoes do app, documentos legais e canais de suporte."
       lines={[
         { title: 'Versao do app', subtitle: '1.0.0' },
         {

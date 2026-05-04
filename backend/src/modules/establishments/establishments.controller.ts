@@ -135,6 +135,20 @@ export class EstablishmentsController {
     return this.establishmentsService.getOwnedEstablishment(userId);
   }
 
+  @Get('me/favorites')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Listar estabelecimentos favoritos da conta autenticada' })
+  @ApiQuery({ name: 'page', required: false, type: Number })
+  @ApiQuery({ name: 'limit', required: false, type: Number })
+  @ApiResponse({ status: 200, description: 'Lista de estabelecimentos favoritos' })
+  async listFavoriteEstablishments(
+    @CurrentUserId() userId: string,
+    @Query() paginationDto: PaginationDto
+  ) {
+    return this.establishmentsService.listFavoriteEstablishments(userId, paginationDto);
+  }
+
   @Get(':id')
   @ApiOperation({ summary: 'Obter detalhes de um estabelecimento' })
   @ApiParam({ name: 'id', description: 'ID do estabelecimento' })

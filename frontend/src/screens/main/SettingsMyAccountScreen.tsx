@@ -165,9 +165,10 @@ export default function SettingsMyAccountScreen() {
 
       const asset = result.assets[0];
       const filename = asset.fileName || `avatar-${Date.now()}.jpg`;
+      const mimeType = asset.mimeType || 'image/jpeg';
 
       setIsUploadingAvatar(true);
-      const updatedProfile = await uploadAvatar(asset.uri, filename);
+      const updatedProfile = await uploadAvatar(asset.uri, filename, mimeType);
       setAccount((current) => ({
         ...current,
         avatar: updatedProfile.avatar || current.avatar,

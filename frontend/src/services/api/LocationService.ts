@@ -657,6 +657,20 @@ class LocationService {
     };
   }
 
+  async listFavoriteEstablishments(page = 1, limit = 20): Promise<PaginatedResponse<Establishment>> {
+    const response = await this.apiClient.get<PaginatedResponse<BackendEstablishment>>(
+      '/establishments/me/favorites',
+      {
+        params: { page, limit },
+      },
+    );
+
+    return {
+      ...response,
+      data: response.data.map((item) => normalizeEstablishment(item)),
+    };
+  }
+
   async getEstablishment(establishmentId: string): Promise<Establishment> {
     const response = await this.apiClient.get<BackendEstablishment>(`/establishments/${establishmentId}`);
     return normalizeEstablishment(response);

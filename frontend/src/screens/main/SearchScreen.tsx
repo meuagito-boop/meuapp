@@ -11,13 +11,14 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { ParamListBase, useNavigation } from '@react-navigation/native';
+import { ParamListBase, RouteProp, useNavigation, useRoute } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 import { colors } from '@constants/colors';
 import { spacing, fontSize } from '@constants/design';
 import { useLocation } from '@hooks/useLocation';
 import { searchService } from '@services/api';
+import { activityHistoryService } from '@services/activity/ActivityHistoryService';
 import type { SearchEstablishment } from '@services/api/SearchService';
 
 type OrderBy = 'distance' | 'rating' | 'popularity';
@@ -31,6 +32,10 @@ type SearchResultItem = {
   reviews: number;
   isOpenNow: boolean;
   imageUrl?: string | null;
+};
+
+type SearchRouteParams = {
+  initialQuery?: string;
 };
 
 const ESTABLISHMENT_CATEGORIES = [
@@ -84,6 +89,8 @@ function mapEstablishmentToResult(item: SearchEstablishment): SearchResultItem {
 
 export default function SearchScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<ParamListBase>>();
+  const route = useRoute<RouteProp<ParamListBase, string>>();
+  const routeParams = route.params as SearchRouteParams | undefined;
   const { userLocation, getUserLocation } = useLocation();
 
   const [searchQuery, setSearchQuery] = useState('');
@@ -98,6 +105,16 @@ export default function SearchScreen() {
   const [results, setResults] = useState<SearchResultItem[]>([]);
   const [isLoadingResults, setIsLoadingResults] = useState(false);
   const [searchError, setSearchError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const initialQuery = routeParams?.initialQuery?.trim();
+    if (!initialQuery) {
+      return;
+    }
+
+    setSearchQuery(initialQuery);
+    setIsSearching(true);
+  }, [routeParams?.initialQuery]);
 
   const resolveLocation = useCallback(async () => {
     if (userLocation) {
@@ -122,8 +139,9 @@ export default function SearchScreen() {
 
     try {
       const location = await resolveLocation();
+      const trimmedQuery = searchQuery.trim();
       const response = await searchService.searchEstablishments({
-        q: searchQuery.trim().length >= 2 ? searchQuery.trim() : undefined,
+        q: trimmedQuery.length >= 2 ? trimmedQuery : undefined,
         latitude: location.latitude,
         longitude: location.longitude,
         distance: radius,
@@ -133,6 +151,10 @@ export default function SearchScreen() {
         page: 1,
         limit: 50,
       });
+
+      if (trimmedQuery.length >= 2) {
+        void activityHistoryService.recordSearch(trimmedQuery);
+      }
 
       setResults(response.data.map(mapEstablishmentToResult));
     } catch (error) {

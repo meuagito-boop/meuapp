@@ -43,9 +43,9 @@ export const useUser = () => {
   );
 
   const uploadAvatar = useCallback(
-    async (fileUri: string, filename: string = 'avatar') => {
+    async (fileUri: string, filename: string = 'avatar', mimeType?: string) => {
       try {
-        await store.uploadAvatar(fileUri, filename);
+        await store.uploadAvatar(fileUri, filename, mimeType);
         return { success: true };
       } catch (error) {
         return { success: false, error: store.error || 'Failed to upload avatar' };

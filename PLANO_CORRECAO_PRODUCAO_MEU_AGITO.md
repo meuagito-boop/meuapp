@@ -637,7 +637,7 @@ Tabela de problemas exigida pelo prompt:
 | `backend/src/common/email/email.service.ts` | E-mail fica desabilitado fora de producao quando provider nao e `ses` | Permitido dev/test; runtime AWS pendente | Em producao a env validation exige SES; falta provar envio real | `backend/src/config/env.validation.ts`; `backend/src/common/email/email.service.ts` | Validar identidade SES, sandbox e envio transacional | P0 ate smoke |
 | `backend/src/common/notification/notification.service.ts` | Push fica desabilitado fora de producao quando provider nao e `sns` | Permitido dev/test; runtime AWS pendente | Em producao a env validation exige SNS e ARN generico/Android; falta provar device/token | `backend/src/config/env.validation.ts`; `backend/src/common/notification/notification.service.ts` | Validar push SNS em dispositivo real e decidir iOS/APNs | P0 ate smoke se push entrar no release |
 | `frontend/src/utils/runtimeApiUrl.ts` | RESOLVIDO no codigo local pela EXECUCAO-025: build nao-dev exige `EXPO_PUBLIC_API_URL` e bloqueia URL local | Pendente build real | App deve falhar cedo se o release nao tiver API URL real; falta provar env do build | `frontend/src/utils/runtimeApiUrl.ts`; `frontend/src/utils/runtimeApiUrl.test.ts` | Definir API URL staging/prod no build e validar chamadas reais em device | P0 ate build/smoke |
-| `frontend/app.json` | Estrategia de push mobile sem Firebase ainda precisa ser fechada para Android/iOS | Pendente para producao/deploy | Push real pode ficar fora do release ou sem token nativo em Android | `frontend/app.json:17-44`; decisao do projeto: sem Firebase/Render | Definir SNS/APNs e alternativa Android sem Firebase, ou declarar push fora do MVP | P1 |
+| `frontend/app.json` | Estrategia de push mobile precisa ser fechada para Android/iOS | Pendente para producao/deploy | Push real pode ficar fora do release ou sem token nativo em Android | `frontend/app.json:17-44`; decisao do projeto: AWS-first; Firebase nao e backend | Definir SNS + FCM no Android e SNS + APNs no iOS, ou declarar push fora do MVP | P1 |
 | `frontend/src/screens/auth/PersonalSetupScreen.tsx` + `backend/src/modules/users/users.controller.ts` | RESOLVIDO no codigo local pela EXECUCAO-009: disponibilidade de username e finalizacao de perfil usam backend real | Pendente smoke | Perfil pessoal persiste username, bio, cidade e avatar antes de completar onboarding; interesses nao ficam visiveis sem backend | `PersonalSetupScreen.tsx`; `UserService.checkUsernameAvailability()`; `GET /users/username/availability`; `PUT /users/me`; `PUT /users/me/profile`; `POST /users/me/avatar` | Validar usuario novo pessoal em staging/device, username duplicado, upload avatar e permissao de localizacao | P0 ate smoke |
 | `frontend/src/screens/main/SettingsMyAccountScreen.tsx` | RESOLVIDO no codigo local pela EXECUCAO-004: dados de conta, bio e avatar passaram a usar services reais | Pendente smoke | Usuario edita perfil usando backend real; producao ainda depende de smoke e S3/CloudFront | `SettingsMyAccountScreen.tsx`; `UserService.ts`; `userStore.ts`; `users.service.ts`; `update-user.dto.ts` | Validar device/staging, upload em S3/CloudFront e alteracao de e-mail/username duplicado | P0 ate smoke |
 | `frontend/src/screens/main/SettingsCityScreen.tsx` | RESOLVIDO no codigo local pela EXECUCAO-010: cidades/recentes fixos foram removidos e cidade passa a persistir no perfil | Pendente smoke | Preferencia de cidade usa backend real, mas ainda precisa device/staging para GPS/permissao e descoberta local | `SettingsCityScreen.tsx`; `GeolocationService`; `userStore.updateProfile()`; `PUT /users/me/profile` | Validar cidade manual, GPS concedido/negado e reflexo em perfil/descoberta | P0 ate smoke |
@@ -1044,7 +1044,7 @@ Checklist por area:
 | Lint mobile | Script existe | Rodar lint | `cd frontend && npm run lint` | Zero erro; warnings aceitaveis documentados | Sim |
 | API URL producao | Codigo OK pela EXECUCAO-025; valor real pendente | Conferir env do build | Build com `EXPO_PUBLIC_API_URL=https://...` e smoke release | Build nao aponta `localhost`; API resolve via HTTPS real; release falha cedo se env faltar | Sim |
 | Remocao de mocks bloqueantes | Parcial | Validar itens PROMPT-006 | Varredura + smoke das telas | Catalogo, minha conta, onboarding pessoal e cidade ja resolvidos no codigo local; settings restantes/activity ainda nao podem simular producao | Sim |
-| Config de push mobile | Parcial; registro automatico protegido pela EXECUCAO-026 | Conferir estrategia sem Firebase, APNs e env SNS | Build/device com `EXPO_PUBLIC_ENABLE_PUSH_REGISTRATION=true` somente quando push real estiver validado | Android/iOS geram token nativo sem Firebase ou push fica declarado fora do MVP com flag desligada | Sim para push no release |
+| Config de push mobile | Parcial; registro automatico protegido pela EXECUCAO-026 | Conferir estrategia SNS + FCM/APNs e env SNS | Build/device com `EXPO_PUBLIC_ENABLE_PUSH_REGISTRATION=true` somente quando push real estiver validado | Android gera token FCM e iOS gera token APNs; backend registra no SNS, ou push fica declarado fora do MVP com flag desligada | Sim para push no release |
 | Deep links/notificacao para telas | Pendente/parcial | Abrir app por notificacao/link | Smoke manual com push real | Notificacao abre entidade correta ou comportamento fora do escopo declarado | Nao para MVP sem deep link; Sim se push exigir roteamento |
 
 #### 3. Banco de dados
@@ -1092,7 +1092,7 @@ Checklist por area:
 | Item | Status atual | Como validar | Comando ou teste necessario | Criterio para considerar pronto | Bloqueia deploy? |
 |---|---|---|---|---|---|
 | Backend SNS | Codigo OK pela EXECUCAO-021; device/push real pendente | Subir com `PUSH_PROVIDER=sns` | Start backend com `AWS_SNS_REGION` e ARN generico ou Android | Registro de token cria endpoint SNS | Sim para push real |
-| Push Android sem Firebase | Pendente; registro automatico desligado por default pela EXECUCAO-026 | Validar alternativa tecnica e build Android | Build Android/device com `EXPO_PUBLIC_ENABLE_PUSH_REGISTRATION=true` somente apos provider definido | Device Android registra token real sem Firebase, ou push Android fica fora do MVP com flag desligada | Sim se push Android entrar no release |
+| Push Android via SNS + FCM | Pendente; registro automatico desligado por default pela EXECUCAO-026 | Validar FCM como transporte Android e AWS SNS como orquestrador oficial | Build Android/device com `EXPO_PUBLIC_ENABLE_PUSH_REGISTRATION=true` somente apos SNS Platform Application/FCM configurados | Device Android registra token FCM, backend salva token e SNS entrega push real; se nao entrar no MVP, flag permanece desligada | Sim se push Android entrar no release |
 | APNs iOS | Pendente | Validar credencial APNs/SNS iOS | Build iOS/device | Device iOS registra token e recebe push | Sim para iOS push |
 | Env mobile de platform ARN | Pendente para push real; nao usado se flag desligada | Conferir env build | `EXPO_PUBLIC_ENABLE_PUSH_REGISTRATION=true` + `EXPO_PUBLIC_AWS_SNS_PLATFORM_APPLICATION_ARN_ANDROID/IOS` se app enviar ARN | App envia ARN correto ou backend resolve por env | Sim para push real |
 | Test push | Endpoint existe | Chamar endpoint autenticado | `POST /notifications/push-test` via app/curl | Push chega no device e entrega fica registrada | Sim para release com push |
@@ -1240,7 +1240,7 @@ Correcao necessaria quando falhar: remover dependencia de seed do fluxo, criar e
 | Exclusao de conta | OK no codigo local; pendente smoke/LGPD final | Tela envia senha; backend valida senha e revoga refresh tokens; falta validar device/staging e politica de retencao/anonimizacao | Parcial ate smoke/legal final | Sim |
 | Suporte/contato | Parcial; env obrigatoria/configuravel pela EXECUCAO-029 | Backend legal usa `SUPPORT_EMAIL`; mobile usa `EXPO_PUBLIC_SUPPORT_EMAIL`; falta validar dominio/canal monitorado e smoke de abertura | Parcial ate smoke/canal real | Sim |
 | Consentimento de localizacao | Parcial | App pede permissao nativa; validar texto, negacao de permissao e uso sem crash | Parcial | Sim |
-| Consentimento de push | Pendente/parcial | Definir push sem Firebase, pedir permissao no momento correto e registrar token real se push entrar no release | Pendente | Sim se push no release |
+| Consentimento de push | Pendente/parcial | Definir push Android via SNS + FCM, pedir permissao no momento correto e registrar token real se push entrar no release | Pendente | Sim se push no release |
 | E-mail transacional | Parcial | SES preparado, mas precisa envio real em staging/producao para verificacao/reset/suporte | Parcial | Sim |
 | Tratamento de dados pessoais | Pendente | Mapear dados coletados, finalidade, retencao, exclusao e acesso; registrar no plano legal | Pendente | Sim |
 | Logs sem dados sensiveis | RESOLVIDO no codigo local pela EXECUCAO-030; CloudWatch/smoke pendente | `logStructured` sanitiza chaves sensiveis, bearer token e padroes `token=`/`password=`; `AuditLogService` ja sanitizava `changes` | Parcial ate smoke/CloudWatch | Sim |
@@ -1255,7 +1255,7 @@ Correcao necessaria quando falhar: remover dependencia de seed do fluxo, criar e
 | Package/bundle | Parcial | Revisar `frontend/app.json` | `android.package` e `ios.bundleIdentifier` finais e sem conflito | Sim |
 | Icones/splash | Parcial | Instalar release em device e conferir assets | Icone/splash finais aparecem corretamente | Sim |
 | Permissoes Android | Parcial | Revisar manifesto/build e testar negacao/permissao | Somente permissoes necessarias e textos corretos | Sim |
-| Push Android | Pendente; registro automatico desligado por default pela EXECUCAO-026 | Projeto decidiu nao usar Firebase; validar alternativa tecnica ou retirar push do release | Token/push real funciona sem Firebase, ou push fica fora do MVP com `EXPO_PUBLIC_ENABLE_PUSH_REGISTRATION` desligado | Sim se push no release |
+| Push Android | Pendente; registro automatico desligado por default pela EXECUCAO-026 | Projeto decidiu nao usar Firebase como backend, mas Android precisa FCM como transporte tecnico para push nativo; validar SNS + FCM ou retirar push do release | Token FCM e entrega via SNS funcionam em device real, ou push fica fora do MVP com `EXPO_PUBLIC_ENABLE_PUSH_REGISTRATION` desligado | Sim se push no release |
 | Estrategia iOS | Pendente | Implementar build iOS ou declarar Android-only no primeiro release | Decisao documentada; se iOS entrar, build/TestFlight passa | Sim se iOS no release |
 | Variaveis no build | Pendente | Conferir env embutida nos logs/build | Sem `localhost`; API URL e flags apontam para staging/producao corretos | Sim |
 | API URL real | Pendente | Abrir app release e interceptar/observar chamadas | App chama backend real/staging via HTTPS | Sim |
@@ -1375,7 +1375,7 @@ Regra aplicada nesta revisao: item confirmado no codigo fica marcado como resolv
 | Geo/discovery | Aprovado apos correcao | Confirmado no backend; smoke pendente | `backend/src/common/geo/geo.utils.ts` calcula bounding box/distancia; `opening-hours.utils.ts`; `events`, `establishments` e `search` usam latitude/longitude/distancia/openNow | RESOLVIDO no codigo backend; validar qualidade dos resultados e tela mobile com banco real |
 | Chat e tempo real | Aprovado com validacao manual pendente | Confirmado no codigo local | `backend/src/common/realtime/redis-io.adapter.ts`; `backend/src/modules/chat/chat.gateway.ts`; `chat.service.ts` usa AuditLog e anexos via media | Nao reabrir implementacao; validar multi-instancia ECS/Redis em staging |
 | Redis/Valkey | Aprovado | Confirmado no codigo, pendente AWS | `backend/src/common/cache/cache.service.ts`; `backend/src/common/rate-limit/redis-throttler.storage.ts` falha em producao sem Redis; `backend/src/app.module.ts` usa RedisThrottlerStorage | RESOLVIDO no codigo; validar ElastiCache real |
-| Push notifications | Antes divergente Firebase; depois aprovado com SNS | Confirmado no backend; mobile/provider real pendente | `backend/src/common/notification/notification.service.ts` usa AWS SNS; `PushToken` e `NotificationDelivery` existem no Prisma; `frontend/src/services/push/PushRegistrationService.ts` registra token via API; `frontend/app.json` nao referencia `googleServicesFile` | Backend RESOLVIDO; decidir/validar push Android sem Firebase ou retirar push do release |
+| Push notifications | Antes divergente Firebase; depois aprovado com SNS | Confirmado no backend; mobile/provider real pendente | `backend/src/common/notification/notification.service.ts` usa AWS SNS; `PushToken` e `NotificationDelivery` existem no Prisma; `frontend/src/services/push/PushRegistrationService.ts` registra token via API; `frontend/app.json` nao referencia `googleServicesFile` | Backend RESOLVIDO; Android deve usar FCM apenas como transporte tecnico de push, com SNS como orquestrador; validar em device real ou retirar push do release |
 | Notificacoes in-app | Aprovado | Confirmado parcial | `backend/src/modules/notifications` tem controller/service/DTOs; `frontend/src/services/api/NotificationsService.ts` existe | Backend RESOLVIDO; roteamento mobile ao tocar notificacao ainda parcial |
 | E-mail | Antes SES pendente; depois aprovado | Confirmado no codigo; ambiente pendente | `backend/src/common/email/email.service.ts` usa `SESv2Client`; `env.validation.ts` valida `EMAIL_PROVIDER=ses`; testes cobrem falha SES | RESOLVIDO no codigo; validar identidade SES/sandbox em AWS |
 | AuditLog | Antes sem escrita real; depois aprovado | Confirmado no codigo | `backend/src/common/audit/audit-log.service.ts`; modelo `AuditLog`; auth/users/establishments/events/feed/products/chat/notifications chamam `record` | RESOLVIDO; ampliar somente se novos fluxos forem criados |
@@ -1397,7 +1397,7 @@ Arquitetura oficial conforme `.codex/melhorias_objetivas.md`, `.codex/PROMPT_mel
 | ALB | Entrada HTTPS e WebSocket para ECS | ACM, target group, SGs | Health endpoint existe; docs planejam ALB | Criar ALB/listeners/rules/health target e validar WebSocket |
 | ACM | Certificados TLS | DNS/ALB/CloudFront | Planejado nos docs AWS | Emitir/validar certificados dos dominios reais |
 | SES | E-mail transacional | Identidade verificada, DNS, sandbox liberado | EmailService SES implementado | Validar remetente, sandbox, bounce e envio real |
-| SNS Mobile Push | Envio push backend via AWS | Credenciais plataforma Android/iOS, PushToken, app mobile | Backend SNS implementado; mobile registra token | Definir Android sem Firebase ou excluir push do release; validar device real |
+| SNS Mobile Push | Envio push backend via AWS | Credenciais plataforma Android/iOS, PushToken, app mobile | Backend SNS implementado; mobile registra token | Configurar SNS Platform Application Android com FCM como transporte tecnico; validar device real ou excluir push do release |
 | Secrets Manager / SSM | Segredos e env sensiveis | ECS task definition/IAM | Docs exigem; `backend/.env` fora do Git | Criar parametros/secrets reais e remover qualquer segredo de task/imagem |
 | CloudWatch | Logs/metrica/alarmes base | ECS, log driver, dashboards | Logs estruturados no app; docs planejam CloudWatch | Configurar log groups, retention, metric filters e alarmes |
 | CloudTrail | Auditoria de acoes AWS | Conta AWS, bucket/log group | Documentado como alvo | Ativar/validar trail e retencao |
@@ -1413,7 +1413,30 @@ Dependencia principal: mobile release -> ALB/HTTPS -> ECS Fargate -> RDS/Redis/S
 | E-mail | Amazon SES e o provider principal | Resend nao deve voltar como provider principal; validar SES real antes de release |
 | Observabilidade | CloudWatch/CloudTrail sao a base; X-Ray quando aplicavel | Sentry e opcional, nao bloqueia por si so se CloudWatch/CloudTrail estiverem prontos |
 | Backend | AWS-first em ECS/RDS/Redis/S3/SES/SNS | Nao reintroduzir Render/Railway/Supabase/Aiven/Upstash como arquitetura-alvo |
-| Firebase | Nao e backend do sistema | Nao criar dependencia de Firebase no backend; `frontend/app.json` permanece sem `googleServicesFile` |
+| Firebase | Nao e backend do sistema | Nao criar dependencia de Firebase Auth/Firestore/Storage/Functions; FCM pode ser usado apenas como transporte tecnico obrigatorio do Android para push via SNS |
+
+#### Roadmap pos-APK aprovado - modernizacao Android antes da loja
+
+Esta fase nao deve bloquear a geracao do APK staging de smoke. Ela deve ser executada somente depois que o APK staging estiver instalado em aparelho fisico, apontando para o backend staging, e os fluxos principais estiverem aprovados.
+
+| Item | Momento correto | Motivo | Validacao obrigatoria | Bloqueia loja? |
+|---|---|---|---|---|
+| Modernizar Expo SDK | Depois do smoke APK staging aprovado | Atualizar Expo antes do smoke pode misturar problema de produto com problema de upgrade nativo | `npx expo install --check`, `npm run lint`, `npx tsc --noEmit`, build Android | Sim antes da loja se houver incompatibilidade relevante |
+| Modernizar React Native | Junto com Expo SDK compativel | RN deve acompanhar a matriz do Expo para evitar drift nativo | Build Android release e smoke em device | Sim antes da loja |
+| Atualizar Gradle Wrapper/Android Gradle Plugin/Kotlin | Depois de estabilizar Expo/RN | Upgrade isolado pode quebrar bibliotecas nativas; fazer como fase propria | `./gradlew assembleRelease`, instalacao APK e logs sem crash | Sim antes da loja se stack atual continuar bloqueando release |
+| Padronizar JDK de build | Antes do build final de loja | Stack atual Expo 50/RN 0.73/AGP 8.1.1 e mais segura com JDK 17; stack futura pode migrar para JDK mais novo se suportada | `java -version`, `gradlew --version`, build reproduzivel | Sim para build final |
+| Revalidar dependencias Expo/RN | Depois dos upgrades | Evitar pacote fora da faixa suportada, como ocorreu com `expo-secure-store` | `npx expo install --check` sem divergencias criticas | Sim antes da loja |
+| Revalidar push Android | Depois da decisao SNS + FCM | Push real depende de token Android, SNS Platform Application e device real | `EXPO_PUBLIC_ENABLE_PUSH_REGISTRATION=true`, token registrado no backend, push entregue | Sim se push entrar no release |
+
+#### Bloqueio operacional atual - APK staging Android
+
+| Item | Status em 2026-05-04 | Evidencia | Acao necessaria | Bloqueia smoke APK? |
+|---|---|---|---|---|
+| Build APK staging Android | Bloqueado por ambiente local Windows | NDK/clang falhou com `O arquivo de paginacao e muito pequeno para que esta operacao seja concluida. (0x5AF)`; `AutomaticManagedPagefile=false`; PowerShell atual `IsAdmin=false` | Ativar pagefile em PowerShell Administrador, reiniciar Windows e repetir `assembleRelease` | Sim |
+| Matriz Expo/RN | Corrigida | `npx expo install --check`: OK | Manter lockfile atualizado | Nao |
+| JDK de build | Corrigido para stack atual | `F:\Android\jdk-17`; script Android aponta para JDK 17 | Manter JDK 17 para Expo 50/RN 0.73/AGP 8.1.1 | Nao |
+| Firebase/Google Services | Removido do build nativo | Sem `google-services` no Gradle Android | Reintroduzir somente se FCM for configurado formalmente como transporte Android via SNS | Nao para smoke sem push |
+| API staging HTTP | Permitida temporariamente | `usesCleartextTraffic=true` no Manifest | Remover antes de producao; usar HTTPS/ALB/ACM | Nao para smoke; sim para loja |
 
 #### Fase nova - hardening de backend
 
@@ -1464,7 +1487,7 @@ Base: `.codex/PROJECT_CONTEXT.md` define MVP funcional, coeso, enxuto, com nucle
 | Mapa | Sim se discovery usa mapa | Localizar itens | Conectado no codigo local; smoke pendente | Entra se smoke aprovar mapa/lista e empty state | P0 ate smoke |
 | Chat | Sim se interacao entre usuarios/estabelecimentos | Conversa real | Backend confirmado; smoke multi-device pendente | Entra se smoke realtime passar | P0 se exposto |
 | Notificacoes in-app | Sim | Alertas internos | Backend/service existem; roteamento conectado no codigo local pela EXECUCAO-016/017 | Entra apos smoke mobile/staging | Push pode ser fora do MVP se documentado |
-| Push | Opcional para primeiro MVP | Retencao/alertas | Backend SNS existe; plataforma mobile pendente | Entra somente se device real passar; senao sai do release | Sem Firebase como backend |
+| Push | Opcional para primeiro MVP | Retencao/alertas | Backend SNS existe; plataforma mobile pendente | Entra somente se device real passar; senao sai do release | SNS oficial; FCM apenas transporte Android; Firebase nao e backend |
 | Settings criticas | Sim | Conta, seguranca, privacidade, delete | Parcial; conta/delete/cidade/senha conectados e privacidade ocultada no codigo local | Entra apenas com backend real ou itens ocultos | Nada de toggle local fake; preferencias restantes ainda precisam decisao/correcao |
 | Historico/contas vinculadas/recursos auxiliares | Nao necessariamente | Conveniencia | Parcial/fake | Adiado ou oculto | P2 somente se fora da UI de producao |
 
@@ -2370,7 +2393,7 @@ Status:
 
 Objetivo executado:
 
-- Impedir que o app solicite permissao de push e tente registrar token nativo enquanto a estrategia Android/iOS sem Firebase nao estiver validada.
+- Impedir que o app solicite permissao de push e tente registrar token nativo enquanto a estrategia Android/iOS via SNS + FCM/APNs nao estiver validada.
 - Manter o codigo SNS/backend preparado, mas sem acionar fluxo incompleto automaticamente no release.
 
 Arquivos alterados:
@@ -2395,7 +2418,7 @@ Validacao executada:
 Status:
 
 - RESOLVIDO parcialmente no codigo local: push incompleto nao e mais acionado automaticamente por default.
-- Pendente de produto/infra: decidir se push entra no primeiro release; se entrar, validar token nativo Android sem Firebase ou declarar alternativa, APNs/iOS, SNS platform ARNs e smoke em dispositivo real.
+- Pendente de produto/infra: decidir se push entra no primeiro release; se entrar, validar token nativo Android via FCM como transporte tecnico, APNs/iOS, SNS platform ARNs e smoke em dispositivo real.
 
 ### EXECUCAO-027 - Gestao owner basica de produtos conectada - 2026-05-02
 
@@ -2591,13 +2614,207 @@ Status:
 - RESOLVIDO no codigo local: deep link mobile de verificacao/reset esta configurado.
 - Pendente para producao: validar em device real com `meuagito://verify-email?token=...`, `meuagito://reset-password?token=...`, SES real e `FRONTEND_URL` staging/prod.
 
+### EXECUCAO-032 - ProfileSelection, Atividade, Favoritos, Historico e Configuracoes - 2026-05-03
+
+Objetivo executado:
+
+- Resolver telas/fluxos apontados pelo usuario como parciais: `ProfileSelection`, `Activity`, `ActivityFavorites`, `ActivityHistory`, `Settings`, `SettingsSecurity` e esclarecer `SettingsAbout`.
+- Usar evidencia da documentacao antiga/canonica antes de alterar Atividade.
+- Evitar mock, botao sem acao e alerta "em breve" em producao.
+
+Evidencia usada:
+
+- `doc/02_UX_FLUXOS/14_T_ATIVIDADE.md` define `T_ATIVIDADE` como hub pessoal.
+- Fase 1.0 ativa apenas `Meus Favoritos` e `Historico de Atividades`.
+- `Pedidos`, `Agendamentos` e `Reservas` sao fase 1.2+; por isso nao foram implementados como fluxo fake nem mantidos como botao sem acao.
+- `doc/02_UX_FLUXOS/15_T_CONFIG_CONFIGURACOES.md` define `Sobre` como "Sobre o Meu Agito", ou seja, sobre o app/produto, nao sobre o usuario. Dados do usuario continuam em `Minha conta`.
+
+Arquivos alterados:
+
+- `backend/src/modules/establishments/establishments.controller.ts`
+- `backend/src/modules/establishments/establishments.service.ts`
+- `frontend/src/services/api/LocationService.ts`
+- `frontend/src/services/activity/ActivityHistoryService.ts`
+- `frontend/src/screens/auth/ProfileSelectionScreen.tsx`
+- `frontend/src/screens/main/ActivityScreen.tsx`
+- `frontend/src/screens/main/ActivityFavoritesScreen.tsx`
+- `frontend/src/screens/main/ActivityHistoryScreen.tsx`
+- `frontend/src/screens/main/ProfileScreen.tsx`
+- `frontend/src/screens/main/SearchScreen.tsx`
+- `frontend/src/screens/main/ItemScreen.tsx`
+- `frontend/src/screens/main/SettingsScreen.tsx`
+- `frontend/src/screens/main/SettingsPrivacyScreen.tsx`
+- `frontend/src/screens/main/SettingsSecurityScreen.tsx`
+- `frontend/src/screens/main/SettingsAuxScreens.tsx`
+- `frontend/src/screens/navigation/RootNavigator.tsx`
+
+Implementacao:
+
+- `ProfileSelection` recebeu texto/acoes mais claras e link real para login.
+- Criado endpoint autenticado `GET /establishments/me/favorites` para listar favoritos reais do usuario.
+- `Activity` virou hub real com cards ativos de Favoritos e Historico, carregando contadores reais.
+- `ActivityFavorites` lista estabelecimentos favoritos vindos do backend, abre perfil real e remove favorito via backend.
+- `ProfileScreen` agora permite salvar/remover estabelecimento favorito e atualiza contador.
+- `ActivityHistoryService` persiste historico local via AsyncStorage conforme especificacao antiga (`meuagito_hist_buscas`, `meuagito_hist_vistos`, `meuagito_hist_checkins`).
+- `SearchScreen` grava buscas reais feitas pelo usuario.
+- `ProfileScreen` e `ItemScreen` gravam vistos recentemente.
+- `ActivityHistory` mostra buscas/vistos/check-ins locais, permite abrir destino real e excluir itens selecionados.
+- `SettingsPrivacy` foi registrada no navigator e virou tela real de privacidade/dados/LGPD com acoes validas: politica, termos, permissoes do sistema e exclusao de conta.
+- `SettingsSecurity` agora consulta backend para status de 2FA/e-mail verificado e remove aparencia de toggle local falso para alerta de seguranca.
+- `SettingsAbout` foi renomeada visualmente para `Sobre o Meu Agito`, deixando claro que e sobre o app.
+
+Validacao executada:
+
+- `cd backend && npm run build`: OK.
+- `cd frontend && npx tsc --noEmit`: OK.
+- `cd backend && npm run lint`: OK.
+- `cd frontend && npm run lint`: OK.
+- `cd backend && npx jest src/modules/establishments/establishments.spec.ts --runInBand`: OK, 20 testes.
+
+Status:
+
+- RESOLVIDO no codigo local: Atividade/Favoritos/Historico deixaram de ser apenas telas vazias.
+- RESOLVIDO no codigo local: favoritos de estabelecimento agora tem fluxo ponta a ponta frontend/backend.
+- RESOLVIDO no codigo local: Configuracoes expõe privacidade/dados e seguranca sem acao fake.
+- DECISAO DE ESCOPO: Pedidos, Agendamentos e Reservas continuam fora do release atual por nao existirem model/backend compatíveis no MVP.
+- Pendente para producao: smoke mobile em device para navegacao entre Activity -> Favoritos -> Perfil, salvar/remover favorito, historico de busca/visto e abertura de permissoes do sistema.
+- Pendente para evolucao: favoritos de eventos/produtos exigem model/endpoint proprio; check-in exige fluxo de criacao de check-in antes de gerar historico real.
+
+### EXECUCAO-033 - Separacao de staging economico e producao real - 2026-05-03
+
+Objetivo executado:
+
+- Separar o caminho de validacao inicial em AWS staging economico do caminho de producao publica.
+- Permitir validar backend real em EC2 Linux + RDS PostgreSQL + S3 antes de contratar toda a pilha final.
+- Manter uma unica base de codigo: nao existe projeto separado para teste e producao; a separacao e por `DEPLOY_ENV` e variaveis provisionadas.
+
+Decisao tecnica:
+
+- `NODE_ENV=production` continua sendo o runtime de build/deploy para staging e producao.
+- `DEPLOY_ENV=staging` permite reduzir custo inicial: Redis/Valkey, SES, SNS e CloudFront podem ficar desativados enquanto o staging economico e validado, mas S3 continua obrigatorio para validar upload/midia real.
+- `DEPLOY_ENV=production` mantem criterio estrito: Redis/Valkey, S3, CloudFront, SES e SNS sao obrigatorios para release publico.
+- Se `DEPLOY_ENV` for omitido com `NODE_ENV=production`, o backend assume `DEPLOY_ENV=production` para preservar seguranca e evitar liberar producao relaxada por engano.
+- S3 nao exige access key fixa quando a AWS fornecer credenciais por IAM role da EC2/ECS.
+
+Arquivos alterados:
+
+- `backend/src/config/deploy-env.ts`
+- `backend/src/config/env.validation.ts`
+- `backend/src/config/env.validation.spec.ts`
+- `backend/src/common/cache/cache.service.ts`
+- `backend/src/common/rate-limit/redis-throttler.storage.ts`
+- `backend/src/common/rate-limit/redis-throttler.storage.spec.ts`
+- `backend/src/common/realtime/redis-io.adapter.ts`
+- `backend/src/modules/health/health.service.ts`
+- `backend/.env.example`
+- `backend/.env.staging.example`
+- `backend/.env.production.example`
+- `README.md`
+- `PLANO_CORRECAO_PRODUCAO_MEU_AGITO.md`
+
+Implementacao:
+
+- Criado helper central `deploy-env.ts` para resolver `local`, `staging` e `production`.
+- `validateEnvironment` passou a validar `DEPLOY_ENV` e distinguir deploy gerenciado de producao publica.
+- `CacheService`, `RedisThrottlerStorage`, `RedisIoAdapter` e `/health` passaram a exigir Redis somente em `DEPLOY_ENV=production`.
+- Staging com `NODE_ENV=production` + `DEPLOY_ENV=staging` exige S3, mas pode usar fallback em memoria para cache/rate limit/realtime enquanto Redis nao for provisionado.
+- Producao com `DEPLOY_ENV=production` continua falhando se Redis estiver desativado ou indisponivel.
+- Criados exemplos separados de env para staging economico e producao final.
+- README documenta que staging pode iniciar em EC2/RDS/S3 e depois evoluir para a arquitetura final ECS/Fargate sem trocar base de codigo.
+
+Validacao executada:
+
+- `cd backend && npx jest src/config/env.validation.spec.ts src/common/rate-limit/redis-throttler.storage.spec.ts --runInBand`: OK, 12 testes.
+- `cd backend && npm run build`: OK.
+- `cd backend && npm run lint`: OK.
+
+Status:
+
+- RESOLVIDO no codigo local: existe separacao objetiva entre staging economico e producao real.
+- RESOLVIDO no codigo local: staging pode rodar sem Redis obrigatorio sem quebrar bootstrap, rate limit ou health check.
+- RESOLVIDO no codigo local: producao continua com bloqueios estritos para dependencias AWS finais.
+- RESOLVIDO no codigo local: env de S3 aceita IAM role da AWS sem obrigar access key hardcoded.
+- Pendente para staging: provisionar EC2, RDS, S3, security groups, IAM role, secrets/SSM e dominio/API URL real.
+- Pendente para producao: apos staging passar, provisionar ECS/Fargate/ECR, ElastiCache/Valkey, CloudFront, ALB/ACM, SES, SNS e observabilidade final.
+- Pendente para release mobile: build apontando para staging primeiro; somente depois trocar para API de producao.
+
+### EXECUCAO-034 - Staging AWS economico online - 2026-05-04
+
+Objetivo executado:
+
+- Subir o primeiro backend staging real em AWS para teste individual, sem ainda contratar a pilha final de producao.
+
+Infra validada:
+
+- S3 staging com public access block, criptografia AES256 e ownership enforced.
+- IAM role/instance profile para EC2 acessar S3 e SSM sem access key fixa.
+- Security groups com RDS aceitando 5432 somente da EC2 e backend 3001 somente do IP de teste.
+- RDS PostgreSQL staging privado, criptografado, `db.t4g.micro`, database `meuagito_staging`.
+- SSM SecureString para senha RDS, `DATABASE_URL`, `JWT_SECRET` e `REFRESH_TOKEN_SECRET`.
+- EC2 Amazon Linux 2023 ARM `t4g.micro`, SSM online, Node `v20.20.2`.
+- Backend instalado em `/opt/meuagito/backend` e rodando via systemd `meuagito-backend`.
+
+Validacao executada:
+
+- `npx prisma migrate deploy`: OK, 7 migrations aplicadas.
+- `npx prisma generate`: OK.
+- `npm run build`: OK.
+- `systemctl status meuagito-backend`: `active (running)`.
+- `meuagito-backend.service`: `enabled`; continua rodando apos fechar SSM/PowerShell, reinicia se o Node cair e sobe no boot da EC2.
+- Health interno EC2: OK.
+- Health externo `http://18.228.6.219:3001/health`: OK, database conectado e storage S3 configurado.
+
+Status:
+
+- RESOLVIDO no staging: backend real responde na AWS com RDS e S3.
+- RESOLVIDO no staging: backend fica persistente como servico `systemd`, sem depender de sessao SSM aberta.
+- RESOLVIDO no staging: `POST /auth/signup` criou usuario real no RDS e retornou tokens.
+- Pendente para concluir staging funcional: smoke auth/signup/login, upload real para S3, fluxos principais do app e build mobile apontando para staging.
+- Pendente para producao publica: ALB/ACM/HTTPS, CloudFront, ElastiCache/Valkey, SES, SNS, ECS/Fargate, dominio e observabilidade CloudWatch final.
+
+Validacao complementar de auth:
+
+- `POST http://18.228.6.219:3001/auth/signup`: OK em 2026-05-04.
+- Usuario criado: `smoke+20260504003829@meuagito.com`.
+- Tokens retornados: OK, salvos apenas em `.local-secrets` com DPAPI.
+- `verificationEmailSent=false`: esperado no staging inicial com `EMAIL_PROVIDER=none`.
+- `POST http://18.228.6.219:3001/auth/login`: OK em 2026-05-04.
+- Login retornou access token, refresh token e `expiresIn=900`.
+- `GET http://18.228.6.219:3001/users/me` com Bearer token: OK em 2026-05-04.
+- Cadeia `signup -> login -> JWT -> users/me`: OK no staging real.
+- `POST http://18.228.6.219:3001/media/upload/avatar`: OK em 2026-05-04.
+- Upload retornou `Provider=S3`, bucket staging e path `avatars/...png`.
+- `aws s3api head-object` do avatar: OK, `ContentType=image/png`, `ServerSideEncryption=AES256`.
+- `GET http://18.228.6.219:3001/feed/agito` com Bearer token: OK, retornou `data=[]` e `hasMore=false` em banco vazio.
+- `GET http://18.228.6.219:3001/search/global?q=naoexiste-smoke-20260504` com Bearer token: OK, retornou arrays vazios e `total=0` em banco vazio.
+- `GET http://18.228.6.219:3001/establishments`: OK, retornou `data=[]`, `total=0`, `totalPages=0` em banco vazio.
+- `POST http://18.228.6.219:3001/establishments` com token de conta `USER`: retornou `FORBIDDEN`, esperado pela regra de negocio.
+- `POST http://18.228.6.219:3001/auth/signup` com `profileType=ESTABLISHMENT`: OK em 2026-05-04.
+- Conta empresarial criada: `smoke-business+20260504005654@meuagito.com`.
+- `POST http://18.228.6.219:3001/establishments` com token empresarial: OK em 2026-05-04.
+- Estabelecimento criado: `Smoke Bar Staging`, id `cmoqo5mfy000fubvhz5khnkio`.
+- `GET http://18.228.6.219:3001/establishments`: OK, retornou `total=1` com o estabelecimento real criado.
+- `GET http://18.228.6.219:3001/establishments/cmoqo5mfy000fubvhz5khnkio`: OK, detalhe real retornado; produtos ainda `null`/`0`.
+- `POST http://18.228.6.219:3001/establishments/cmoqo5mfy000fubvhz5khnkio/products` com token do dono: OK em 2026-05-04.
+- Produto criado: `Combo Smoke Staging`, id `cmoqobh70000iubvhxnldzovo`.
+- `GET http://18.228.6.219:3001/establishments/cmoqo5mfy000fubvhz5khnkio/products`: OK, retornou produto real; imagens `null` antes de upload.
+- `GET http://18.228.6.219:3001/products/cmoqobh70000iubvhxnldzovo`: OK, detalhe do produto real validado.
+
+Pendencia planejada para popular banco:
+
+- Criar importacao controlada de CSV de estabelecimentos pre-cadastrados.
+- Dados importados nao devem virar contas reais automaticamente.
+- Estabelecimentos importados devem entrar como nao reivindicados, com dono ausente, origem identificada e status de reivindicacao pendente.
+- Fluxo futuro: dono real cria conta empresarial, encontra o estabelecimento, solicita reivindicacao e, apos validacao/aprovacao, passa a administrar o perfil.
+- Antes de producao publica, validar origem/licenca dos dados importados e riscos juridicos de dados obtidos por scraping.
+
 Resumo de bloqueadores absolutos antes de deploy publico real:
 
 1. AWS real ponta a ponta: ECS/ECR/RDS/ElastiCache/S3/CloudFront/ALB/ACM/Secrets.
 2. Migrations aplicadas no banco alvo.
 3. Redis externo validado em producao.
 4. SES real validado para verificacao/reset.
-5. Push real validado em device sem Firebase, ou push formalmente fora do primeiro release.
+5. Push real validado em device via SNS + FCM/APNs, ou push formalmente fora do primeiro release.
 6. Smoke mobile manual completo.
 7. Conteudo juridico final, canal de suporte monitorado, retencao/anonimizacao LGPD e validacao CloudWatch sem vazamento sensivel.
 8. Remocao/correcao dos mocks P0 do PROMPT-006.

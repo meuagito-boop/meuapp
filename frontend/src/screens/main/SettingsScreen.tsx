@@ -72,6 +72,13 @@ export default function SettingsScreen() {
           type: 'link',
           route: 'SettingsSecurity',
         },
+        {
+          id: 'privacy',
+          label: 'Privacidade e dados',
+          subtitle: 'Politica, consentimentos e exclusao',
+          type: 'link',
+          route: 'SettingsPrivacy',
+        },
       ],
     },
     {

@@ -1068,7 +1068,7 @@ Status da validacao ponta a ponta:
 - `PushRegistrationService.registerCurrentDevice()` nao solicita permissao nem registra token se `EXPO_PUBLIC_ENABLE_PUSH_REGISTRATION` nao estiver habilitado.
 - A flag aceita `1`, `true`, `yes` ou `on`.
 - `README.md` foi atualizado para refletir que o registro de push token apos login/onboarding e opcional por flag.
-- O fluxo SNS/backend continua preparado, mas o app nao aciona push incompleto por default enquanto Android/iOS sem Firebase nao estiver validado.
+- O fluxo SNS/backend continua preparado, mas o app nao aciona push incompleto por default enquanto Android/iOS via SNS + FCM/APNs nao estiver validado.
 
 ### Validacao executada
 
@@ -1077,8 +1077,49 @@ Status da validacao ponta a ponta:
 
 ### Leitura correta apos esta rodada
 
-- o P1/P0 condicional "app solicita permissao/registra push automaticamente antes de validar estrategia sem Firebase" fica RESOLVIDO parcialmente no codigo.
-- continua pendente: decidir se push entra no primeiro release; se entrar, validar token nativo Android sem Firebase ou alternativa, APNs/iOS, SNS platform ARNs e smoke em dispositivo real.
+- o P1/P0 condicional "app solicita permissao/registra push automaticamente antes de validar estrategia SNS + FCM/APNs" fica RESOLVIDO parcialmente no codigo.
+- continua pendente: decidir se push entra no primeiro release; se entrar, validar token nativo Android via FCM como transporte tecnico, APNs/iOS, SNS platform ARNs e smoke em dispositivo real.
+
+## Atualizacao operacional - 2026-05-04 (America/Sao_Paulo) - Decisao sobre modernizacao Android pos-APK
+
+### Decisao registrada
+
+- A geracao do APK staging deve priorizar a stack atual do projeto para nao misturar smoke funcional com upgrade estrutural.
+- A modernizacao de tecnologia Android fica documentada como fase posterior ao APK staging aprovado em aparelho fisico.
+- A fase futura deve revisar Expo SDK, React Native, Gradle Wrapper, Android Gradle Plugin, Kotlin, JDK de build e dependencias Expo/RN.
+- Para a stack atual Expo 50 / React Native 0.73 / Android Gradle Plugin 8.1.1, JDK 17 e o caminho pragmatico de build; upgrade para JDK/Gradle mais novos deve ocorrer em fase propria e validada.
+- Push Android oficial continua sendo AWS SNS como orquestrador, com FCM apenas como transporte tecnico necessario para entrega nativa no Android. Firebase Auth/Firestore/Storage/Functions continuam fora da arquitetura.
+
+### Criterio para executar essa modernizacao
+
+- Executar somente depois que o APK staging estiver instalado em aparelho fisico e os fluxos principais forem aprovados contra o backend AWS staging.
+- Antes da loja, rodar `npx expo install --check`, `npm run lint`, `npx tsc --noEmit`, build Android release e smoke real no dispositivo.
+
+## Atualizacao operacional - 2026-05-04 (America/Sao_Paulo) - Build APK staging bloqueado por pagefile do Windows
+
+### Validacoes/correcoes executadas
+
+- JDK 17 local completo instalado em `F:\Android\jdk-17`.
+- `frontend/scripts/bootstrap-android-env.ps1` passou a usar `F:\Android\jdk-17` como padrao de build.
+- `frontend/android/build.gradle` teve a dependencia `com.google.gms:google-services` removida.
+- `frontend/android/app/build.gradle` teve o plugin `com.google.gms.google-services` removido.
+- `frontend/android/app/src/main/AndroidManifest.xml` recebeu `android:usesCleartextTraffic="true"` para APK staging HTTP.
+- `expo-secure-store` alinhado para `~12.8.1`.
+- Pacotes nativos alinhados com Expo SDK 50 via `npx expo install`; `npx expo install --check`: OK.
+- `frontend/android/gradle.properties` ajustado para reduzir consumo de memoria no host local.
+
+### Evidencia do bloqueio
+
+- `assembleRelease` avancou ate compilacao nativa C++ do NDK.
+- Falha final do NDK/clang: `O arquivo de paginacao e muito pequeno para que esta operacao seja concluida. (0x5AF)`.
+- Diagnostico do Windows: `AutomaticManagedPagefile=false`; memoria virtual total igual a memoria fisica, indicando pagefile desativado/insuficiente.
+- O PowerShell atual nao esta em modo administrador (`IsAdmin=false`), portanto nao consegue ajustar pagefile.
+
+### Leitura correta
+
+- O bloqueio atual nao e backend, API, Expo matrix nem Firebase.
+- O bloqueio atual e ambiente local Windows: pagefile desativado/insuficiente para compilar C++ nativo Android (`react-native-reanimated`/`expo-modules-core`).
+- Proximo passo obrigatorio: ativar pagefile no Windows em PowerShell Administrador e reiniciar a maquina antes de repetir `assembleRelease`.
 
 ## Atualizacao complementar - 2026-05-02 (America/Sao_Paulo) - Gestao owner basica de produtos conectada
 
@@ -1194,3 +1235,271 @@ Status da validacao ponta a ponta:
 
 - o P0 local "email link aponta para rota sem deep link mobile configurado" fica RESOLVIDO no codigo.
 - continuam pendentes: validar deep links em device real, SES real e `FRONTEND_URL` staging/prod.
+
+## Atualizacao complementar - 2026-05-03 (America/Sao_Paulo) - Separacao staging economico e producao real
+
+### Correcao aplicada
+
+- Criado `DEPLOY_ENV` para separar staging economico de producao publica sem criar duas bases de codigo.
+- `NODE_ENV=production` + `DEPLOY_ENV=staging` permite rodar backend otimizado em EC2/RDS/S3 sem Redis obrigatorio inicialmente, mantendo S3 obrigatorio para validar midia real.
+- `DEPLOY_ENV=production` continua exigindo Redis/Valkey, S3, CloudFront, SES e SNS para release publico.
+- Cache, Socket.IO adapter, rate limit e health check agora usam `DEPLOY_ENV=production` para decidir quando Redis e obrigatorio.
+- Validador de env deixou de exigir access key fixa para S3 quando a AWS fornece credenciais por IAM role.
+- Criados `backend/.env.staging.example` e `backend/.env.production.example`.
+- `README.md` e plano foram atualizados com a decisao de staging economico antes de producao real.
+
+### Validacao executada
+
+- `cd backend && npx jest src/config/env.validation.spec.ts src/common/rate-limit/redis-throttler.storage.spec.ts --runInBand`: OK, 12 testes.
+- `cd backend && npm run build`: OK.
+- `cd backend && npm run lint`: OK.
+
+### Leitura correta apos esta rodada
+
+- o P0 local "staging AWS economico fica bloqueado por Redis/SES/SNS/CloudFront obrigatorios" fica RESOLVIDO no codigo.
+- continuam pendentes: provisionar staging EC2/RDS/S3/Secrets/SSM/IAM, aplicar migrations no RDS staging, configurar mobile para API staging e executar smoke manual em device real.
+
+## Atualizacao operacional - 2026-05-04 (America/Sao_Paulo) - Staging AWS economico online
+
+### Infra criada e validada
+
+- S3 staging `meuagito-staging-media-139023234711` criado com public access block, AES256 e ownership enforced.
+- IAM role `MeuAgitoStagingEc2Role` e instance profile `MeuAgitoStagingEc2InstanceProfile` criados/validados.
+- Security groups criados: EC2 `sg-0f6fc4722cf33221f`; RDS `sg-04eaa9e032f0faa61`.
+- RDS PostgreSQL staging `meuagito-staging-postgres` criado em `db.t4g.micro`, privado, storage encrypted, database `meuagito_staging`.
+- SSM SecureString criado para senha RDS, `DATABASE_URL`, `JWT_SECRET` e `REFRESH_TOKEN_SECRET`.
+- EC2 staging `i-0153e08df4575df4e` criada em Amazon Linux 2023 ARM, `t4g.micro`, SSM online, Node `v20.20.2`.
+- Backend extraido em `/opt/meuagito/backend`, migrations aplicadas e servico systemd `meuagito-backend` habilitado.
+
+### Validacao executada
+
+- `npx prisma migrate deploy`: OK, 7 migrations aplicadas no RDS staging.
+- `npx prisma generate`: OK.
+- `npm run build`: OK na EC2.
+- `systemctl status meuagito-backend --no-pager -l`: `active (running)`.
+- Servico `meuagito-backend` esta `enabled`; continua rodando ao fechar SSM/PowerShell, reinicia se o processo Node cair e sobe no boot da EC2.
+- `curl http://127.0.0.1:3001/health` na EC2: `status=ok`, database ok, storage s3 ok.
+- `Invoke-RestMethod http://18.228.6.219:3001/health`: `status=ok`, database ok, storage s3 ok.
+
+### Leitura correta apos esta rodada
+
+- staging AWS economico esta online para smoke de API backend.
+- backend permanece online fora da sessao SSM porque roda por `systemd`.
+- Redis, SES, SNS, CloudFront, ALB/ACM e ECS/Fargate continuam fora deste staging inicial por decisao de custo.
+- Pendente: smoke de auth/signup/login, upload S3 real, endpoints principais e apontamento do mobile para `http://18.228.6.219:3001`.
+
+## Atualizacao operacional - 2026-05-04 (America/Sao_Paulo) - Smoke signup staging
+
+### Validacao executada
+
+- `POST http://18.228.6.219:3001/auth/signup`: OK.
+- Usuario staging criado no RDS: `smoke+20260504003829@meuagito.com`.
+- Tokens de acesso/refresh retornados: OK.
+- `verificationEmailSent=false`: esperado neste staging inicial porque `EMAIL_PROVIDER=none`.
+- Senha e resposta completa com tokens foram salvas apenas em `.local-secrets` com DPAPI, sem plaintext versionavel.
+
+### Leitura correta apos esta rodada
+
+- cadastro real no backend AWS staging esta validado.
+- pendente: smoke login, `/users/me`, upload S3 real e apontamento do mobile para staging.
+
+## Atualizacao operacional - 2026-05-04 (America/Sao_Paulo) - Smoke login staging
+
+### Validacao executada
+
+- `POST http://18.228.6.219:3001/auth/login`: OK.
+- Usuario autenticado: `smoke+20260504003829@meuagito.com`.
+- Access token e refresh token retornados: OK.
+- `expiresIn=900`: OK.
+- Resposta completa com tokens foi salva apenas em `.local-secrets` com DPAPI.
+
+### Leitura correta apos esta rodada
+
+- login real no backend AWS staging esta validado.
+- pendente: smoke `/users/me`, upload S3 real e apontamento do mobile para staging.
+
+## Atualizacao operacional - 2026-05-04 (America/Sao_Paulo) - Smoke usuario autenticado staging
+
+### Validacao executada
+
+- `GET http://18.228.6.219:3001/users/me` com Bearer token: OK.
+- Usuario retornado: `smoke+20260504003829@meuagito.com`.
+- `emailVerified=false`: esperado porque SES esta desativado neste staging inicial.
+
+### Leitura correta apos esta rodada
+
+- cadeia `signup -> login -> JWT -> users/me` esta validada no backend AWS staging.
+- pendente: upload S3 real e apontamento do mobile para staging.
+
+## Atualizacao operacional - 2026-05-04 (America/Sao_Paulo) - Smoke upload S3 staging
+
+### Validacao executada
+
+- `POST http://18.228.6.219:3001/media/upload/avatar?entityId=...` com Bearer token: OK.
+- `Provider=S3`.
+- Bucket usado: `meuagito-staging-media-139023234711`.
+- Media criada: `cmoqnn0th0008ubvh0nqar5nw`.
+- Storage path criado em `avatars/...png`.
+- `aws s3api head-object`: OK, `ContentLength=68`, `ContentType=image/png`, `ServerSideEncryption=AES256`.
+
+### Leitura correta apos esta rodada
+
+- upload/midia real para S3 esta validado no backend AWS staging.
+- pendente: smoke de endpoints principais restantes e apontamento do mobile para staging.
+
+## Atualizacao operacional - 2026-05-04 (America/Sao_Paulo) - Smoke feed vazio staging
+
+### Validacao executada
+
+- `GET http://18.228.6.219:3001/feed/agito` sem token: retornou `UNAUTHORIZED`, comportamento esperado.
+- `GET http://18.228.6.219:3001/feed/agito` com Bearer token: OK.
+- Resposta autenticada: `data=[]`, `mode=mixed`, `limit=15`, `hasMore=false`, `nextCursor=null`.
+
+### Leitura correta apos esta rodada
+
+- feed autenticado funciona com banco vazio e nao retornou mock/fake.
+- pendente: smoke de busca/listagens, estabelecimentos/produtos se aplicavel, e apontamento do mobile para staging.
+
+## Atualizacao operacional - 2026-05-04 (America/Sao_Paulo) - Smoke busca vazia staging
+
+### Validacao executada
+
+- `GET http://18.228.6.219:3001/search/global?q=naoexiste-smoke-20260504` sem token: retornou `UNAUTHORIZED`, comportamento esperado.
+- `GET http://18.228.6.219:3001/search/global?q=naoexiste-smoke-20260504` com Bearer token: OK.
+- Resposta autenticada: `posts=[]`, `users=[]`, `events=[]`, `establishments=[]`, `total=0`.
+
+### Leitura correta apos esta rodada
+
+- busca autenticada funciona com banco vazio e nao retornou mock/fake.
+- pendente: smoke de listagem de estabelecimentos/produtos quando houver dado minimo, e apontamento do mobile para staging.
+
+## Atualizacao operacional - 2026-05-04 (America/Sao_Paulo) - Smoke estabelecimentos vazios staging
+
+### Validacao executada
+
+- `GET http://18.228.6.219:3001/establishments`: OK.
+- Resposta: `data=[]`, `total=0`, `page=1`, `limit=10`, `totalPages=0`.
+
+### Leitura correta apos esta rodada
+
+- listagem publica de estabelecimentos funciona com banco vazio e nao retornou mock/fake.
+- pendente: criar dado minimo real de estabelecimento/produto, validar catalogo, e apontar mobile para staging.
+
+## Decisao registrada - 2026-05-04 (America/Sao_Paulo) - CSV de estabelecimentos e reivindicacao
+
+- CSV de estabelecimentos pode ser usado para popular o banco em momento posterior.
+- Importacao nao deve criar contas reais de donos.
+- Dados importados devem ser tratados como estabelecimentos pre-cadastrados/nao reivindicados.
+- Fluxo correto futuro: usuario empresarial cria conta, busca estabelecimento, solicita reivindicacao e recebe acesso apos validacao/aprovacao.
+- Antes de producao publica, validar origem/licenca dos dados de scraping e riscos juridicos.
+
+## Atualizacao operacional - 2026-05-04 (America/Sao_Paulo) - Smoke permissao de estabelecimento
+
+### Validacao executada
+
+- `POST http://18.228.6.219:3001/establishments` com token de conta `USER`: retornou `FORBIDDEN`.
+- Mensagem: `Only ESTABLISHMENT accounts can create an establishment page`.
+
+### Leitura correta apos esta rodada
+
+- regra de permissao para criacao de estabelecimento esta ativa no staging.
+- proximo teste deve usar conta `ESTABLISHMENT`.
+
+## Atualizacao operacional - 2026-05-04 (America/Sao_Paulo) - Smoke conta empresarial staging
+
+### Validacao executada
+
+- `POST http://18.228.6.219:3001/auth/signup` com `profileType=ESTABLISHMENT`: OK.
+- Usuario empresarial criado: `smoke-business+20260504005654@meuagito.com`.
+- Tokens de acesso/refresh retornados: OK.
+- `verificationEmailSent=false`: esperado neste staging inicial porque `EMAIL_PROVIDER=none`.
+- Senha e resposta completa com tokens foram salvas apenas em `.local-secrets` com DPAPI.
+
+### Leitura correta apos esta rodada
+
+- conta empresarial real no backend AWS staging esta validada.
+- pendente: criar estabelecimento real com token empresarial.
+
+## Atualizacao operacional - 2026-05-04 (America/Sao_Paulo) - Smoke estabelecimento staging
+
+### Validacao executada
+
+- `POST http://18.228.6.219:3001/establishments` com token empresarial: OK.
+- Estabelecimento criado: `Smoke Bar Staging`.
+- ID: `cmoqo5mfy000fubvhz5khnkio`.
+- Owner ID: `cmoqo47rv0009ubvhni0owr7h`.
+- `isPublic=true`.
+- Resposta completa foi salva apenas em `.local-secrets` com DPAPI.
+
+### Leitura correta apos esta rodada
+
+- criacao real de estabelecimento no backend AWS staging esta validada.
+- pendente: validar listagem/detalhe e produtos/catalogo.
+
+## Atualizacao operacional - 2026-05-04 (America/Sao_Paulo) - Smoke listagem de estabelecimento com dado real
+
+### Validacao executada
+
+- `GET http://18.228.6.219:3001/establishments`: OK.
+- `total=1`.
+- Primeiro item: `cmoqo5mfy000fubvhz5khnkio`, `Smoke Bar Staging`, categoria `bar`.
+
+### Leitura correta apos esta rodada
+
+- listagem publica retorna dado real criado no RDS staging.
+- pendente: validar detalhe e produtos/catalogo.
+
+## Atualizacao operacional - 2026-05-04 (America/Sao_Paulo) - Smoke detalhe de estabelecimento
+
+### Validacao executada
+
+- `GET http://18.228.6.219:3001/establishments/cmoqo5mfy000fubvhz5khnkio`: OK.
+- Retornou `Smoke Bar Staging`, owner correto e `isPublic=true`.
+- Produtos antes da criacao: `null`/`0`, comportamento esperado.
+
+### Leitura correta apos esta rodada
+
+- detalhe publico de estabelecimento real esta validado no staging.
+- pendente: criar produto real e validar catalogo/listagem.
+
+## Atualizacao operacional - 2026-05-04 (America/Sao_Paulo) - Smoke produto staging
+
+### Validacao executada
+
+- `POST http://18.228.6.219:3001/establishments/cmoqo5mfy000fubvhz5khnkio/products` com token do dono: OK.
+- Produto criado: `Combo Smoke Staging`.
+- ID: `cmoqobh70000iubvhxnldzovo`.
+- Preco: `39.9`.
+- Status: `ACTIVE`.
+- Resposta completa foi salva apenas em `.local-secrets` com DPAPI.
+
+### Leitura correta apos esta rodada
+
+- criacao real de produto/catalogo esta validada no backend AWS staging.
+- pendente: validar listagem publica e detalhe de produto.
+
+## Atualizacao operacional - 2026-05-04 (America/Sao_Paulo) - Smoke listagem publica de produtos
+
+### Validacao executada
+
+- `GET http://18.228.6.219:3001/establishments/cmoqo5mfy000fubvhz5khnkio/products`: OK.
+- Produto retornado: `Combo Smoke Staging`.
+- `mainImageUrl=null` e `imageUrl=null`: esperado antes de upload de imagem do produto.
+
+### Leitura correta apos esta rodada
+
+- catalogo publico do estabelecimento retorna produto real criado no RDS staging.
+- pendente: validar detalhe de produto e imagem de produto se necessario.
+
+## Atualizacao operacional - 2026-05-04 (America/Sao_Paulo) - Smoke detalhe de produto
+
+### Validacao executada
+
+- `GET http://18.228.6.219:3001/products/cmoqobh70000iubvhxnldzovo`: OK.
+- Produto retornado: `Combo Smoke Staging`, categoria `Combos`, preco `39.9`, status `ACTIVE`.
+- `establishmentId=cmoqo5mfy000fubvhz5khnkio`.
+
+### Leitura correta apos esta rodada
+
+- detalhe publico de produto real esta validado no backend AWS staging.
+- proximo bloco recomendado: apontar mobile para staging e executar smoke manual no app.

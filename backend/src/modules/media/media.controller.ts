@@ -114,6 +114,17 @@ export class MediaController {
     return response.type(file.mimeType).send(file.buffer);
   }
 
+  @Get('public/:mediaId')
+  @ApiOperation({ summary: 'Servir mídia pública armazenada em S3/local' })
+  async servePublicMedia(@Param('mediaId') mediaId: string, @Res() response: Response) {
+    const file = await this.mediaService.resolvePublicMedia(mediaId);
+    if (file.absolutePath) {
+      return response.type(file.mimeType).sendFile(file.absolutePath);
+    }
+
+    return response.type(file.mimeType).send(file.buffer);
+  }
+
   @Get('local/:folder/:filename')
   @ApiOperation({ summary: 'Servir mídia local (fallback de desenvolvimento)' })
   async serveLocalMedia(

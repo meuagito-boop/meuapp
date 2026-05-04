@@ -50,7 +50,12 @@ export interface UserStore {
     location?: string;
     website?: string;
   }) => Promise<UserProfile>;
-  uploadAvatar: (uri: string, filename: string, onProgress?: (progress: number) => void) => Promise<UserProfile>;
+  uploadAvatar: (
+    uri: string,
+    filename: string,
+    mimeType?: string,
+    onProgress?: (progress: number) => void
+  ) => Promise<UserProfile>;
   followUser: (userId: string) => Promise<void>;
   unfollowUser: (userId: string) => Promise<void>;
   getFollowers: (userId: string, page?: number, limit?: number) => Promise<void>;
@@ -123,10 +128,10 @@ export const userStore = create<UserStore>((set, get) => ({
     }
   },
 
-  uploadAvatar: async (uri, filename, onProgress) => {
+  uploadAvatar: async (uri, filename, mimeType, onProgress) => {
     set({ isLoading: true, error: null });
     try {
-      const updatedProfile = await userService.uploadAvatar(uri, filename, onProgress);
+      const updatedProfile = await userService.uploadAvatar(uri, filename, mimeType, onProgress);
       set({ profile: updatedProfile, isLoading: false });
       return updatedProfile;
     } catch (error) {

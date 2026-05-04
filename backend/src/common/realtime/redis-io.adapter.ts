@@ -5,6 +5,7 @@ import { createAdapter } from '@socket.io/redis-adapter';
 import Redis from 'ioredis';
 import type { ServerOptions } from 'socket.io';
 import { logStructured } from '@common/logging/structured-log';
+import { isProductionDeployment } from '@config/deploy-env';
 
 function parseBoolean(value: string | undefined, fallback: boolean): boolean {
   if (!value) {
@@ -17,7 +18,7 @@ function parseBoolean(value: string | undefined, fallback: boolean): boolean {
 
 export class RedisIoAdapter extends IoAdapter {
   private readonly configService: ConfigService;
-  private readonly isProduction: boolean;
+  private readonly isProductionDeployment: boolean;
   private publisherClient: Redis | null = null;
   private subscriberClient: Redis | null = null;
   private redisAdapter: ReturnType<typeof createAdapter> | null = null;
@@ -25,15 +26,19 @@ export class RedisIoAdapter extends IoAdapter {
   constructor(app: INestApplicationContext) {
     super(app);
     this.configService = app.get(ConfigService);
-    this.isProduction =
-      (this.configService.get<string>('NODE_ENV') || 'development') === 'production';
+    this.isProductionDeployment = isProductionDeployment(
+      this.configService.get<string>('NODE_ENV'),
+      this.configService.get<string>('DEPLOY_ENV')
+    );
   }
 
   async connectToRedis(): Promise<void> {
     const redisEnabled = parseBoolean(this.configService.get<string>('ENABLE_REDIS'), false);
     if (!redisEnabled) {
-      if (this.isProduction) {
-        throw new Error('ENABLE_REDIS=true is required in production for Socket.IO clustering');
+      if (this.isProductionDeployment) {
+        throw new Error(
+          'ENABLE_REDIS=true is required in production deployment for Socket.IO clustering'
+        );
       }
 
       logStructured('info', 'socket.redis_adapter.disabled', {
@@ -69,8 +74,10 @@ export class RedisIoAdapter extends IoAdapter {
       await this.close();
 
       const errorMessage = error instanceof Error ? error.message : String(error);
-      if (this.isProduction) {
-        throw new Error(`Socket.IO Redis adapter is required in production: ${errorMessage}`);
+      if (this.isProductionDeployment) {
+        throw new Error(
+          `Socket.IO Redis adapter is required in production deployment: ${errorMessage}`
+        );
       }
 
       logStructured('warn', 'socket.redis_adapter.init_failed', {

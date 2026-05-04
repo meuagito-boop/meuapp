@@ -122,7 +122,8 @@ Ja existe no codigo:
 - Swagger em `/api/docs` quando habilitado;
 - health check em `/health`;
 - validacao de ambiente em `backend/src/config/env.validation.ts`;
-- Redis obrigatorio em producao para cache, throttling e Socket.IO distribuido;
+- `DEPLOY_ENV` separa staging economico de producao real;
+- Redis opcional em `DEPLOY_ENV=staging` e obrigatorio em `DEPLOY_ENV=production` para cache, throttling e Socket.IO distribuido;
 - Dockerfile e `.dockerignore` no backend;
 - scripts de build, teste, migrate e deploy prepare.
 
@@ -240,12 +241,17 @@ Ja desenvolvido:
 
 Ja desenvolvido:
 
-- `CacheService` com Redis e fallback em memoria apenas para dev/test;
+- `CacheService` com Redis e fallback em memoria para dev/test/staging;
 - cache/invalidation para feed e usuarios;
 - `RedisThrottlerStorage` para rate limit distribuido;
 - `RedisIoAdapter` para Socket.IO;
 - presenca online/offline em rooms por usuario;
-- producao falha se Redis for exigido e nao estiver disponivel.
+- `DEPLOY_ENV=production` falha se Redis/Valkey nao estiver disponivel.
+
+Decisao de ambiente:
+
+- staging economico usa `NODE_ENV=production` + `DEPLOY_ENV=staging`, exige S3 e pode iniciar sem Redis/Valkey;
+- producao publica usa `NODE_ENV=production` + `DEPLOY_ENV=production` e exige Redis/Valkey, S3, CloudFront, SES e SNS.
 
 ### E-mail, push e notificacoes
 
@@ -528,7 +534,7 @@ Se `EXPO_PUBLIC_API_URL` nao estiver definida, o app usa fallback local somente 
 
 ## 12. Variaveis de ambiente
 
-Use `backend/.env.example`, `backend/.env.test.example` e `frontend/.env.example` como base.
+Use `backend/.env.example`, `backend/.env.test.example`, `backend/.env.staging.example`, `backend/.env.production.example` e `frontend/.env.example` como base.
 
 ### Backend core
 
@@ -539,7 +545,8 @@ Use `backend/.env.example`, `backend/.env.test.example` e `frontend/.env.example
 | `REFRESH_TOKEN_SECRET` | sempre | refresh token |
 | `PORT` | producao | porta do container/host |
 | `NODE_ENV` | sempre | `development`, `test` ou `production` |
-| `CORS_ORIGIN` | producao | nao pode ser `*` |
+| `DEPLOY_ENV` | deploy | `local`, `staging` ou `production`; omitido com `NODE_ENV=production` assume `production` |
+| `CORS_ORIGIN` | staging/producao | nao pode ser `*` |
 | `TRUST_PROXY` | deploy com proxy/ALB | controle de IP/origem |
 
 ### Integracoes
@@ -548,7 +555,7 @@ Use `backend/.env.example`, `backend/.env.test.example` e `frontend/.env.example
 |---|---|
 | Redis | `ENABLE_REDIS`, `REDIS_URL` |
 | Rate limit | `RATE_LIMIT_TTL_MS`, `RATE_LIMIT_LIMIT`, `RATE_LIMIT_BLOCK_MS` |
-| Storage S3 | `STORAGE_PROVIDER=s3`, `S3_BUCKET`, `S3_REGION`, `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY` |
+| Storage S3 | `STORAGE_PROVIDER=s3`, `S3_BUCKET`/`AWS_S3_BUCKET`, `S3_REGION`/`AWS_REGION`; chaves explicitas sao opcionais quando ha IAM role |
 | CloudFront | `USE_CLOUDFRONT`, `CLOUDFRONT_BASE_URL` |
 | SES | `ENABLE_EMAIL`, `EMAIL_PROVIDER=ses`, `AWS_SES_REGION`, `AWS_SES_FROM_EMAIL` |
 | SNS | `PUSH_PROVIDER=sns`, `AWS_SNS_REGION`, ARNs de platform application |
@@ -592,6 +599,12 @@ Servicos alvo:
 - CloudTrail para auditoria AWS;
 - X-Ray quando aplicavel;
 - CloudFormation como direcao de IaC.
+
+Separacao de ambientes:
+
+- staging economico: EC2 Linux + RDS PostgreSQL + S3 obrigatorio, com Redis/SES/SNS/CloudFront opcionais ate a validacao de custo e fluxo;
+- producao real: ECS/Fargate + ECR + RDS + ElastiCache/Valkey + S3 + CloudFront + ALB/ACM + SES + SNS + Secrets/SSM;
+- o codigo deve ser o mesmo nos dois ambientes; a diferenca fica em `DEPLOY_ENV` e nas variaveis provisionadas.
 
 Documentos principais:
 

@@ -15,6 +15,7 @@ import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { colors } from '@constants/colors';
 import { fontSize, spacing } from '@constants/design';
 import { catalogService, locationService } from '@services/api';
+import { activityHistoryService } from '@services/activity/ActivityHistoryService';
 import type { CatalogProduct } from '@services/api/CatalogService';
 import type { Event } from '@services/api/LocationService';
 
@@ -197,6 +198,29 @@ export default function ItemScreen() {
       isMounted = false;
     };
   }, [resolvedEventId, template]);
+
+  useEffect(() => {
+    if (template === 'produto' && product) {
+      void activityHistoryService.recordViewed({
+        targetType: 'product',
+        targetId: product.id,
+        title: product.name,
+        meta: product.category || 'Produto',
+        establishmentId: product.establishment?.id ?? routeParams?.establishmentId,
+        establishmentName: product.establishment?.name ?? routeParams?.establishmentName,
+      });
+      return;
+    }
+
+    if (template === 'evento' && event) {
+      void activityHistoryService.recordViewed({
+        targetType: 'event',
+        targetId: event.id,
+        title: event.name || event.title,
+        meta: event.category || 'Evento',
+      });
+    }
+  }, [event, product, routeParams?.establishmentId, routeParams?.establishmentName, template]);
 
   const productEstablishmentId = product?.establishment?.id ?? routeParams?.establishmentId;
   const productEstablishmentName =

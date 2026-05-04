@@ -44,10 +44,77 @@ describe('validateEnvironment', () => {
       PUSH_PROVIDER: 'none',
     });
 
-    expect(message).toContain('STORAGE_PROVIDER=s3 is required in production.');
-    expect(message).toContain('EMAIL_PROVIDER=ses is required in production.');
-    expect(message).toContain('PUSH_PROVIDER=sns is required in production.');
-    expect(message).toContain('SUPPORT_EMAIL is required in production.');
+    expect(message).toContain(
+      'STORAGE_PROVIDER=s3 is required when DEPLOY_ENV=staging or production.'
+    );
+    expect(message).toContain('EMAIL_PROVIDER=ses is required when DEPLOY_ENV=production.');
+    expect(message).toContain('PUSH_PROVIDER=sns is required when DEPLOY_ENV=production.');
+    expect(message).toContain('SUPPORT_EMAIL is required in staging/production.');
+  });
+
+  it('allows staging deployment without Redis, SES, SNS or CloudFront', () => {
+    const env: TestEnv = {
+      ...baseEnv,
+      NODE_ENV: 'production',
+      DEPLOY_ENV: 'staging',
+      CORS_ORIGIN: 'https://staging.meuagito.com',
+      PORT: '3001',
+      SUPPORT_EMAIL: 'suporte@meuagito.com',
+      ENABLE_REDIS: 'false',
+      STORAGE_PROVIDER: 's3',
+      S3_BUCKET: 'meuagito-staging-media',
+      S3_REGION: 'sa-east-1',
+      USE_CLOUDFRONT: 'false',
+      EMAIL_PROVIDER: 'none',
+      ENABLE_EMAIL: 'false',
+      PUSH_PROVIDER: 'none',
+    };
+
+    expect(validateEnvironment(env)).toBe(env);
+  });
+
+  it('requires S3 storage in staging deployment', () => {
+    const message = validationError({
+      ...baseEnv,
+      NODE_ENV: 'production',
+      DEPLOY_ENV: 'staging',
+      CORS_ORIGIN: 'https://staging.meuagito.com',
+      PORT: '3001',
+      SUPPORT_EMAIL: 'suporte@meuagito.com',
+      ENABLE_REDIS: 'false',
+      STORAGE_PROVIDER: 'none',
+      EMAIL_PROVIDER: 'none',
+      PUSH_PROVIDER: 'none',
+    });
+
+    expect(message).toContain(
+      'STORAGE_PROVIDER=s3 is required when DEPLOY_ENV=staging or production.'
+    );
+  });
+
+  it('requires production runtime for managed deployments', () => {
+    const message = validationError({
+      ...baseEnv,
+      NODE_ENV: 'development',
+      DEPLOY_ENV: 'staging',
+      CORS_ORIGIN: 'https://staging.meuagito.com',
+      PORT: '3001',
+      SUPPORT_EMAIL: 'suporte@meuagito.com',
+    });
+
+    expect(message).toContain(
+      'NODE_ENV=production is required when DEPLOY_ENV=staging or production.'
+    );
+  });
+
+  it('rejects invalid deployment environment', () => {
+    const message = validationError({
+      ...baseEnv,
+      NODE_ENV: 'production',
+      DEPLOY_ENV: 'preview',
+    });
+
+    expect(message).toContain('DEPLOY_ENV must be one of: local, staging, production');
   });
 
   it('rejects invalid support email when provided', () => {
@@ -72,8 +139,6 @@ describe('validateEnvironment', () => {
       STORAGE_PROVIDER: 's3',
       S3_BUCKET: 'meuagito-prod-media',
       S3_REGION: 'sa-east-1',
-      S3_ACCESS_KEY_ID: 'access-key',
-      S3_SECRET_ACCESS_KEY: 'secret-key',
       USE_CLOUDFRONT: 'true',
       EMAIL_PROVIDER: 'ses',
       AWS_SES_REGION: 'sa-east-1',
@@ -83,17 +148,18 @@ describe('validateEnvironment', () => {
     });
 
     expect(message).toContain(
-      'CLOUDFRONT_BASE_URL (or AWS_CLOUDFRONT_URL) is required when USE_CLOUDFRONT is true or in production.'
+      'CLOUDFRONT_BASE_URL (or AWS_CLOUDFRONT_URL) is required when USE_CLOUDFRONT is true or DEPLOY_ENV=production.'
     );
     expect(message).toContain(
-      'AWS_SNS_PLATFORM_APPLICATION_ARN (or AWS_SNS_PLATFORM_APPLICATION_ARN_ANDROID) is required in production when PUSH_PROVIDER=sns.'
+      'AWS_SNS_PLATFORM_APPLICATION_ARN (or AWS_SNS_PLATFORM_APPLICATION_ARN_ANDROID) is required when DEPLOY_ENV=production and PUSH_PROVIDER=sns.'
     );
   });
 
-  it('allows production when Redis, S3, CloudFront, SES and SNS are configured', () => {
+  it('allows production when Redis, S3, CloudFront, SES and SNS are configured with IAM credentials', () => {
     const env: TestEnv = {
       ...baseEnv,
       NODE_ENV: 'production',
+      DEPLOY_ENV: 'production',
       CORS_ORIGIN: 'https://app.meuagito.com',
       PORT: '3001',
       SUPPORT_EMAIL: 'suporte@meuagito.com',
@@ -102,8 +168,6 @@ describe('validateEnvironment', () => {
       STORAGE_PROVIDER: 's3',
       S3_BUCKET: 'meuagito-prod-media',
       S3_REGION: 'sa-east-1',
-      S3_ACCESS_KEY_ID: 'access-key',
-      S3_SECRET_ACCESS_KEY: 'secret-key',
       USE_CLOUDFRONT: 'true',
       AWS_CLOUDFRONT_URL: 'https://cdn.meuagito.com',
       EMAIL_PROVIDER: 'ses',

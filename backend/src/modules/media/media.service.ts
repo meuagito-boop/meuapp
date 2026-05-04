@@ -195,6 +195,31 @@ export class MediaService {
     });
   }
 
+  async resolvePublicMedia(mediaId: string) {
+    const media = await this.prisma.media.findUnique({
+      where: { id: mediaId },
+      select: {
+        id: true,
+        entityType: true,
+        provider: true,
+        bucket: true,
+        storagePath: true,
+        mimeType: true,
+      },
+    });
+
+    if (!media || this.isPrivateMedia(media.entityType)) {
+      throw new NotFoundException('Arquivo de media nao encontrado');
+    }
+
+    return this.storageService.downloadFile({
+      provider: media.provider,
+      bucket: media.bucket,
+      storagePath: media.storagePath,
+      mimeType: media.mimeType,
+    });
+  }
+
   async getLatestMediaMap(entityType: MediaEntityType, entityIds: string[]) {
     const uniqueEntityIds = Array.from(new Set(entityIds.filter((id) => id && id.length > 0)));
     if (uniqueEntityIds.length === 0) {
@@ -393,10 +418,22 @@ export class MediaService {
     return PRIVATE_MEDIA_ENTITY_TYPES.has(entityType);
   }
 
-  private toClientMedia<T extends { id: string; entityType: MediaEntityType; publicUrl: string }>(
-    media: T
-  ): T {
+  private toClientMedia<
+    T extends {
+      id: string;
+      entityType: MediaEntityType;
+      publicUrl: string;
+      provider?: string;
+    },
+  >(media: T): T {
     if (!this.isPrivateMedia(media.entityType)) {
+      if (this.storageService.shouldServePublicMediaThroughApi(media.provider)) {
+        return {
+          ...media,
+          publicUrl: this.storageService.buildPublicMediaUrl(media.id),
+        };
+      }
+
       return media;
     }
 

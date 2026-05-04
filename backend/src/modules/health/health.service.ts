@@ -3,6 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '@common/prisma/prisma.service';
 import { CacheService } from '@common/cache/cache.service';
 import { StorageService, StorageHealthStatus } from '@modules/media/storage.service';
+import { isProductionDeployment } from '@config/deploy-env';
 
 type HealthComponentStatus = 'ok' | 'error' | 'disabled';
 
@@ -81,7 +82,8 @@ export class HealthService {
   private getCacheHealth(): CacheHealth {
     const cache = this.cacheService.getStatus();
     const required =
-      this.isProduction() || parseBoolean(this.configService.get<string>('ENABLE_REDIS'), false);
+      this.isProductionDeployment() ||
+      parseBoolean(this.configService.get<string>('ENABLE_REDIS'), false);
 
     return {
       ...cache,
@@ -112,15 +114,18 @@ export class HealthService {
   }
 
   private formatError(error: unknown): string {
-    if (this.isProduction()) {
+    if (this.isProductionDeployment()) {
       return 'Health dependency check failed';
     }
 
     return error instanceof Error ? error.message : String(error);
   }
 
-  private isProduction(): boolean {
-    return this.getEnvironment() === 'production';
+  private isProductionDeployment(): boolean {
+    return isProductionDeployment(
+      this.configService.get<string>('NODE_ENV') || process.env.NODE_ENV,
+      this.configService.get<string>('DEPLOY_ENV') || process.env.DEPLOY_ENV
+    );
   }
 
   private getEnvironment(): string {

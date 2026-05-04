@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
+  Alert,
   Image,
   Linking,
   ScrollView,
@@ -16,6 +17,7 @@ import { colors } from '@constants/colors';
 import { componentSizes, fontSize, spacing } from '@constants/design';
 import { authStore } from '@stores/authStore';
 import { catalogService, locationService, userService } from '@services/api';
+import { activityHistoryService } from '@services/activity/ActivityHistoryService';
 import type { CatalogProduct } from '@services/api/CatalogService';
 import type { Establishment, Review } from '@services/api/LocationService';
 import type { PublicUserProfile } from '@services/api/UserService';
@@ -164,6 +166,8 @@ export default function ProfileScreen() {
   const [establishment, setEstablishment] = useState<Establishment | null>(null);
   const [products, setProducts] = useState<CatalogProduct[]>([]);
   const [publicUser, setPublicUser] = useState<PublicUserProfile | null>(null);
+  const [isFavorite, setIsFavorite] = useState(false);
+  const [isUpdatingFavorite, setIsUpdatingFavorite] = useState(false);
 
   useEffect(() => {
     setActiveTab('Tudo');
@@ -229,6 +233,44 @@ export default function ProfileScreen() {
       isMounted = false;
     };
   }, [isOwnerEstablishmentView, requestedEstablishmentId, requestedType]);
+
+  useEffect(() => {
+    if (requestedType !== 'establishment' || !establishment) {
+      setIsFavorite(false);
+      return;
+    }
+
+    void activityHistoryService.recordViewed({
+      targetType: 'establishment',
+      targetId: establishment.id,
+      title: establishment.name,
+      meta: establishment.subcategory || establishment.category,
+    });
+
+    if (isOwnerEstablishmentView) {
+      setIsFavorite(false);
+      return;
+    }
+
+    let isMounted = true;
+
+    locationService
+      .listFavoriteEstablishments(1, 100)
+      .then((response) => {
+        if (isMounted) {
+          setIsFavorite(response.data.some((item) => item.id === establishment.id));
+        }
+      })
+      .catch(() => {
+        if (isMounted) {
+          setIsFavorite(establishment.isFavorited === true);
+        }
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [establishment, isOwnerEstablishmentView, requestedType]);
 
   useEffect(() => {
     let isMounted = true;
@@ -327,6 +369,38 @@ export default function ProfileScreen() {
       establishmentId: establishment.id,
       establishmentName: establishment.name,
     });
+  };
+
+  const handleToggleFavorite = async () => {
+    if (!establishment || isOwnerEstablishmentView || isUpdatingFavorite) {
+      return;
+    }
+
+    setIsUpdatingFavorite(true);
+
+    try {
+      const response = isFavorite
+        ? await locationService.unfavoriteEstablishment(establishment.id)
+        : await locationService.favoriteEstablishment(establishment.id);
+
+      const nextIsFavorite = !isFavorite;
+      setIsFavorite(nextIsFavorite);
+      setEstablishment((current) =>
+        current
+          ? {
+              ...current,
+              isFavorited: nextIsFavorite,
+              favoritesCount: response.favoriteCount,
+              favorites: response.favoriteCount,
+            }
+          : current,
+      );
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Nao foi possivel atualizar favorito.';
+      Alert.alert('Favorito nao atualizado', message);
+    } finally {
+      setIsUpdatingFavorite(false);
+    }
   };
 
   const handleOpenMaps = () => {
@@ -567,12 +641,23 @@ export default function ProfileScreen() {
             <Text style={styles.statLabel}>Itens</Text>
           </View>
           <View style={styles.statCard}>
-            <Text style={styles.statValue}>{establishment.isOpenNow ? 'Sim' : 'Nao'}</Text>
-            <Text style={styles.statLabel}>Aberto</Text>
+            <Text style={styles.statValue}>{establishment.favoritesCount}</Text>
+            <Text style={styles.statLabel}>Favoritos</Text>
           </View>
         </View>
 
         <View style={styles.actionsRow}>
+          {!isOwnerEstablishmentView ? (
+            <TouchableOpacity
+              style={[styles.actionChip, isFavorite && styles.actionChipActive]}
+              onPress={handleToggleFavorite}
+              disabled={isUpdatingFavorite}
+            >
+              <Text style={[styles.actionChipText, isFavorite && styles.actionChipTextActive]}>
+                {isFavorite ? 'Salvo' : 'Salvar'}
+              </Text>
+            </TouchableOpacity>
+          ) : null}
           {establishment.phone ? (
             <TouchableOpacity
               style={styles.actionChip}
@@ -809,10 +894,17 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
     backgroundColor: colors.surface,
   },
+  actionChipActive: {
+    borderColor: colors.primary,
+    backgroundColor: '#2E1405',
+  },
   actionChipText: {
     color: colors.textSecondary,
     fontSize: fontSize.xs,
     fontWeight: '700',
+  },
+  actionChipTextActive: {
+    color: colors.text,
   },
   tabsRow: {
     flexDirection: 'row',

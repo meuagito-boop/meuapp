@@ -20,13 +20,13 @@ const OPTIONS: Array<{
 }> = [
   {
     id: 'personal',
-    icon: 'ðŸ‘¤',
+    icon: 'P',
     title: 'Conta pessoal',
     description: 'Para descobrir e interagir com o que esta acontecendo na cidade.',
   },
   {
     id: 'business',
-    icon: 'ðŸ¢',
+    icon: 'E',
     title: 'Conta empresarial',
     description: 'Para negocios que querem ser encontrados e atrair clientes.',
   },
@@ -82,7 +82,7 @@ export default function ProfileSelectionScreen() {
                 <Text style={styles.cardDescription}>{option.description}</Text>
               </View>
               <View style={[styles.check, isSelected && styles.checkSelected]}>
-                <Text style={styles.checkText}>{isSelected ? 'âœ“' : ''}</Text>
+                <Text style={styles.checkText}>{isSelected ? 'OK' : ''}</Text>
               </View>
             </TouchableOpacity>
           );
@@ -96,6 +96,13 @@ export default function ProfileSelectionScreen() {
           disabled={!canContinue}
           fullWidth
         />
+        <TouchableOpacity
+          onPress={() => navigation.navigate('Login')}
+          accessibilityRole="button"
+          style={styles.loginLink}
+        >
+          <Text style={styles.loginLinkText}>Ja tenho conta</Text>
+        </TouchableOpacity>
         <Text style={styles.footerText}>
           Voce pode criar outra conta com um e-mail diferente a qualquer momento.
         </Text>
@@ -193,6 +200,15 @@ const styles = StyleSheet.create({
   },
   footer: {
     gap: spacing.md,
+  },
+  loginLink: {
+    alignItems: 'center',
+    paddingVertical: spacing.xs,
+  },
+  loginLinkText: {
+    color: colors.primary,
+    fontSize: fontSize.sm,
+    fontWeight: '700',
   },
   footerText: {
     color: colors.textTertiary,

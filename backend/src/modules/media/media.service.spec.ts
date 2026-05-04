@@ -55,6 +55,10 @@ describe('MediaService', () => {
       buildProtectedMediaUrl: jest.fn(
         (mediaId: string) => `http://localhost:3001/media/protected/${mediaId}`
       ),
+      buildPublicMediaUrl: jest.fn(
+        (mediaId: string) => `http://localhost:3001/media/public/${mediaId}`
+      ),
+      shouldServePublicMediaThroughApi: jest.fn((provider?: string) => provider === 'S3'),
       getLocalAbsolutePath: jest.fn(),
       downloadFile: jest.fn(),
     } as unknown as StorageService;
@@ -133,6 +137,33 @@ describe('MediaService', () => {
       id: 'media-chat-1',
       entityType: MediaEntityType.CHAT_ATTACHMENT,
       publicUrl: 'http://localhost:3001/media/protected/media-chat-1',
+    });
+  });
+
+  it('returns API media URL for public S3 media when CloudFront is not enabled', async () => {
+    (storageService.uploadFile as jest.Mock).mockResolvedValue({
+      provider: 'S3',
+      bucket: 'bucket',
+      storagePath: 'avatars/user-1-avatar.png',
+      publicUrl: 'https://bucket.s3.sa-east-1.amazonaws.com/avatars/user-1-avatar.png',
+    });
+
+    (prismaService.media.create as jest.Mock).mockResolvedValue({
+      id: 'media-avatar-s3',
+      entityType: MediaEntityType.AVATAR,
+      provider: 'S3',
+      publicUrl: 'https://bucket.s3.sa-east-1.amazonaws.com/avatars/user-1-avatar.png',
+    });
+
+    const result = await service.uploadAvatar('user-1', createImageFile());
+
+    expect(storageService.shouldServePublicMediaThroughApi).toHaveBeenCalledWith('S3');
+    expect(storageService.buildPublicMediaUrl).toHaveBeenCalledWith('media-avatar-s3');
+    expect(result).toEqual({
+      id: 'media-avatar-s3',
+      entityType: MediaEntityType.AVATAR,
+      provider: 'S3',
+      publicUrl: 'http://localhost:3001/media/public/media-avatar-s3',
     });
   });
 

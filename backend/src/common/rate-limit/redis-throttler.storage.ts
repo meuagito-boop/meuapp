@@ -3,6 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { ThrottlerStorage, ThrottlerStorageService } from '@nestjs/throttler';
 import Redis from 'ioredis';
 import { logStructured } from '@common/logging/structured-log';
+import { isProductionDeployment } from '@config/deploy-env';
 
 type ThrottlerIncrementResult = Awaited<ReturnType<ThrottlerStorage['increment']>>;
 
@@ -64,11 +65,15 @@ export class RedisThrottlerStorage implements ThrottlerStorage, OnModuleInit, On
 
   async onModuleInit(): Promise<void> {
     const nodeEnv = this.configService.get<string>('NODE_ENV') || 'development';
+    const deployEnv = this.configService.get<string>('DEPLOY_ENV');
+    const productionDeployment = isProductionDeployment(nodeEnv, deployEnv);
     this.redisEnabled = parseBoolean(this.configService.get<string>('ENABLE_REDIS'), false);
 
     if (!this.redisEnabled) {
-      if (nodeEnv === 'production') {
-        throw new Error('ENABLE_REDIS=true is required in production for distributed throttling.');
+      if (productionDeployment) {
+        throw new Error(
+          'ENABLE_REDIS=true is required in production deployment for distributed throttling.'
+        );
       }
 
       logStructured('info', 'rate_limit.redis.disabled', {
@@ -107,7 +112,7 @@ export class RedisThrottlerStorage implements ThrottlerStorage, OnModuleInit, On
         this.redisConnected = false;
         logStructured('warn', 'rate_limit.redis.connection_error', {
           errorMessage: error.message,
-          mode: nodeEnv === 'production' ? 'error' : 'memory_fallback',
+          mode: productionDeployment ? 'error' : 'memory_fallback',
         });
       });
 
@@ -117,9 +122,9 @@ export class RedisThrottlerStorage implements ThrottlerStorage, OnModuleInit, On
       this.redisConnected = false;
 
       const errorMessage = error instanceof Error ? error.message : String(error);
-      if (nodeEnv === 'production') {
+      if (productionDeployment) {
         throw new Error(
-          `Redis is required in production for distributed throttling: ${errorMessage}`
+          `Redis is required in production deployment for distributed throttling: ${errorMessage}`
         );
       }
 
@@ -156,7 +161,9 @@ export class RedisThrottlerStorage implements ThrottlerStorage, OnModuleInit, On
     }
 
     if (this.isProductionMode()) {
-      throw new Error('Distributed throttling requires an active Redis connection in production.');
+      throw new Error(
+        'Distributed throttling requires an active Redis connection in production deployment.'
+      );
     }
 
     return this.memoryStorage.increment(key, ttl, limit, blockDuration, throttlerName);
@@ -205,6 +212,9 @@ export class RedisThrottlerStorage implements ThrottlerStorage, OnModuleInit, On
   }
 
   private isProductionMode(): boolean {
-    return (this.configService.get<string>('NODE_ENV') || 'development') === 'production';
+    return isProductionDeployment(
+      this.configService.get<string>('NODE_ENV'),
+      this.configService.get<string>('DEPLOY_ENV')
+    );
   }
 }

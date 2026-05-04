@@ -413,9 +413,9 @@ class ApiClient {
         formData,
         {
           headers: {
-            'Content-Type': 'multipart/form-data',
-            Authorization: token ? `Bearer ${token}` : '',
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
           },
+          transformRequest: (data) => data,
           onUploadProgress: (progressEvent) => {
             if (onProgress && progressEvent.total) {
               const progress = (progressEvent.loaded / progressEvent.total) * 100;

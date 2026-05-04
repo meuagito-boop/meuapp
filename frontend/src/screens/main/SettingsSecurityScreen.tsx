@@ -1,7 +1,8 @@
 import { useNavigation, ParamListBase } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import {
+  ActivityIndicator,
   StyleSheet,
   View,
   Text,
@@ -12,9 +13,48 @@ import {
 
 import { colors } from '@constants/colors';
 import { spacing, fontSize } from '@constants/design';
+import { userService } from '@services/api';
 
 export default function SettingsSecurityScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<ParamListBase>>();
+  const [isLoadingStatus, setIsLoadingStatus] = useState(true);
+  const [twoFactorEnabled, setTwoFactorEnabled] = useState(false);
+  const [emailVerified, setEmailVerified] = useState<boolean | null>(null);
+  const [statusError, setStatusError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    userService
+      .getProfile()
+      .then((profile) => {
+        if (!isMounted) {
+          return;
+        }
+
+        setTwoFactorEnabled(profile.twoFactorEnabled === true);
+        setEmailVerified(profile.emailVerified ?? null);
+        setStatusError(null);
+      })
+      .catch((error: unknown) => {
+        if (!isMounted) {
+          return;
+        }
+
+        const message =
+          error instanceof Error ? error.message : 'Nao foi possivel carregar o status de seguranca.';
+        setStatusError(message);
+      })
+      .finally(() => {
+        if (isMounted) {
+          setIsLoadingStatus(false);
+        }
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   const securityItems = [
     {
@@ -64,21 +104,41 @@ export default function SettingsSecurityScreen() {
 
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Alertas de seguranca</Text>
+            <Text style={styles.sectionTitle}>Status da conta</Text>
           </View>
-          <View style={styles.item}>
-            <View style={styles.itemInfo}>
-              <Text style={styles.itemLabel}>Alerta de novo acesso</Text>
-              <Text style={styles.itemSubtitle}>Notificacao obrigatoria para proteger sua conta</Text>
+          <View style={styles.statusCard}>
+            {isLoadingStatus ? (
+              <View style={styles.statusLoading}>
+                <ActivityIndicator size="small" color={colors.primary} />
+                <Text style={styles.itemSubtitle}>Consultando backend...</Text>
+              </View>
+            ) : statusError ? (
+              <Text style={styles.warningTextContent}>{statusError}</Text>
+            ) : (
+              <>
+                <View style={styles.statusRow}>
+                  <Text style={styles.itemLabel}>2FA</Text>
+                  <Text style={[styles.statusValue, twoFactorEnabled && styles.statusValueActive]}>
+                    {twoFactorEnabled ? 'Ativo' : 'Inativo'}
+                  </Text>
+                </View>
+                <View style={styles.statusRow}>
+                  <Text style={styles.itemLabel}>E-mail verificado</Text>
+                  <Text style={[styles.statusValue, emailVerified === true && styles.statusValueActive]}>
+                    {emailVerified === null ? 'Nao informado' : emailVerified ? 'Sim' : 'Nao'}
+                  </Text>
+                </View>
+                <View style={styles.statusRow}>
+                  <Text style={styles.itemLabel}>Alertas de seguranca</Text>
+                  <Text style={styles.statusValueActive}>Obrigatorio</Text>
+                </View>
+              </>
+            )}
+            <View style={styles.warningText}>
+              <Text style={styles.warningTextContent}>
+                Alertas de seguranca nao sao configuracao local do app; ficam ativos por politica de conta.
+              </Text>
             </View>
-            <View style={styles.toggleDisabled}>
-              <View style={styles.toggleSwitch} />
-            </View>
-          </View>
-          <View style={styles.warningText}>
-            <Text style={styles.warningTextContent}>
-              Este alerta nao pode ser desativado pela politica de seguranca.
-            </Text>
           </View>
         </View>
       </ScrollView>
@@ -172,20 +232,34 @@ const styles = StyleSheet.create({
     color: colors.textTertiary,
     marginLeft: spacing.md,
   },
-  toggleDisabled: {
-    width: 38,
-    height: 21,
-    borderRadius: 11,
-    backgroundColor: colors.primary,
-    opacity: 0.5,
-    justifyContent: 'center',
+  statusCard: {
+    borderTopWidth: 1,
+    borderTopColor: colors.surface,
+    backgroundColor: colors.background,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.md,
+    gap: spacing.md,
   },
-  toggleSwitch: {
-    width: 17,
-    height: 17,
-    borderRadius: 8.5,
-    backgroundColor: colors.text,
-    marginLeft: 19,
+  statusLoading: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  statusRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    gap: spacing.md,
+  },
+  statusValue: {
+    color: colors.textSecondary,
+    fontSize: fontSize.sm,
+    fontWeight: '800',
+  },
+  statusValueActive: {
+    color: colors.primary,
+    fontSize: fontSize.sm,
+    fontWeight: '800',
   },
   warningText: {
     paddingHorizontal: spacing.md,

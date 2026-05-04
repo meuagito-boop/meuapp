@@ -29,6 +29,8 @@ coverage/
 
 # Secrets
 backend/.secrets/
+.local-secrets/
+.local-artifacts/
 
 # Codex recovery artifacts
 .codex/recovery/

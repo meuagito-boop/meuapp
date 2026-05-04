@@ -27,6 +27,7 @@ import ActivityHistoryScreen from '@screens/main/ActivityHistoryScreen';
 import SettingsScreen from '@screens/main/SettingsScreen';
 import SettingsMyAccountScreen from '@screens/main/SettingsMyAccountScreen';
 import SettingsSecurityScreen from '@screens/main/SettingsSecurityScreen';
+import SettingsPrivacyScreen from '@screens/main/SettingsPrivacyScreen';
 import SettingsDeleteAccountScreen from '@screens/main/SettingsDeleteAccountScreen';
 import SettingsCityScreen from '@screens/main/SettingsCityScreen';
 import NotificationsScreen from '@screens/main/NotificationsScreen';
@@ -76,6 +77,7 @@ function SettingsStack() {
       <Stack.Screen name="SettingsMain" component={SettingsScreen} />
       <Stack.Screen name="SettingsMyAccount" component={SettingsMyAccountScreen} />
       <Stack.Screen name="SettingsCity" component={SettingsCityScreen} />
+      <Stack.Screen name="SettingsPrivacy" component={SettingsPrivacyScreen} />
       <Stack.Screen name="SettingsSecurity" component={SettingsSecurityScreen} />
       <Stack.Screen name="SettingsChangePassword" component={SettingsChangePasswordScreen} />
       <Stack.Screen name="Settings2FA" component={Settings2FAScreen} />

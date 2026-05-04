@@ -1,6 +1,7 @@
 import { Injectable, OnModuleInit, OnModuleDestroy } from '@nestjs/common';
 import Redis from 'ioredis';
 import { logStructured } from '@common/logging/structured-log';
+import { isProductionDeployment } from '@config/deploy-env';
 
 /**
  * Cache Service - Production-grade caching abstraction
@@ -24,7 +25,10 @@ export class CacheService implements OnModuleInit, OnModuleDestroy {
   private fallbackCache = new Map<string, { value: any; expiresAt: number }>();
   private isRedisConnected = false;
   private redisEnabled = true;
-  private readonly isProduction = (process.env.NODE_ENV || 'development') === 'production';
+  private readonly isProductionDeployment = isProductionDeployment(
+    process.env.NODE_ENV,
+    process.env.DEPLOY_ENV
+  );
 
   private getErrorMessage(error: unknown): string {
     return error instanceof Error ? error.message : String(error);
@@ -35,9 +39,9 @@ export class CacheService implements OnModuleInit, OnModuleDestroy {
     this.redisEnabled = redisFlag === 'true' || redisFlag === '1';
 
     if (!this.redisEnabled) {
-      if (this.isProduction) {
+      if (this.isProductionDeployment) {
         throw new Error(
-          'ENABLE_REDIS=true is required in production for cache/realtime consistency.'
+          'ENABLE_REDIS=true is required in production deployment for cache/realtime consistency.'
         );
       }
       logStructured('info', 'cache.redis.disabled', {
@@ -83,9 +87,9 @@ export class CacheService implements OnModuleInit, OnModuleDestroy {
       await this.redis.ping();
       this.isRedisConnected = true;
     } catch (error) {
-      if (this.isProduction) {
+      if (this.isProductionDeployment) {
         throw new Error(
-          `Redis is required in production when ENABLE_REDIS=true: ${this.getErrorMessage(error)}`
+          `Redis is required in production deployment when ENABLE_REDIS=true: ${this.getErrorMessage(error)}`
         );
       }
       logStructured('warn', 'cache.redis.init_failed', {
@@ -341,6 +345,6 @@ export class CacheService implements OnModuleInit, OnModuleDestroy {
   }
 
   private shouldUseMemoryFallback(): boolean {
-    return !this.isProduction;
+    return !this.isProductionDeployment;
   }
 }

@@ -220,6 +220,50 @@ export class EstablishmentsService {
     };
   }
 
+  async listFavoriteEstablishments(userId: string, paginationDto: PaginationDto) {
+    const { page = 1, limit = 20 } = paginationDto;
+    const skip = (page - 1) * limit;
+    const where: Prisma.EstablishmentWhereInput = {
+      isDeleted: false,
+      deletedAt: null,
+      isPublic: true,
+      favorites: {
+        some: {
+          id: userId,
+        },
+      },
+    };
+
+    const [establishments, total] = await Promise.all([
+      this.prisma.establishment.findMany({
+        where,
+        skip,
+        take: limit,
+        include: this.buildEstablishmentInclude(),
+        orderBy: { updatedAt: 'desc' },
+      }),
+      this.prisma.establishment.count({ where }),
+    ]);
+
+    const mediaMap = await this.getEstablishmentMediaBundles(establishments.map((item) => item.id));
+
+    return {
+      data: establishments.map((item) =>
+        this.sanitizeEstablishment(
+          {
+            ...item,
+            isFavorited: true,
+          },
+          mediaMap.get(item.id)
+        )
+      ),
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit),
+    };
+  }
+
   async getEstablishment(id: string) {
     const establishment = await this.prisma.establishment.findUnique({
       where: { id },

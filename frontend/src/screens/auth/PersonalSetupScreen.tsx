@@ -128,9 +128,10 @@ export default function PersonalSetupScreen() {
 
       const asset = result.assets[0];
       const filename = asset.fileName || `avatar-${Date.now()}.jpg`;
+      const mimeType = asset.mimeType || 'image/jpeg';
 
       setIsUploadingAvatar(true);
-      const updatedProfile = await uploadAvatar(asset.uri, filename);
+      const updatedProfile = await uploadAvatar(asset.uri, filename, mimeType);
       setAvatarUrl(updatedProfile.avatar || null);
     } catch (error) {
       const message = getErrorMessage(error, 'Nao foi possivel enviar sua foto.');

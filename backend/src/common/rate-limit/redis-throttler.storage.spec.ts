@@ -31,12 +31,31 @@ describe('RedisThrottlerStorage', () => {
     const storage = new RedisThrottlerStorage(
       createConfigService({
         NODE_ENV: 'production',
+        DEPLOY_ENV: 'production',
         ENABLE_REDIS: 'false',
       })
     );
 
     await expect(storage.onModuleInit()).rejects.toThrow(
-      'ENABLE_REDIS=true is required in production for distributed throttling.'
+      'ENABLE_REDIS=true is required in production deployment for distributed throttling.'
     );
+  });
+
+  it('should fallback to memory in staging deployment when redis is disabled', async () => {
+    const storage = new RedisThrottlerStorage(
+      createConfigService({
+        NODE_ENV: 'production',
+        DEPLOY_ENV: 'staging',
+        ENABLE_REDIS: 'false',
+      })
+    );
+
+    await storage.onModuleInit();
+
+    const result = await storage.increment('tracker', 60_000, 2, 60_000, 'default');
+
+    expect(result.totalHits).toBe(1);
+
+    await storage.onModuleDestroy();
   });
 });

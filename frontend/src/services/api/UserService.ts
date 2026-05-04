@@ -94,6 +94,7 @@ class UserService {
   async uploadAvatar(
     uri: string,
     filename: string,
+    mimeType: string = 'image/jpeg',
     onProgress?: (progress: number) => void,
   ): Promise<UserProfile> {
     return this.apiClient.uploadFile(
@@ -101,7 +102,7 @@ class UserService {
       {
         uri,
         name: filename,
-        type: 'image/jpeg',
+        type: mimeType,
       },
       onProgress,
     );
