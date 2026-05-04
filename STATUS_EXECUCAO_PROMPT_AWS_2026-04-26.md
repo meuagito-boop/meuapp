@@ -712,6 +712,41 @@ Status da validacao ponta a ponta:
 - O bloco visual de autenticacao ficou coberto: login, cadastro, escolha de perfil, recuperacao, verificacao de e-mail e 2FA.
 - Pendente: smoke em APK no celular com backend staging real.
 
+## Atualizacao operacional - 2026-05-04 (America/Sao_Paulo) - Quarto lote visual Onboarding
+
+### Referencias usadas
+
+- `doc/02_UX_FLUXOS/05_T05A_CONFIG_CONTA_PESSOAL.md`: configuracao de conta pessoal.
+- `doc/02_UX_FLUXOS/06_T05B_CADASTRO_EMPRESARIAL.md`: cadastro empresarial.
+
+### Correcao aplicada
+
+- `frontend/src/screens/auth/PersonalSetupScreen.tsx`:
+  - aplicado `ScreenHeader`;
+  - progresso mantido logo abaixo do header;
+  - CTA final substituido por `Button` do design system com `size="large"` e loading real.
+- `frontend/src/screens/auth/BusinessSetupScreen.tsx`:
+  - aplicado `ScreenHeader`;
+  - progresso mantido logo abaixo do header;
+  - CTAs de continuar/publicar substituidos por `Button` do design system com `size="large"` e loading real.
+
+### Decisoes de escopo
+
+- `PersonalSetupScreen` real possui 3 passos; o documento T05a descreve 4 passos com interesses. Nao foi criada etapa de interesses fake porque nao ha fluxo/backend real conectado nesta tela.
+- `BusinessSetupScreen` real ja possui 5 passos, criacao de estabelecimento, geocoding e upload de midia reais. O modal de match/reivindicacao de perfil importado descrito no documento nao foi criado porque nao ha endpoint/modelo real validado para esse fluxo.
+- Nenhum service, endpoint, DTO, migration ou regra de negocio foi alterado.
+
+### Validacao executada
+
+- `cd frontend && npx tsc --noEmit`: OK.
+- `cd frontend && npm run lint`: OK.
+
+### Leitura correta apos esta rodada
+
+- Onboarding pessoal e empresarial estao mais consistentes visualmente com os primitives usados no fluxo de auth.
+- Pendencia de produto/backend: decidir e implementar interesses reais no onboarding pessoal antes de exibir esse passo.
+- Pendencia de produto/backend: implementar reivindicacao segura de estabelecimento importado antes de exibir modal de match.
+
 ### Leitura correta apos esta rodada
 
 - o P0 local "AuthService.refreshToken passando pelo interceptor que injeta access token" fica RESOLVIDO no codigo.

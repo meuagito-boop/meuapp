@@ -13,6 +13,7 @@ import { useNavigation, ParamListBase } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import * as ImagePicker from 'expo-image-picker';
 
+import { Button, ScreenHeader } from '@components';
 import { colors } from '@constants/colors';
 import { fontSize, spacing } from '@constants/design';
 import { authStore } from '@stores/authStore';
@@ -623,10 +624,8 @@ export default function BusinessSetupScreen() {
 
   return (
     <View style={styles.container}>
-      <View style={styles.top}>
-        <TouchableOpacity onPress={handleBack} style={styles.backButton}>
-          <Text style={styles.backText}>{'<'}</Text>
-        </TouchableOpacity>
+      <ScreenHeader title="Cadastro empresarial" onBack={handleBack} />
+      <View style={styles.progressHeader}>
         <Text style={styles.progressText}>Passo {step} de 5</Text>
       </View>
 
@@ -656,25 +655,22 @@ export default function BusinessSetupScreen() {
 
       <View style={styles.footer}>
         {step < 5 ? (
-          <TouchableOpacity
-            style={[styles.primaryAction, !canContinue && styles.primaryActionDisabled]}
+          <Button
+            label="Continuar"
             onPress={handleNext}
             disabled={!canContinue}
-          >
-            <Text style={styles.primaryActionText}>Continuar</Text>
-          </TouchableOpacity>
+            fullWidth
+            size="large"
+          />
         ) : (
-          <TouchableOpacity
-            style={[styles.primaryAction, isSubmitting && styles.primaryActionDisabled]}
+          <Button
+            label="Publicar e ver meu perfil"
             onPress={() => void submitBusinessProfile()}
             disabled={isSubmitting}
-          >
-            {isSubmitting ? (
-              <ActivityIndicator size="small" color={colors.text} />
-            ) : (
-              <Text style={styles.primaryActionText}>Publicar e ver meu perfil</Text>
-            )}
-          </TouchableOpacity>
+            loading={isSubmitting}
+            fullWidth
+            size="large"
+          />
         )}
       </View>
     </View>
@@ -686,25 +682,9 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.background,
   },
-  top: {
-    flexDirection: 'row',
-    alignItems: 'center',
+  progressHeader: {
     paddingHorizontal: spacing.lg,
-    paddingTop: spacing.lg,
-    gap: spacing.md,
-  },
-  backButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: colors.surface,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  backText: {
-    color: colors.text,
-    fontSize: fontSize.xxl,
-    fontWeight: '700',
+    paddingTop: spacing.md,
   },
   progressText: {
     color: colors.textSecondary,
@@ -920,20 +900,5 @@ const styles = StyleSheet.create({
     borderTopColor: colors.border,
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.lg,
-  },
-  primaryAction: {
-    minHeight: 48,
-    borderRadius: 12,
-    backgroundColor: colors.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  primaryActionDisabled: {
-    backgroundColor: colors.disabled,
-  },
-  primaryActionText: {
-    color: colors.text,
-    fontSize: fontSize.md,
-    fontWeight: '700',
   },
 });

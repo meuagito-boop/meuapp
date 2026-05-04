@@ -2915,8 +2915,8 @@ Nao existem `.html` soltos em `doc`; os mockups HTML estao embutidos nos Markdow
 | `02_T02_ONBOARDING.md` | Onboarding inicial | `OnboardingScreen` | Pendente |
 | `03_T03_LOGIN_CADASTRO.md` | Login/cadastro/recuperacao/2FA | `LoginScreen`, `SignUpScreen`, `ForgotPasswordScreen`, `VerifyEmailScreen`, `TwoFactorLoginScreen` | Lotes 2 e 3 aplicados; SMS/social fora por falta de fluxo real |
 | `04_T04_ESCOLHA_PERFIL.md` | Selecao pessoal/empresarial | `ProfileSelectionScreen` | Segundo lote aplicado |
-| `05_T05A_CONFIG_CONTA_PESSOAL.md` | Setup pessoal | `PersonalSetupScreen` | Pendente |
-| `06_T05B_CADASTRO_EMPRESARIAL.md` | Setup empresarial | `BusinessSetupScreen` | Pendente |
+| `05_T05A_CONFIG_CONTA_PESSOAL.md` | Setup pessoal | `PersonalSetupScreen` | Quarto lote visual aplicado; etapa de interesses pendente por falta de backend/fluxo real |
+| `06_T05B_CADASTRO_EMPRESARIAL.md` | Setup empresarial | `BusinessSetupScreen` | Quarto lote visual aplicado; match/reivindicacao pendente por falta de backend/fluxo real |
 | `07_T06_HOME.md` | Home | `HomeScreen` | Pendente |
 | `08_T07_BUSCA_COMPLETA.md` | Busca e mapa | `SearchScreen`, `MapScreen` | Pendente |
 | `09_T13_CENTRAL_NOTIFICACOES.md` | Notificacoes | `NotificationsScreen` | Pendente |
@@ -2967,11 +2967,11 @@ Regra de produto adicionada ao plano, mas nao exibida como acao no app ate exist
 
 ### Proximos lotes recomendados
 
-1. Onboarding: `PersonalSetupScreen`, `BusinessSetupScreen`.
-2. Atividade: `ActivityScreen`, `ActivityFavoritesScreen`, `ActivityHistoryScreen`.
-3. Home/Busca/Mapa.
-4. Perfil/Catalogo/Item/Feed social.
-5. Smoke mobile em APK staging.
+1. Atividade: `ActivityScreen`, `ActivityFavoritesScreen`, `ActivityHistoryScreen`.
+2. Home/Busca/Mapa.
+3. Perfil/Catalogo/Item/Feed social.
+4. Smoke mobile em APK staging.
+5. Backend futuro para interesses/reivindicacao de estabelecimento, se entrar no MVP.
 
 ## Atualizacao de plano - 2026-05-04 - Segundo lote visual Auth e Perfil
 
@@ -3042,3 +3042,36 @@ Terceiro lote concluido no codigo mobile: `ForgotPasswordScreen`, `VerifyEmailSc
 ### Proximo passo recomendado
 
 Prosseguir para onboarding/configuracao inicial: `PersonalSetupScreen` e `BusinessSetupScreen`.
+
+## Atualizacao de plano - 2026-05-04 - Quarto lote visual Onboarding
+
+### Status
+
+Quarto lote concluido no codigo mobile: `PersonalSetupScreen` e `BusinessSetupScreen`.
+
+### Correcoes aplicadas neste lote
+
+| Arquivo | Problema | Correcao | Prioridade |
+|---|---|---|---|
+| `frontend/src/screens/auth/PersonalSetupScreen.tsx` | Header/progresso/CTA usavam estilo local diferente do fluxo auth refatorado. | Aplicado `ScreenHeader` e `Button` do design system no CTA, preservando upload de avatar, username, localizacao e onboarding reais. | P1 |
+| `frontend/src/screens/auth/BusinessSetupScreen.tsx` | Header/progresso/CTAs usavam estilo local diferente do fluxo auth refatorado. | Aplicado `ScreenHeader` e `Button` do design system nos CTAs, preservando geocoding, criacao de estabelecimento e upload reais. | P1 |
+
+### Pendencias nao implementadas por falta de backend/fluxo real
+
+| Item | Documento | Status real | Decisao |
+|---|---|---|---|
+| Interesses no setup pessoal | `05_T05A_CONFIG_CONTA_PESSOAL.md` descreve passo 3 de interesses. | `PersonalSetupScreen` atual nao possui service/backend conectado para salvar interesses. | Nao criar passo fake; classificar para decisao de MVP/backend. |
+| Pular passos opcionais no setup pessoal | Documento permite pular passos 1-3. | Codigo atual exige username e cidade antes de concluir. | Nao alterar regra sem decisao de produto/backend. |
+| Match/reivindicacao de estabelecimento importado | `06_T05B_CADASTRO_EMPRESARIAL.md` descreve score e modal. | Codigo atual trata apenas conflito 409 de vitrine existente do proprio usuario. | Nao criar modal fake; exige backend/modelo de reivindicacao. |
+
+### Validacao
+
+| Validacao | Resultado |
+|---|---|
+| `cd frontend && npx tsc --noEmit` | OK |
+| `cd frontend && npm run lint` | OK |
+| Smoke em APK/dispositivo | Pendente |
+
+### Proximo passo recomendado
+
+Prosseguir para atividade: `ActivityScreen`, `ActivityFavoritesScreen` e `ActivityHistoryScreen`.

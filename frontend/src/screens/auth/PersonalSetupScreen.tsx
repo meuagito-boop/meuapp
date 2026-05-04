@@ -14,6 +14,7 @@ import {
 import { useNavigation, ParamListBase } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
+import { Button, ScreenHeader } from '@components';
 import { colors } from '@constants/colors';
 import { fontSize, spacing } from '@constants/design';
 import GeolocationService from '@services/geolocation/GeolocationService';
@@ -354,10 +355,8 @@ export default function PersonalSetupScreen() {
 
   return (
     <View style={styles.container}>
-      <View style={styles.top}>
-        <TouchableOpacity onPress={handleBack} style={styles.backButton}>
-          <Text style={styles.backText}>{'<'}</Text>
-        </TouchableOpacity>
+      <ScreenHeader title="Configurar perfil" onBack={handleBack} />
+      <View style={styles.progressHeader}>
         <Text style={styles.progressText}>Passo {step} de 3</Text>
       </View>
 
@@ -379,17 +378,16 @@ export default function PersonalSetupScreen() {
       {requestError ? <Text style={styles.errorText}>{requestError}</Text> : null}
 
       <View style={styles.footer}>
-        <TouchableOpacity
-          style={[styles.primaryAction, !canGoNext && styles.primaryActionDisabled]}
+        <Button
+          label={isSaving ? 'Salvando...' : step === 3 ? 'Salvar e explorar' : 'Proximo'}
           onPress={() => {
             void handleNext();
           }}
           disabled={!canGoNext}
-        >
-          <Text style={styles.primaryActionText}>
-            {isSaving ? 'Salvando...' : step === 3 ? 'Salvar e explorar' : 'Proximo'}
-          </Text>
-        </TouchableOpacity>
+          loading={isSaving}
+          fullWidth
+          size="large"
+        />
       </View>
     </View>
   );
@@ -400,24 +398,9 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.background,
   },
-  top: {
-    flexDirection: 'row',
-    alignItems: 'center',
+  progressHeader: {
     paddingHorizontal: spacing.lg,
-    paddingTop: spacing.lg,
-    gap: spacing.md,
-  },
-  backButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: colors.surface,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  backText: {
-    color: colors.text,
-    fontSize: fontSize.xxl,
+    paddingTop: spacing.md,
   },
   progressText: {
     color: colors.textSecondary,
@@ -602,19 +585,5 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.lg,
     gap: spacing.md,
-  },
-  primaryAction: {
-    backgroundColor: colors.primary,
-    borderRadius: 12,
-    paddingVertical: spacing.md,
-    alignItems: 'center',
-  },
-  primaryActionDisabled: {
-    backgroundColor: colors.disabled,
-  },
-  primaryActionText: {
-    color: colors.text,
-    fontSize: fontSize.md,
-    fontWeight: '700',
   },
 });
