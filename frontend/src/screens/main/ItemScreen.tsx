@@ -12,6 +12,7 @@ import {
 import { ParamListBase, RouteProp, useNavigation, useRoute } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
+import { HeaderBackButton } from '@components';
 import { colors } from '@constants/colors';
 import { fontSize, spacing } from '@constants/design';
 import { catalogService, locationService } from '@services/api';
@@ -306,14 +307,7 @@ export default function ItemScreen() {
 
   const renderHeader = (title: string) => (
     <View style={styles.header}>
-      <TouchableOpacity
-        style={styles.circleButton}
-        onPress={() => navigation.goBack()}
-        accessibilityRole="button"
-        accessibilityLabel="Voltar"
-      >
-        <Text style={styles.circleIcon}>{'<'}</Text>
-      </TouchableOpacity>
+      <HeaderBackButton onPress={() => navigation.goBack()} />
 
       <Text numberOfLines={1} style={styles.headerTitle}>
         {title}
@@ -603,7 +597,7 @@ const styles = StyleSheet.create({
   errorTitle: {
     color: colors.text,
     fontSize: fontSize.lg,
-    fontWeight: '700',
+    fontWeight: '600',
     textAlign: 'center',
   },
   header: {
@@ -615,31 +609,16 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
   },
-  circleButton: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.surface,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  circleIcon: {
-    color: colors.text,
-    fontSize: fontSize.md,
-    fontWeight: '700',
-  },
   headerTitle: {
     flex: 1,
     color: colors.text,
     fontSize: fontSize.sm,
-    fontWeight: '700',
+    fontWeight: '600',
     textAlign: 'center',
   },
   headerGhost: {
-    width: 34,
-    height: 34,
+    width: 44,
+    height: 44,
   },
   content: {
     paddingHorizontal: spacing.md,
@@ -664,7 +643,7 @@ const styles = StyleSheet.create({
   galleryFallback: {
     color: colors.textSecondary,
     fontSize: fontSize.lg,
-    fontWeight: '800',
+    fontWeight: '600',
   },
   galleryBadge: {
     position: 'absolute',
@@ -677,12 +656,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.sm,
     paddingVertical: 2,
     fontSize: fontSize.xs,
-    fontWeight: '700',
+    fontWeight: '600',
   },
   itemName: {
     color: colors.text,
     fontSize: fontSize.huge,
-    fontWeight: '800',
+    fontWeight: '600',
   },
   itemCategory: {
     color: colors.textSecondary,
@@ -697,7 +676,7 @@ const styles = StyleSheet.create({
   linkText: {
     color: colors.primary,
     fontSize: fontSize.sm,
-    fontWeight: '700',
+    fontWeight: '600',
   },
   metricsGrid: {
     flexDirection: 'row',
@@ -716,7 +695,7 @@ const styles = StyleSheet.create({
   metricLabel: {
     color: colors.textTertiary,
     fontSize: fontSize.xs,
-    fontWeight: '700',
+    fontWeight: '600',
     textTransform: 'uppercase',
   },
   metricValue: {
@@ -744,13 +723,13 @@ const styles = StyleSheet.create({
   sectionLabel: {
     color: colors.textTertiary,
     fontSize: fontSize.xs,
-    fontWeight: '700',
+    fontWeight: '600',
     textTransform: 'uppercase',
   },
   sectionValue: {
     color: colors.primary,
     fontSize: fontSize.sm,
-    fontWeight: '700',
+    fontWeight: '600',
   },
   sectionText: {
     color: colors.textSecondary,
@@ -760,7 +739,7 @@ const styles = StyleSheet.create({
   priceValue: {
     color: colors.primary,
     fontSize: fontSize.huge,
-    fontWeight: '800',
+    fontWeight: '600',
   },
   bottomSpacer: {
     height: 70,
@@ -794,7 +773,7 @@ const styles = StyleSheet.create({
   primaryActionText: {
     color: colors.text,
     fontSize: fontSize.md,
-    fontWeight: '700',
+    fontWeight: '600',
   },
   secondaryActionText: {
     color: colors.primary,

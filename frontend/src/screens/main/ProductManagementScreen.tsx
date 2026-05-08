@@ -21,6 +21,7 @@ import {
 } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
+import { HeaderBackButton } from '@components';
 import { colors } from '@constants/colors';
 import { fontSize, spacing } from '@constants/design';
 import { catalogService } from '@services/api';
@@ -334,9 +335,7 @@ export default function ProductManagementScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
-        <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
-          <Text style={styles.backButtonText}>{'<'}</Text>
-        </TouchableOpacity>
+        <HeaderBackButton onPress={() => navigation.goBack()} />
         <View style={styles.headerCopy}>
           <Text style={styles.title}>Gerenciar vitrine</Text>
           <Text style={styles.subtitle}>{establishmentName}</Text>
@@ -458,28 +457,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.md,
   },
-  backButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.surface,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  backButtonText: {
-    color: colors.text,
-    fontSize: fontSize.md,
-    fontWeight: '800',
-  },
   headerCopy: {
     flex: 1,
   },
   title: {
     color: colors.text,
     fontSize: fontSize.xl,
-    fontWeight: '800',
+    fontWeight: '600',
   },
   subtitle: {
     color: colors.textSecondary,
@@ -501,12 +485,12 @@ const styles = StyleSheet.create({
   sectionTitle: {
     color: colors.text,
     fontSize: fontSize.lg,
-    fontWeight: '800',
+    fontWeight: '600',
   },
   label: {
     color: colors.textSecondary,
     fontSize: fontSize.xs,
-    fontWeight: '700',
+    fontWeight: '600',
     marginTop: spacing.xs,
   },
   input: {
@@ -541,7 +525,7 @@ const styles = StyleSheet.create({
   primaryButtonText: {
     color: colors.text,
     fontSize: fontSize.sm,
-    fontWeight: '800',
+    fontWeight: '600',
   },
   cancelButton: {
     minHeight: 42,
@@ -554,7 +538,7 @@ const styles = StyleSheet.create({
   cancelButtonText: {
     color: colors.textSecondary,
     fontSize: fontSize.sm,
-    fontWeight: '700',
+    fontWeight: '600',
   },
   listHeader: {
     flexDirection: 'row',
@@ -564,7 +548,7 @@ const styles = StyleSheet.create({
   refreshText: {
     color: colors.primary,
     fontSize: fontSize.sm,
-    fontWeight: '800',
+    fontWeight: '600',
   },
   stateCard: {
     minHeight: 150,
@@ -580,7 +564,7 @@ const styles = StyleSheet.create({
   stateTitle: {
     color: colors.text,
     fontSize: fontSize.md,
-    fontWeight: '800',
+    fontWeight: '600',
     textAlign: 'center',
   },
   stateText: {
@@ -625,7 +609,7 @@ const styles = StyleSheet.create({
   productFallback: {
     color: colors.textSecondary,
     fontSize: fontSize.sm,
-    fontWeight: '800',
+    fontWeight: '600',
   },
   productInfo: {
     flex: 1,
@@ -635,7 +619,7 @@ const styles = StyleSheet.create({
   productName: {
     color: colors.text,
     fontSize: fontSize.md,
-    fontWeight: '800',
+    fontWeight: '600',
   },
   productMeta: {
     color: colors.textSecondary,
@@ -644,7 +628,7 @@ const styles = StyleSheet.create({
   productPrice: {
     color: colors.primary,
     fontSize: fontSize.sm,
-    fontWeight: '800',
+    fontWeight: '600',
   },
   productDescription: {
     color: colors.textSecondary,
@@ -667,7 +651,7 @@ const styles = StyleSheet.create({
   secondaryButtonText: {
     color: colors.text,
     fontSize: fontSize.xs,
-    fontWeight: '800',
+    fontWeight: '600',
   },
   dangerButton: {
     borderColor: colors.error,
@@ -675,6 +659,6 @@ const styles = StyleSheet.create({
   dangerButtonText: {
     color: colors.error,
     fontSize: fontSize.xs,
-    fontWeight: '800',
+    fontWeight: '600',
   },
 });

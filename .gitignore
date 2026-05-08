@@ -21,6 +21,7 @@ Thumbs.db
 # IDE
 .vscode/
 .idea/
+.claude/
 *.swp
 *.swo
 
@@ -34,3 +35,6 @@ backend/.secrets/
 
 # Codex recovery artifacts
 .codex/recovery/
+
+# External reference exports
+novo/

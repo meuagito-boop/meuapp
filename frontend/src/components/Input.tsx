@@ -1,22 +1,23 @@
 import React, { useState } from 'react';
 import {
-  TextInput,
   StyleSheet,
-  View,
   Text,
-  TouchableOpacity,
+  TextInput,
   TextInputProps,
+  TouchableOpacity,
+  View,
   ViewStyle,
 } from 'react-native';
+import { Feather } from '@expo/vector-icons';
 import { colors } from '@constants/colors';
-import { componentSizes, spacing, borderRadius, fontSize } from '@constants/design';
+import { borderRadius, componentSizes, spacing, typography } from '@constants/design';
 
 export interface InputProps extends TextInputProps {
   label?: string;
-  placeholder?: string;
   error?: string;
-  icon?: React.ReactNode;
-  rightIcon?: React.ReactNode;
+  hint?: string;
+  leftIcon?: keyof typeof Feather.glyphMap;
+  rightIcon?: keyof typeof Feather.glyphMap;
   onRightIconPress?: () => void;
   containerStyle?: ViewStyle;
   isPassword?: boolean;
@@ -25,73 +26,100 @@ export interface InputProps extends TextInputProps {
 
 export const Input: React.FC<InputProps> = ({
   label,
-  placeholder,
   error,
-  icon,
+  hint,
+  leftIcon,
   rightIcon,
   onRightIconPress,
   containerStyle,
-  isPassword: initialIsPassword,
+  isPassword = false,
   disabled = false,
   editable = true,
+  onFocus,
+  onBlur,
   ...props
 }) => {
-  const [showPassword, setShowPassword] = useState(!initialIsPassword);
+  const [showPassword, setShowPassword] = useState(false);
+  const [isFocused, setIsFocused] = useState(false);
 
-  const borderColor = error ? colors.error : colors.border;
-  const backgroundColor = disabled ? colors.disabled : colors.surface;
+  const isEditable = editable && !disabled;
+
+  const borderColor = error
+    ? colors.error
+    : isFocused
+    ? colors.brand
+    : colors.bgSurface3;
+
+  const borderWidth = isFocused || error ? 1.5 : 1;
 
   return (
     <View style={[styles.container, containerStyle]}>
-      {label ? <Text style={styles.label}>{label}</Text> : null}
+      {label ? (
+        <Text style={[styles.label, isFocused && styles.labelFocused]}>{label}</Text>
+      ) : null}
 
       <View
         style={[
-          styles.inputWrapper,
-          {
-            borderColor,
-            backgroundColor,
-          },
+          styles.wrapper,
+          { borderColor, borderWidth, opacity: isEditable ? 1 : 0.6 },
         ]}
       >
-        {icon ? <View style={styles.iconLeft}>{icon}</View> : null}
+        {leftIcon ? (
+          <Feather
+            name={leftIcon}
+            size={20}
+            color={isFocused ? colors.brand : colors.textSecondary}
+            style={styles.iconLeft}
+          />
+        ) : null}
 
         <TextInput
-          style={[
-            styles.input,
-            {
-              paddingLeft: initialIsPassword && !showPassword ? 5 : 0,
-            },
-          ]}
-          placeholderTextColor={colors.textPlaceholder}
-          placeholder={placeholder}
-          secureTextEntry={initialIsPassword && !showPassword}
-          editable={editable && !disabled}
+          style={styles.input}
+          placeholderTextColor={colors.textTertiary}
+          secureTextEntry={isPassword && !showPassword}
+          editable={isEditable}
+          selectionColor={colors.brand}
+          onFocus={(e) => { setIsFocused(true); onFocus?.(e); }}
+          onBlur={(e) => { setIsFocused(false); onBlur?.(e); }}
           {...props}
         />
 
-        {initialIsPassword ? (
+        {isPassword ? (
           <TouchableOpacity
-            onPress={() => setShowPassword(!showPassword)}
+            onPress={() => setShowPassword(v => !v)}
             style={styles.iconRight}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            accessibilityRole="button"
+            accessibilityLabel={showPassword ? 'Ocultar senha' : 'Mostrar senha'}
+            disabled={!isEditable}
           >
-            <Text style={{ fontSize: 18 }}>
-              {showPassword ? '👁' : '🔒'}
-            </Text>
+            <Feather
+              name={showPassword ? 'eye' : 'eye-off'}
+              size={20}
+              color={isFocused ? colors.brand : colors.textSecondary}
+            />
           </TouchableOpacity>
-        ) : null}
-
-        {rightIcon && !initialIsPassword ? (
+        ) : rightIcon ? (
           <TouchableOpacity
             onPress={onRightIconPress}
             style={styles.iconRight}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            accessibilityRole="button"
+            disabled={!isEditable || !onRightIconPress}
           >
-            {rightIcon}
+            <Feather name={rightIcon} size={20} color={colors.textSecondary} />
           </TouchableOpacity>
         ) : null}
       </View>
 
-      {error ? <Text style={styles.errorText}>{error}</Text> : null}
+      {error ? (
+        <View style={styles.feedback}>
+          <Feather name="alert-circle" size={12} color={colors.error} />
+          <Text style={styles.errorText}>{error}</Text>
+        </View>
+      ) : hint ? (
+        <Text style={styles.hintText}>{hint}</Text>
+      ) : null}
     </View>
   );
 };
@@ -101,40 +129,53 @@ const styles = StyleSheet.create({
     marginBottom: spacing.md,
   },
   label: {
-    fontSize: fontSize.sm,
-    fontWeight: '600',
-    color: colors.text,
+    ...typography.sm,
+    color: colors.textSecondary,
     marginBottom: spacing.sm,
+    fontWeight: '500',
   },
-  inputWrapper: {
+  labelFocused: {
+    color: colors.brand,
+  },
+  wrapper: {
     flexDirection: 'row',
     alignItems: 'center',
-    height: componentSizes.inputDefault,
+    minHeight: componentSizes.inputDefault,
+    backgroundColor: colors.bgSurface2,
     borderRadius: borderRadius.md,
-    borderWidth: 1,
-    paddingHorizontal: spacing.lg,
-    gap: spacing.sm,
+    paddingHorizontal: spacing.md,
   },
   input: {
     flex: 1,
-    color: colors.text,
-    fontSize: fontSize.md,
-    padding: 0,
+    ...typography.base,
+    color: colors.textPrimary,
+    paddingVertical: 0,
+    minHeight: componentSizes.inputDefault,
   },
   iconLeft: {
-    minWidth: 24,
-    justifyContent: 'center',
-    alignItems: 'center',
+    marginRight: spacing.sm,
   },
   iconRight: {
-    minWidth: 32,
-    justifyContent: 'center',
+    marginLeft: spacing.sm,
+    width: 36,
+    height: 36,
     alignItems: 'center',
+    justifyContent: 'center',
+  },
+  feedback: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginTop: spacing.xs,
   },
   errorText: {
+    ...typography.xs,
     color: colors.error,
-    fontSize: fontSize.sm,
-    marginTop: spacing.sm,
     fontWeight: '500',
+  },
+  hintText: {
+    ...typography.xs,
+    color: colors.textTertiary,
+    marginTop: spacing.xs,
   },
 });

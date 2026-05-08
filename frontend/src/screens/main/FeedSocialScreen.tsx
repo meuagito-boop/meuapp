@@ -1,88 +1,65 @@
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useState } from 'react';
 import {
-  ActivityIndicator,
   FlatList,
-  Image,
-  KeyboardAvoidingView,
-  Modal,
-  Platform,
   RefreshControl,
-  SafeAreaView,
-  Share,
   StyleSheet,
   Text,
-  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
+import { Feather } from '@expo/vector-icons';
 import { useFocusEffect, useNavigation, ParamListBase } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors } from '@constants/colors';
-import { componentSizes, fontSize, spacing } from '@constants/design';
-import { feedStore, type Post } from '@stores/feedStore';
+import { borderRadius, spacing, typography } from '@constants/design';
+import { feedStore } from '@stores/feedStore';
+import { PostCard, StoriesBar, SkeletonLoader, EmptyState } from '@components';
+import type { Post as FeedPost } from '@stores/feedStore';
+import type { Post as PostCardPost } from '@components/PostCard';
+import { isUiPreviewModeEnabled } from '@config/uiPreview';
+import { previewStories } from '@dev/previewData';
 
 type FeedMode = 'mixed' | 'following' | 'global' | 'nearby';
 
-const FEED_TABS: Array<{ id: FeedMode; label: string }> = [
-  { id: 'mixed', label: 'Para voce' },
+const FEED_TABS: { id: FeedMode; label: string }[] = [
+  { id: 'mixed', label: 'Para você' },
   { id: 'following', label: 'Seguindo' },
   { id: 'global', label: 'Global' },
   { id: 'nearby', label: 'Perto' },
 ];
 
-function formatRelativeTime(value: string): string {
-  const createdAt = new Date(value);
-  const deltaSeconds = Math.max(0, Math.floor((Date.now() - createdAt.getTime()) / 1000));
-
-  if (deltaSeconds < 60) {
-    return 'agora';
-  }
-
-  const deltaMinutes = Math.floor(deltaSeconds / 60);
-  if (deltaMinutes < 60) {
-    return `${deltaMinutes}min`;
-  }
-
-  const deltaHours = Math.floor(deltaMinutes / 60);
-  if (deltaHours < 24) {
-    return `${deltaHours}h`;
-  }
-
-  const deltaDays = Math.floor(deltaHours / 24);
-  if (deltaDays < 7) {
-    return `${deltaDays}d`;
-  }
-
-  return createdAt.toLocaleDateString('pt-BR', {
-    day: '2-digit',
-    month: 'short',
-  });
-}
-
-function getInitials(name: string): string {
-  const parts = name
-    .trim()
-    .split(/\s+/)
-    .filter(Boolean)
-    .slice(0, 2);
-
-  return parts.map((part) => part[0]?.toUpperCase() ?? '').join('') || 'U';
-}
-
-function getPrimaryImage(post: Post): string | null {
-  const images = post.imageUrls ?? post.images ?? [];
-  return images[0] ?? null;
+function adaptPost(p: FeedPost): PostCardPost {
+  return {
+    id: p.id,
+    author: {
+      id: p.author.id,
+      displayName: p.author.name,
+      username: p.author.username ?? p.author.name.toLowerCase().replace(/\s+/g, ''),
+      avatarUrl: p.author.avatar ?? null,
+      accountType: p.author.profileType === 'ESTABLISHMENT' ? 'ESTABLISHMENT' : 'USER',
+    },
+    text: p.content,
+    imageUrls: p.imageUrls ?? p.images ?? [],
+    type: 'post',
+    createdAt: p.createdAt,
+    likesCount: p.likesCount ?? 0,
+    commentsCount: p.commentsCount ?? 0,
+    repostsCount: p.repostsCount ?? p.sharesCount ?? 0,
+    isLiked: p.isLiked ?? false,
+    isOwner: false,
+  };
 }
 
 export default function FeedSocialScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<ParamListBase>>();
+  const insets = useSafeAreaInsets();
+
   const {
     agitoPosts,
     agitoMode,
     agitoHasMore,
     isLoadingAgito,
-    comments,
     error,
     getAgitoFeed,
     setAgitoMode,
@@ -90,295 +67,147 @@ export default function FeedSocialScreen() {
     loadMoreAgitoFeed,
     likePost,
     unlikePost,
-    getComments,
-    createComment,
     clearError,
   } = feedStore();
 
-  const [isCommentModalVisible, setIsCommentModalVisible] = useState(false);
-  const [selectedPostId, setSelectedPostId] = useState<string | null>(null);
-  const [commentDraft, setCommentDraft] = useState('');
-  const [isSubmittingComment, setIsSubmittingComment] = useState(false);
-
-  const selectedPost = useMemo(
-    () => agitoPosts.find((post) => post.id === selectedPostId) ?? null,
-    [agitoPosts, selectedPostId],
-  );
-  const selectedComments = selectedPostId ? comments.get(selectedPostId)?.data ?? [] : [];
+  const [activeTab, setActiveTab] = useState<FeedMode>(agitoMode ?? 'mixed');
 
   useFocusEffect(
     useCallback(() => {
       if (agitoPosts.length === 0) {
-        void getAgitoFeed(agitoMode, { reset: true });
+        void getAgitoFeed(activeTab, { reset: true });
       }
-    }, [agitoMode, agitoPosts.length, getAgitoFeed]),
+    }, [activeTab, agitoPosts.length, getAgitoFeed])
+  );
+
+  const handleTabChange = useCallback(
+    (mode: FeedMode) => {
+      if (mode === activeTab && agitoPosts.length > 0) return;
+      setActiveTab(mode);
+      clearError();
+      setAgitoMode(mode);
+      void getAgitoFeed(mode, { reset: true });
+    },
+    [activeTab, agitoPosts.length, clearError, getAgitoFeed, setAgitoMode]
   );
 
   const handleRefresh = useCallback(() => {
     void refreshAgitoFeed();
   }, [refreshAgitoFeed]);
 
-  const handleModeChange = useCallback(
-    (mode: FeedMode) => {
-      if (mode === agitoMode && agitoPosts.length > 0) {
-        return;
-      }
-
-      clearError();
-      setAgitoMode(mode);
-      void getAgitoFeed(mode, { reset: true });
+  const handleLike = useCallback(
+    async (_id: string, liked: boolean) => {
+      if (liked) await likePost(_id);
+      else await unlikePost(_id);
     },
-    [agitoMode, agitoPosts.length, clearError, getAgitoFeed, setAgitoMode],
+    [likePost, unlikePost]
   );
-
-  const handleToggleLike = useCallback(
-    async (post: Post) => {
-      if (post.isLiked) {
-        await unlikePost(post.id);
-        return;
-      }
-
-      await likePost(post.id);
-    },
-    [likePost, unlikePost],
-  );
-
-  const handleSharePost = useCallback(async (post: Post) => {
-    const imageUrl = getPrimaryImage(post);
-    const chunks = [post.content];
-
-    if (post.locationName) {
-      chunks.push(`Local: ${post.locationName}`);
-    }
-
-    if (imageUrl) {
-      chunks.push(imageUrl);
-    }
-
-    await Share.share({
-      message: chunks.filter(Boolean).join('\n'),
-    });
-  }, []);
-
-  const openComments = useCallback(
-    async (postId: string) => {
-      setSelectedPostId(postId);
-      setIsCommentModalVisible(true);
-      await getComments(postId, 1, 20);
-    },
-    [getComments],
-  );
-
-  const closeComments = useCallback(() => {
-    setIsCommentModalVisible(false);
-    setSelectedPostId(null);
-    setCommentDraft('');
-  }, []);
-
-  const submitComment = useCallback(async () => {
-    const content = commentDraft.trim();
-    if (!selectedPostId || content.length === 0 || isSubmittingComment) {
-      return;
-    }
-
-    try {
-      setIsSubmittingComment(true);
-      await createComment(selectedPostId, content);
-      setCommentDraft('');
-    } finally {
-      setIsSubmittingComment(false);
-    }
-  }, [commentDraft, createComment, isSubmittingComment, selectedPostId]);
 
   const renderHeader = () => (
-    <View style={styles.header}>
-      <View style={styles.logoBox}>
-        <Text style={styles.logoText}>M</Text>
-      </View>
-      <View style={styles.headerActions}>
-        <TouchableOpacity
-          style={styles.headerAction}
-          onPress={() => navigation.navigate('Chat')}
-          accessibilityRole="button"
-          accessibilityLabel="Abrir chat"
-        >
-          <Text style={styles.headerActionText}>Chat</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={styles.headerAction}
-          onPress={() => navigation.navigate('Notifications')}
-          accessibilityRole="button"
-          accessibilityLabel="Abrir notificacoes"
-        >
-          <Text style={styles.headerActionText}>Avisos</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={styles.headerAction}
-          onPress={() => navigation.navigate('Settings')}
-          accessibilityRole="button"
-          accessibilityLabel="Abrir configuracoes"
-        >
-          <Text style={styles.headerActionText}>Menu</Text>
-        </TouchableOpacity>
-      </View>
-    </View>
-  );
-
-  const renderModeTabs = () => (
-    <View style={styles.modeTabs}>
-      {FEED_TABS.map((tab) => {
-        const isActive = tab.id === agitoMode;
-        return (
+    <View>
+      {/* Top bar */}
+      <View style={[styles.topBar, { paddingTop: insets.top + spacing[2] }]}>
+        <Text style={styles.wordmark}>Meu Agito</Text>
+        <View style={styles.topActions}>
           <TouchableOpacity
-            key={tab.id}
-            style={[styles.modeTab, isActive && styles.modeTabActive]}
-            onPress={() => handleModeChange(tab.id)}
+            style={styles.topBtn}
+            onPress={() => navigation.navigate('Chat')}
             accessibilityRole="button"
-            accessibilityLabel={`Abrir feed ${tab.label}`}
+            accessibilityLabel="Mensagens"
           >
-            <Text style={[styles.modeTabText, isActive && styles.modeTabTextActive]}>{tab.label}</Text>
-          </TouchableOpacity>
-        );
-      })}
-    </View>
-  );
-
-  const renderPostCard = ({ item }: { item: Post }) => {
-    const imageUrl = getPrimaryImage(item);
-    const isEstablishment = item.author.profileType === 'ESTABLISHMENT';
-
-    return (
-      <View style={styles.postCard}>
-        <View style={styles.postHeader}>
-          <TouchableOpacity
-            style={[styles.avatar, isEstablishment && styles.avatarSquare]}
-            accessibilityRole="button"
-            accessibilityLabel={`Abrir perfil de ${item.author.name}`}
-            onPress={() =>
-              navigation.navigate('Profile', {
-                type: 'user',
-                userId: item.author.id,
-              })
-            }
-          >
-            {item.author.avatar ? (
-              <Image source={{ uri: item.author.avatar }} style={styles.avatarImage} />
-            ) : (
-              <Text style={styles.avatarInitials}>{getInitials(item.author.name)}</Text>
-            )}
-          </TouchableOpacity>
-
-          <View style={styles.postMeta}>
-            <Text style={styles.authorName}>{item.author.name}</Text>
-            <View style={styles.metaRow}>
-              {item.locationName ? <Text style={styles.locationText}>{item.locationName}</Text> : null}
-              <Text style={styles.timeText}>{formatRelativeTime(item.createdAt)}</Text>
-            </View>
-          </View>
-        </View>
-
-        {imageUrl ? (
-          <Image source={{ uri: imageUrl }} style={styles.postImage} resizeMode="cover" />
-        ) : (
-          <View style={styles.missingMediaState}>
-            <Text style={styles.missingMediaText}>Midia indisponivel</Text>
-          </View>
-        )}
-
-        <View style={styles.postBody}>
-          <Text style={styles.captionText}>
-            <Text style={styles.captionAuthor}>{item.author.name}</Text> {item.content}
-          </Text>
-        </View>
-
-        <View style={styles.actionsRow}>
-          <TouchableOpacity
-            style={styles.actionButton}
-            onPress={() => void handleToggleLike(item)}
-            accessibilityRole="button"
-            accessibilityLabel={item.isLiked ? 'Remover curtida' : 'Curtir post'}
-          >
-            <Text style={[styles.actionText, item.isLiked && styles.actionTextActive]}>
-              {item.isLiked ? 'CURTIDO' : 'CURTIR'} {item.likesCount}
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.actionButton}
-            onPress={() => void openComments(item.id)}
-            accessibilityRole="button"
-            accessibilityLabel="Abrir comentarios"
-          >
-            <Text style={styles.actionText}>COMENTAR {item.commentsCount}</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.actionButton}
-            onPress={() => void handleSharePost(item)}
-            accessibilityRole="button"
-            accessibilityLabel="Compartilhar post"
-          >
-            <Text style={styles.actionText}>COMPARTILHAR</Text>
+            <Feather name="message-circle" size={22} color={colors.textSecondary} />
           </TouchableOpacity>
         </View>
       </View>
-    );
-  };
 
-  const renderEmptyState = () => {
-    if (isLoadingAgito) {
-      return null;
-    }
+      {/* Stories placeholder */}
+      <StoriesBar
+        stories={isUiPreviewModeEnabled() ? previewStories : []}
+        onStoryPress={() => {}}
+        onAddStoryPress={() => {}}
+      />
 
-    return (
-      <View style={styles.emptyState}>
-        <Text style={styles.emptyTitle}>Nenhum post encontrado</Text>
-        <Text style={styles.emptyText}>
-          {agitoMode === 'nearby'
-            ? 'Ative localizacao e publique posts com local marcado para alimentar este modo.'
-            : 'Este modo ainda nao retornou conteudo para a sua conta.'}
-        </Text>
-        <TouchableOpacity
-          style={styles.emptyButton}
-          onPress={handleRefresh}
-          accessibilityRole="button"
-          accessibilityLabel="Recarregar feed"
-        >
-          <Text style={styles.emptyButtonText}>Recarregar</Text>
-        </TouchableOpacity>
+      {/* Feed mode tabs */}
+      <View style={styles.tabs}>
+        {FEED_TABS.map((tab) => {
+          const active = tab.id === activeTab;
+          return (
+            <TouchableOpacity
+              key={tab.id}
+              style={[styles.tab, active && styles.tabActive]}
+              onPress={() => handleTabChange(tab.id)}
+              accessibilityRole="tab"
+              accessibilityState={{ selected: active }}
+              accessibilityLabel={tab.label}
+            >
+              <Text style={[styles.tabText, active && styles.tabTextActive]}>{tab.label}</Text>
+            </TouchableOpacity>
+          );
+        })}
       </View>
-    );
-  };
 
-  return (
-    <SafeAreaView style={styles.container}>
-      {renderHeader()}
-      {renderModeTabs()}
-
+      {/* Error banner */}
       {error ? (
         <TouchableOpacity
           style={styles.errorBanner}
           onPress={clearError}
           accessibilityRole="button"
-          accessibilityLabel="Dispensar erro do feed"
+          accessibilityLabel="Fechar erro"
         >
-          <Text style={styles.errorBannerText}>{error}</Text>
+          <Feather name="alert-circle" size={14} color={colors.error} />
+          <Text style={styles.errorText}>{error}</Text>
         </TouchableOpacity>
       ) : null}
 
+      {/* Skeleton while first load */}
+      {isLoadingAgito && agitoPosts.length === 0 ? <SkeletonLoader.Feed count={3} /> : null}
+    </View>
+  );
+
+  return (
+    <View style={styles.root}>
       <FlatList
-        data={agitoPosts}
-        renderItem={renderPostCard}
+        data={agitoPosts.map(adaptPost)}
         keyExtractor={(item) => item.id}
-        contentContainerStyle={styles.feedContent}
-        refreshControl={<RefreshControl refreshing={isLoadingAgito && agitoPosts.length === 0} onRefresh={handleRefresh} tintColor={colors.primary} />}
-        ListEmptyComponent={renderEmptyState}
+        renderItem={({ item }) => (
+          <PostCard
+            post={item}
+            onLike={handleLike}
+          />
+        )}
+        ListHeaderComponent={renderHeader}
+        ListEmptyComponent={
+          !isLoadingAgito ? (
+            <EmptyState
+              icon="users"
+              title="Nenhum post ainda"
+              subtitle={
+                activeTab === 'following'
+                  ? 'Siga pessoas para ver o que estão postando.'
+                  : activeTab === 'nearby'
+                  ? 'Ative a localização para ver posts próximos.'
+                  : 'Seja o primeiro a agitar esta cidade!'
+              }
+              actionLabel="Criar post"
+              onAction={() => navigation.navigate('CreatePost')}
+            />
+          ) : null
+        }
         ListFooterComponent={
           isLoadingAgito && agitoPosts.length > 0 ? (
             <View style={styles.footerLoader}>
-              <ActivityIndicator color={colors.primary} />
+              <SkeletonLoader.PostCard />
             </View>
           ) : (
-            <View style={styles.footerSpacer} />
+            <View style={{ height: spacing[8] }} />
           )
+        }
+        refreshControl={
+          <RefreshControl
+            refreshing={isLoadingAgito && agitoPosts.length === 0}
+            onRefresh={handleRefresh}
+            tintColor={colors.brand}
+          />
         }
         onEndReachedThreshold={0.45}
         onEndReached={() => {
@@ -386,462 +215,88 @@ export default function FeedSocialScreen() {
             void loadMoreAgitoFeed();
           }
         }}
+        showsVerticalScrollIndicator={false}
       />
-
-      <Modal
-        visible={isCommentModalVisible}
-        transparent
-        animationType="slide"
-        onRequestClose={closeComments}
-      >
-        <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-          style={styles.modalOverlay}
-        >
-          <View style={styles.modalSheet}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Comentarios</Text>
-                <TouchableOpacity
-                  onPress={closeComments}
-                  accessibilityRole="button"
-                  accessibilityLabel="Fechar comentarios"
-                >
-                  <Text style={styles.modalClose}>FECHAR</Text>
-                </TouchableOpacity>
-            </View>
-
-            {selectedPost ? (
-              <View style={styles.modalPostSummary}>
-                <Text style={styles.modalPostAuthor}>{selectedPost.author.name}</Text>
-                <Text style={styles.modalPostContent}>{selectedPost.content}</Text>
-              </View>
-            ) : null}
-
-            <FlatList
-              data={selectedComments}
-              keyExtractor={(item) => item.id}
-              contentContainerStyle={styles.commentList}
-              ListEmptyComponent={
-                <Text style={styles.emptyCommentsText}>Seja o primeiro a comentar este post.</Text>
-              }
-              renderItem={({ item }) => (
-                <View style={styles.commentCard}>
-                  <View style={styles.commentAvatar}>
-                    <Text style={styles.commentAvatarText}>{getInitials(item.author.name)}</Text>
-                  </View>
-                  <View style={styles.commentBody}>
-                    <Text style={styles.commentAuthor}>{item.author.name}</Text>
-                    <Text style={styles.commentText}>{item.content}</Text>
-                    <Text style={styles.commentMeta}>
-                      {formatRelativeTime(item.createdAt)} - {item.likesCount} curtidas
-                    </Text>
-                  </View>
-                </View>
-              )}
-            />
-
-            <View style={styles.commentComposer}>
-              <TextInput
-                value={commentDraft}
-                onChangeText={setCommentDraft}
-                placeholder="Escreva um comentario"
-                placeholderTextColor={colors.textTertiary}
-                style={styles.commentInput}
-                multiline
-              />
-              <TouchableOpacity
-                style={[
-                  styles.commentSendButton,
-                  (commentDraft.trim().length === 0 || isSubmittingComment) &&
-                    styles.commentSendButtonDisabled,
-                ]}
-                onPress={() => void submitComment()}
-                disabled={commentDraft.trim().length === 0 || isSubmittingComment}
-                accessibilityRole="button"
-                accessibilityLabel="Enviar comentario"
-              >
-                <Text style={styles.commentSendText}>
-                  {isSubmittingComment ? '...' : 'ENVIAR'}
-                </Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </KeyboardAvoidingView>
-      </Modal>
-    </SafeAreaView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
+  root: {
     flex: 1,
-    backgroundColor: colors.background,
+    backgroundColor: colors.bgPrimary,
   },
-  header: {
+  topBar: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: spacing.lg,
-    paddingTop: spacing.sm,
-    paddingBottom: spacing.md,
+    paddingHorizontal: spacing[4],
+    paddingBottom: spacing[3],
     borderBottomWidth: 1,
-    borderBottomColor: colors.border,
+    borderBottomColor: colors.bgSurface3,
   },
-  logoBox: {
-    width: componentSizes.avatarLG,
-    height: componentSizes.avatarLG,
-    borderRadius: spacing.md,
-    backgroundColor: colors.primary,
+  wordmark: {
+    ...typography.mdBold,
+    color: colors.brand,
+    letterSpacing: 0.3,
+  },
+  topActions: {
+    flexDirection: 'row',
+    gap: spacing[1],
+  },
+  topBtn: {
+    width: 40,
+    height: 40,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  logoText: {
-    color: colors.text,
-    fontSize: fontSize.xxl,
-    fontWeight: '800',
-  },
-  headerActions: {
+  tabs: {
     flexDirection: 'row',
-    gap: spacing.sm,
-  },
-  headerAction: {
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 999,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    backgroundColor: colors.surface,
-  },
-  headerActionText: {
-    color: colors.textSecondary,
-    fontSize: fontSize.xs,
-    fontWeight: '700',
-  },
-  modeTabs: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: spacing.sm,
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
+    paddingHorizontal: spacing[4],
+    paddingVertical: spacing[2],
     borderBottomWidth: 1,
-    borderBottomColor: colors.borderLight,
-    backgroundColor: colors.background,
+    borderBottomColor: colors.bgSurface3,
+    gap: spacing[2],
   },
-  modeTab: {
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    borderRadius: 999,
+  tab: {
+    paddingHorizontal: spacing[3],
+    paddingVertical: spacing[2],
+    borderRadius: borderRadius.full,
     borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.surface,
+    borderColor: colors.bgSurface3,
+    backgroundColor: colors.bgSurface,
   },
-  modeTabActive: {
-    backgroundColor: colors.primary,
-    borderColor: colors.primary,
+  tabActive: {
+    backgroundColor: colors.brand,
+    borderColor: colors.brand,
   },
-  modeTabText: {
+  tabText: {
+    ...typography.sm,
     color: colors.textSecondary,
-    fontSize: fontSize.sm,
-    fontWeight: '700',
-  },
-  modeTabTextActive: {
-    color: colors.text,
-  },
-  errorBanner: {
-    marginHorizontal: spacing.lg,
-    marginTop: spacing.sm,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    borderRadius: spacing.md,
-    backgroundColor: 'rgba(192, 57, 43, 0.18)',
-    borderWidth: 1,
-    borderColor: colors.error,
-  },
-  errorBannerText: {
-    color: colors.text,
-    fontSize: fontSize.sm,
-  },
-  feedContent: {
-    paddingBottom: spacing.xxxl,
-  },
-  postCard: {
-    backgroundColor: colors.background,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.borderLight,
-    paddingBottom: spacing.lg,
-  },
-  postHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
-    gap: spacing.md,
-  },
-  avatar: {
-    width: componentSizes.avatarMD,
-    height: componentSizes.avatarMD,
-    borderRadius: componentSizes.avatarMD / 2,
-    overflow: 'hidden',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  avatarSquare: {
-    borderRadius: spacing.sm,
-  },
-  avatarImage: {
-    width: '100%',
-    height: '100%',
-  },
-  avatarInitials: {
-    color: colors.text,
-    fontSize: fontSize.sm,
-    fontWeight: '800',
-  },
-  postMeta: {
-    flex: 1,
-    gap: 2,
-  },
-  authorName: {
-    color: colors.text,
-    fontSize: fontSize.md,
-    fontWeight: '700',
-  },
-  metaRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-    flexWrap: 'wrap',
-  },
-  locationText: {
-    color: colors.primary,
-    fontSize: fontSize.sm,
     fontWeight: '600',
   },
-  timeText: {
-    color: colors.textTertiary,
-    fontSize: fontSize.sm,
+  tabTextActive: {
+    color: '#FFFFFF',
   },
-  postImage: {
-    width: '100%',
-    height: 340,
-    backgroundColor: colors.surface,
-  },
-  missingMediaState: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    height: 220,
-    backgroundColor: colors.surface,
-    borderTopWidth: 1,
-    borderBottomWidth: 1,
-    borderColor: colors.border,
-  },
-  missingMediaText: {
-    color: colors.textSecondary,
-    fontSize: fontSize.md,
-  },
-  postBody: {
-    paddingHorizontal: spacing.lg,
-    paddingTop: spacing.md,
-  },
-  captionText: {
-    color: colors.textSecondary,
-    fontSize: fontSize.md,
-    lineHeight: 20,
-  },
-  captionAuthor: {
-    color: colors.text,
-    fontWeight: '700',
-  },
-  actionsRow: {
+  errorBanner: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: spacing.sm,
-    paddingHorizontal: spacing.lg,
-    paddingTop: spacing.md,
+    gap: spacing[2],
+    marginHorizontal: spacing[4],
+    marginVertical: spacing[2],
+    paddingHorizontal: spacing[3],
+    paddingVertical: spacing[2],
+    borderRadius: borderRadius.md,
+    backgroundColor: 'rgba(239,68,68,0.1)',
+    borderWidth: 1,
+    borderColor: 'rgba(239,68,68,0.3)',
   },
-  actionButton: {
-    paddingVertical: spacing.sm,
-  },
-  actionText: {
-    color: colors.textSecondary,
-    fontSize: fontSize.sm,
-    fontWeight: '700',
-  },
-  actionTextActive: {
-    color: colors.primary,
+  errorText: {
+    ...typography.sm,
+    color: colors.error,
+    flex: 1,
   },
   footerLoader: {
-    paddingVertical: spacing.xl,
-  },
-  footerSpacer: {
-    height: spacing.xl,
-  },
-  emptyState: {
-    paddingHorizontal: spacing.xxxl,
-    paddingVertical: spacing.huge,
-    alignItems: 'center',
-    gap: spacing.md,
-  },
-  emptyTitle: {
-    color: colors.text,
-    fontSize: fontSize.xxl,
-    fontWeight: '800',
-    textAlign: 'center',
-  },
-  emptyText: {
-    color: colors.textSecondary,
-    fontSize: fontSize.md,
-    textAlign: 'center',
-    lineHeight: 20,
-  },
-  emptyButton: {
-    marginTop: spacing.sm,
-    backgroundColor: colors.primary,
-    borderRadius: spacing.md,
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
-  },
-  emptyButtonText: {
-    color: colors.text,
-    fontSize: fontSize.sm,
-    fontWeight: '800',
-  },
-  modalOverlay: {
-    flex: 1,
-    justifyContent: 'flex-end',
-    backgroundColor: colors.overlay,
-  },
-  modalSheet: {
-    maxHeight: '82%',
-    backgroundColor: colors.background,
-    borderTopLeftRadius: spacing.xxl,
-    borderTopRightRadius: spacing.xxl,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  modalHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.lg,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-  },
-  modalTitle: {
-    color: colors.text,
-    fontSize: fontSize.lg,
-    fontWeight: '800',
-  },
-  modalClose: {
-    color: colors.primary,
-    fontSize: fontSize.sm,
-    fontWeight: '800',
-  },
-  modalPostSummary: {
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.borderLight,
-    gap: spacing.xs,
-  },
-  modalPostAuthor: {
-    color: colors.text,
-    fontSize: fontSize.md,
-    fontWeight: '700',
-  },
-  modalPostContent: {
-    color: colors.textSecondary,
-    fontSize: fontSize.md,
-    lineHeight: 20,
-  },
-  commentList: {
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
-    gap: spacing.md,
-  },
-  commentCard: {
-    flexDirection: 'row',
-    gap: spacing.md,
-  },
-  commentAvatar: {
-    width: componentSizes.avatarSM,
-    height: componentSizes.avatarSM,
-    borderRadius: componentSizes.avatarSM / 2,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  commentAvatarText: {
-    color: colors.text,
-    fontSize: fontSize.xs,
-    fontWeight: '800',
-  },
-  commentBody: {
-    flex: 1,
-    gap: spacing.xs,
-  },
-  commentAuthor: {
-    color: colors.text,
-    fontSize: fontSize.sm,
-    fontWeight: '700',
-  },
-  commentText: {
-    color: colors.textSecondary,
-    fontSize: fontSize.md,
-    lineHeight: 20,
-  },
-  commentMeta: {
-    color: colors.textTertiary,
-    fontSize: fontSize.sm,
-  },
-  emptyCommentsText: {
-    color: colors.textSecondary,
-    fontSize: fontSize.md,
-    textAlign: 'center',
-    paddingVertical: spacing.xl,
-  },
-  commentComposer: {
-    flexDirection: 'row',
-    alignItems: 'flex-end',
-    gap: spacing.sm,
-    paddingHorizontal: spacing.lg,
-    paddingTop: spacing.md,
-    paddingBottom: spacing.lg,
-    borderTopWidth: 1,
-    borderTopColor: colors.border,
-  },
-  commentInput: {
-    flex: 1,
-    minHeight: 48,
-    maxHeight: 110,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: spacing.md,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    color: colors.text,
-    backgroundColor: colors.surface,
-    textAlignVertical: 'top',
-  },
-  commentSendButton: {
-    backgroundColor: colors.primary,
-    borderRadius: spacing.md,
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
-  },
-  commentSendButtonDisabled: {
-    opacity: 0.45,
-  },
-  commentSendText: {
-    color: colors.text,
-    fontSize: fontSize.sm,
-    fontWeight: '800',
+    paddingHorizontal: spacing[4],
   },
 });

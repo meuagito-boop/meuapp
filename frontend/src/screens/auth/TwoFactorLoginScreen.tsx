@@ -15,6 +15,7 @@ import { Button, InfoCard, Input, ScreenHeader } from '@components';
 import { colors } from '@constants/colors';
 import { fontSize, spacing } from '@constants/design';
 import { useAuth } from '@hooks/useAuth';
+import { AuthBackground, authPanelStyle } from './authLayout';
 
 export default function TwoFactorLoginScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<ParamListBase>>();
@@ -62,77 +63,84 @@ export default function TwoFactorLoginScreen() {
   };
 
   return (
-    <KeyboardAvoidingView
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      style={styles.container}
-    >
-      <ScreenHeader title="Validacao 2FA" onBack={handleCancel} />
-      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        <View style={styles.badge}>
-          <Text style={styles.badgeText}>2FA</Text>
-        </View>
+    <AuthBackground>
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        style={styles.container}
+      >
+        <ScreenHeader title="Validacao 2FA" onBack={handleCancel} />
+        <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+          <View style={styles.panel}>
+            <View style={styles.badge}>
+              <Text style={styles.badgeText}>2FA</Text>
+            </View>
 
-        <Text style={styles.title}>Confirme sua autenticacao</Text>
-        <Text style={styles.subtitle}>
-          Digite o codigo gerado no aplicativo autenticador para concluir o acesso da conta
-          {tempEmail ? ` ${tempEmail}.` : '.'}
-        </Text>
+            <Text style={styles.title}>Confirme sua autenticacao</Text>
+            <Text style={styles.subtitle}>
+              Digite o codigo gerado no aplicativo autenticador para concluir o acesso da conta
+              {tempEmail ? ` ${tempEmail}.` : '.'}
+            </Text>
 
-        <InfoCard title="Codigo do autenticador" tone="orange" style={styles.infoCard}>
-          <Text style={styles.infoCardText}>
-            Use o codigo de 6 digitos do aplicativo autenticador configurado na sua conta.
-          </Text>
-        </InfoCard>
+            <InfoCard title="Codigo do autenticador" tone="brand" style={styles.infoCard}>
+              <Text style={styles.infoCardText}>
+                Use o codigo de 6 digitos do aplicativo autenticador configurado na sua conta.
+              </Text>
+            </InfoCard>
 
-        <View style={styles.card}>
-          <Input
-            label="Codigo 2FA"
-            placeholder="000000"
-            value={code}
-            onChangeText={(value) => {
-              const numericValue = value.replace(/\D/g, '').slice(0, 6);
-              setCode(numericValue);
-            }}
-            keyboardType="number-pad"
-            maxLength={6}
-            editable={!isLoading}
-          />
+            <View style={styles.card}>
+              <Input
+                label="Codigo 2FA"
+                placeholder="000000"
+                value={code}
+                onChangeText={(value) => {
+                  const numericValue = value.replace(/\D/g, '').slice(0, 6);
+                  setCode(numericValue);
+                }}
+                keyboardType="number-pad"
+                maxLength={6}
+                editable={!isLoading}
+              />
 
-          {error ? <Text style={styles.errorMessage}>{error}</Text> : null}
+              {error ? <Text style={styles.errorMessage}>{error}</Text> : null}
 
-          <Button
-            label="Validar codigo"
-            onPress={handleSubmit}
-            loading={isLoading}
-            disabled={code.trim().length !== 6}
-            fullWidth
-            size="large"
-            style={styles.primaryButton}
-          />
+              <Button
+                label="Validar codigo"
+                onPress={handleSubmit}
+                loading={isLoading}
+                disabled={code.trim().length !== 6}
+                fullWidth
+                size="large"
+                style={styles.primaryButton}
+              />
 
-          <Button
-            label="Cancelar desafio"
-            onPress={handleCancel}
-            variant="ghost"
-            disabled={isLoading}
-            fullWidth
-            style={styles.secondaryButton}
-          />
-        </View>
-      </ScrollView>
-    </KeyboardAvoidingView>
+              <Button
+                label="Cancelar desafio"
+                onPress={handleCancel}
+                variant="ghost"
+                disabled={isLoading}
+                fullWidth
+                style={styles.secondaryButton}
+              />
+            </View>
+          </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
+    </AuthBackground>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.background,
+    backgroundColor: 'transparent',
   },
   content: {
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.xl,
     paddingBottom: spacing.xxxl,
+  },
+  panel: {
+    ...authPanelStyle,
   },
   badge: {
     alignSelf: 'flex-start',
@@ -145,12 +153,12 @@ const styles = StyleSheet.create({
   badgeText: {
     color: colors.text,
     fontSize: fontSize.sm,
-    fontWeight: '800',
+    fontWeight: '600',
   },
   title: {
     color: colors.text,
     fontSize: fontSize.huge,
-    fontWeight: '700',
+    fontWeight: '600',
     marginBottom: spacing.sm,
   },
   subtitle: {
@@ -169,9 +177,9 @@ const styles = StyleSheet.create({
   },
   card: {
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: 'rgba(255,255,255,0.10)',
     borderRadius: 12,
-    backgroundColor: colors.surface,
+    backgroundColor: 'rgba(10,10,10,0.36)',
     padding: spacing.md,
   },
   errorMessage: {

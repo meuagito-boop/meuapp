@@ -101,21 +101,23 @@ describe('AuthService', () => {
     it('should create a new user successfully', async () => {
       const signUpDto: SignUpDto = {
         email: 'new@example.com',
-        firstName: 'New',
-        lastName: 'User',
+        firstName: 'Marina',
+        lastName: 'Silva',
         birthDate: '1990-01-01',
         password: 'SecurePassword123!',
         passwordConfirm: 'SecurePassword123!',
         profileType: ProfileType.USER,
         termsAccepted: true,
         privacyPolicyAccepted: true,
+        legalCountryCode: 'BR',
+        legalCountryName: 'Brasil',
       };
 
       jest.spyOn(prismaService.user, 'findUnique').mockResolvedValue(null);
       jest.spyOn(prismaService.user, 'create').mockResolvedValue({
         ...mockUser,
         email: signUpDto.email,
-        name: 'New User',
+        name: 'Marina Silva',
         firstName: signUpDto.firstName,
         lastName: signUpDto.lastName,
         birthDate: new Date(signUpDto.birthDate),
@@ -135,7 +137,7 @@ describe('AuthService', () => {
       expect(result).toEqual(
         expect.objectContaining({
           email: signUpDto.email,
-          name: 'New User',
+          name: 'Marina Silva',
           verificationEmailSent: true,
           accessToken: 'test-token',
           refreshToken: 'test-token',
@@ -160,13 +162,14 @@ describe('AuthService', () => {
     it('should throw ConflictException if email already exists', async () => {
       const signUpDto: SignUpDto = {
         email: 'existing@example.com',
-        firstName: 'New',
-        lastName: 'User',
+        firstName: 'Marina',
+        lastName: 'Silva',
         birthDate: '1990-01-01',
         password: 'SecurePassword123!',
         passwordConfirm: 'SecurePassword123!',
         termsAccepted: true,
         privacyPolicyAccepted: true,
+        legalCountryCode: 'BR',
       };
 
       jest.spyOn(prismaService.user, 'findUnique').mockResolvedValue(mockUser);
@@ -177,13 +180,52 @@ describe('AuthService', () => {
     it('should reject signup without legal consent', async () => {
       const signUpDto: SignUpDto = {
         email: 'new@example.com',
-        firstName: 'New',
-        lastName: 'User',
+        firstName: 'Marina',
+        lastName: 'Silva',
         birthDate: '1990-01-01',
         password: 'SecurePassword123!',
         passwordConfirm: 'SecurePassword123!',
         termsAccepted: false,
         privacyPolicyAccepted: true,
+        legalCountryCode: 'BR',
+      };
+
+      await expect(service.signup(signUpDto)).rejects.toThrow(BadRequestException);
+      expect(prismaService.user.findUnique).not.toHaveBeenCalled();
+    });
+
+    it('should reject signup below minimum legal age for Brazil', async () => {
+      const today = new Date();
+      const minorDate = new Date(
+        Date.UTC(today.getUTCFullYear() - 18, today.getUTCMonth(), today.getUTCDate() + 1)
+      );
+      const signUpDto: SignUpDto = {
+        email: 'minor@example.com',
+        firstName: 'Marina',
+        lastName: 'Silva',
+        birthDate: minorDate.toISOString().slice(0, 10),
+        password: 'SecurePassword123!',
+        passwordConfirm: 'SecurePassword123!',
+        termsAccepted: true,
+        privacyPolicyAccepted: true,
+        legalCountryCode: 'BR',
+      };
+
+      await expect(service.signup(signUpDto)).rejects.toThrow(BadRequestException);
+      expect(prismaService.user.findUnique).not.toHaveBeenCalled();
+    });
+
+    it('should reject signup with placeholder name parts', async () => {
+      const signUpDto: SignUpDto = {
+        email: 'fake-name@example.com',
+        firstName: 'Teste',
+        lastName: 'Silva',
+        birthDate: '1990-01-01',
+        password: 'SecurePassword123!',
+        passwordConfirm: 'SecurePassword123!',
+        termsAccepted: true,
+        privacyPolicyAccepted: true,
+        legalCountryCode: 'BR',
       };
 
       await expect(service.signup(signUpDto)).rejects.toThrow(BadRequestException);

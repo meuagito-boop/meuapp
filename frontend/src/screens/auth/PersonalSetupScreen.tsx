@@ -21,6 +21,7 @@ import GeolocationService from '@services/geolocation/GeolocationService';
 import { userService } from '@services/api';
 import { authStore } from '@stores/authStore';
 import { userStore } from '@stores/userStore';
+import { AuthBackground, authPanelStyle } from './authLayout';
 
 type SetupStep = 1 | 2 | 3;
 
@@ -33,7 +34,9 @@ const normalizeUsername = (value: string) => value.trim().replace(/^@/, '').toLo
 const getErrorMessage = (error: unknown, fallback: string) =>
   error instanceof Error ? error.message : fallback;
 
-const formatCityFromAddress = (address: Awaited<ReturnType<typeof GeolocationService.reverseGeocodeCoordinates>>[number]) => {
+const formatCityFromAddress = (
+  address: Awaited<ReturnType<typeof GeolocationService.reverseGeocodeCoordinates>>[number],
+) => {
   const city = address.city || address.subregion || address.district || address.name;
   const region = address.region;
 
@@ -86,7 +89,7 @@ export default function PersonalSetupScreen() {
   const checkUsername = async () => {
     if (!usernameValid) {
       setUsernameStatus('error');
-      setRequestError('Use entre 3 e 30 caracteres: letras, numeros, ponto ou underscore.');
+      setRequestError('Use entre 3 e 30 caracteres: letras, números, ponto ou underscore.');
       return;
     }
 
@@ -98,11 +101,11 @@ export default function PersonalSetupScreen() {
       setUsernameStatus(result.available ? 'available' : 'unavailable');
 
       if (!result.available) {
-        setRequestError('Este username ja esta em uso.');
+        setRequestError('Este username já está em uso.');
       }
     } catch (error) {
       setUsernameStatus('error');
-      setRequestError(getErrorMessage(error, 'Nao foi possivel verificar o username.'));
+      setRequestError(getErrorMessage(error, 'Não foi possível verificar o username.'));
     }
   };
 
@@ -112,7 +115,7 @@ export default function PersonalSetupScreen() {
     try {
       const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (!permission.granted) {
-        Alert.alert('Permissao negada', 'Autorize o acesso a galeria para enviar sua foto.');
+        Alert.alert('Permissão negada', 'Autorize o acesso à galeria para enviar sua foto.');
         return;
       }
 
@@ -135,7 +138,7 @@ export default function PersonalSetupScreen() {
       const updatedProfile = await uploadAvatar(asset.uri, filename, mimeType);
       setAvatarUrl(updatedProfile.avatar || null);
     } catch (error) {
-      const message = getErrorMessage(error, 'Nao foi possivel enviar sua foto.');
+      const message = getErrorMessage(error, 'Não foi possível enviar sua foto.');
       setRequestError(message);
       Alert.alert('Erro ao enviar foto', message);
     } finally {
@@ -156,14 +159,14 @@ export default function PersonalSetupScreen() {
       const resolvedCity = addresses[0] ? formatCityFromAddress(addresses[0]) : '';
 
       if (!resolvedCity) {
-        throw new Error('Nao foi possivel identificar a cidade pela localizacao.');
+        throw new Error('Não foi possível identificar a cidade pela localização.');
       }
 
       setCity(resolvedCity);
     } catch (error) {
-      const message = getErrorMessage(error, 'Nao foi possivel usar sua localizacao.');
+      const message = getErrorMessage(error, 'Não foi possível usar sua localização.');
       setRequestError(message);
-      Alert.alert('Localizacao indisponivel', message);
+      Alert.alert('Localização indisponível', message);
     } finally {
       setIsResolvingLocation(false);
     }
@@ -190,7 +193,7 @@ export default function PersonalSetupScreen() {
 
       await completeOnboarding({ tab: 'Home' });
     } catch (error) {
-      const message = getErrorMessage(error, 'Nao foi possivel finalizar seu perfil.');
+      const message = getErrorMessage(error, 'Não foi possível finalizar seu perfil.');
       setRequestError(message);
       Alert.alert('Erro ao finalizar', message);
     } finally {
@@ -213,19 +216,19 @@ export default function PersonalSetupScreen() {
     }
 
     if (!usernameValid) {
-      return 'Use apenas letras, numeros, ponto e underscore.';
+      return 'Use apenas letras, números, ponto e underscore.';
     }
 
     if (usernameStatus === 'checking') {
-      return 'Verificando no backend...';
+      return 'Verificando disponibilidade...';
     }
 
     if (usernameStatus === 'available') {
-      return 'Username disponivel.';
+      return 'Username disponível.';
     }
 
     if (usernameStatus === 'unavailable') {
-      return 'Username ja esta em uso.';
+      return 'Username já está em uso.';
     }
 
     if (usernameStatus === 'error') {
@@ -237,13 +240,18 @@ export default function PersonalSetupScreen() {
 
   const renderStepIdentity = () => (
     <View style={styles.block}>
-      <Text style={styles.stepTitle}>Como voce quer aparecer?</Text>
-      <Text style={styles.stepSubtitle}>Defina seu username e uma bio opcional.</Text>
+      <View style={styles.heroBlock}>
+        <Text style={styles.stepTitle}>Crie seu perfil</Text>
+        <Text style={styles.stepSubtitle}>
+          Escolha uma foto, defina seu username e escreva uma bio curta.
+        </Text>
+      </View>
 
       <TouchableOpacity
         style={styles.avatarArea}
         onPress={handleChangePhoto}
         disabled={isUploadingAvatar}
+        activeOpacity={0.82}
       >
         <View style={[styles.avatar, Boolean(avatarUrl) && styles.avatarFilled]}>
           {avatarUrl ? (
@@ -251,339 +259,506 @@ export default function PersonalSetupScreen() {
           ) : isUploadingAvatar ? (
             <ActivityIndicator color={colors.primary} />
           ) : (
-            <Text style={styles.avatarIcon}>IMG</Text>
+            <Text style={styles.avatarIcon}>+</Text>
           )}
         </View>
+
         <Text style={styles.avatarHint}>
-          {isUploadingAvatar ? 'Enviando foto...' : 'Adicionar foto real'}
+          {isUploadingAvatar ? 'Enviando foto...' : 'Adicionar foto'}
         </Text>
       </TouchableOpacity>
 
-      <Text style={styles.inputLabel}>@username</Text>
-      <View style={styles.usernameRow}>
+      <View style={styles.formCard}>
+        <Text style={styles.inputLabel}>Username</Text>
+
+        <View style={styles.usernameRow}>
+          <TextInput
+            value={username}
+            onChangeText={handleUsernameChange}
+            placeholder="@seunome"
+            placeholderTextColor={colors.textTertiary}
+            style={[styles.input, styles.usernameInput]}
+            autoCapitalize="none"
+            editable={!isSaving}
+          />
+
+          <TouchableOpacity
+            style={[
+              styles.checkUsernameButton,
+              (!usernameValid || usernameStatus === 'checking') && styles.actionDisabled,
+            ]}
+            onPress={() => {
+              void checkUsername();
+            }}
+            disabled={!usernameValid || usernameStatus === 'checking'}
+            activeOpacity={0.78}
+          >
+            <Text style={styles.checkUsernameText}>
+              {usernameStatus === 'checking' ? '...' : 'Verificar'}
+            </Text>
+          </TouchableOpacity>
+        </View>
+
+        <Text
+          style={[
+            styles.validationText,
+            usernameStatus === 'available' && styles.validationSuccess,
+            (usernameStatus === 'unavailable' || usernameStatus === 'error') && styles.validationError,
+          ]}
+        >
+          {usernameValidationText}
+        </Text>
+
+        <Text style={styles.inputLabel}>Bio</Text>
+
         <TextInput
-          value={username}
-          onChangeText={handleUsernameChange}
-          placeholder="@seunome"
+          value={bio}
+          onChangeText={setBio}
+          placeholder="Conte algo sobre você..."
           placeholderTextColor={colors.textTertiary}
-          style={[styles.input, styles.usernameInput]}
-          autoCapitalize="none"
+          style={[styles.input, styles.textarea]}
+          multiline
+          maxLength={150}
           editable={!isSaving}
         />
-        <TouchableOpacity
-          style={[
-            styles.checkUsernameButton,
-            (!usernameValid || usernameStatus === 'checking') && styles.actionDisabled,
-          ]}
-          onPress={() => {
-            void checkUsername();
-          }}
-          disabled={!usernameValid || usernameStatus === 'checking'}
-        >
-          <Text style={styles.checkUsernameText}>
-            {usernameStatus === 'checking' ? '...' : 'Verificar'}
-          </Text>
-        </TouchableOpacity>
-      </View>
-      <Text style={styles.validationText}>{usernameValidationText}</Text>
 
-      <Text style={styles.inputLabel}>Bio (opcional)</Text>
-      <TextInput
-        value={bio}
-        onChangeText={setBio}
-        placeholder="Conte algo sobre voce..."
-        placeholderTextColor={colors.textTertiary}
-        style={[styles.input, styles.textarea]}
-        multiline
-        maxLength={150}
-        editable={!isSaving}
-      />
-      <Text style={styles.validationText}>{bio.length}/150</Text>
+        <Text style={styles.counterText}>{bio.length}/150</Text>
+      </View>
     </View>
   );
 
   const renderStepLocation = () => (
     <View style={styles.block}>
-      <Text style={styles.stepTitle}>Onde voce esta?</Text>
-      <Text style={styles.stepSubtitle}>Sua cidade ajuda o app a priorizar descoberta local.</Text>
-
-      <TouchableOpacity
-        style={[styles.secondaryAction, isResolvingLocation && styles.actionDisabled]}
-        onPress={() => {
-          void handleUseGps();
-        }}
-        disabled={isResolvingLocation}
-      >
-        <Text style={styles.secondaryActionText}>
-          {isResolvingLocation ? 'Obtendo localizacao...' : 'Usar minha localizacao atual'}
+      <View style={styles.heroBlock}>
+        <Text style={styles.stepTitle}>Sua cidade</Text>
+        <Text style={styles.stepSubtitle}>
+          Isso ajuda o app a mostrar lugares, eventos e conteúdos mais relevantes.
         </Text>
-      </TouchableOpacity>
+      </View>
 
-      <Text style={styles.inputLabel}>Cidade</Text>
-      <TextInput
-        value={city}
-        onChangeText={setCity}
-        placeholder="Digite o nome da cidade"
-        placeholderTextColor={colors.textTertiary}
-        style={styles.input}
-        editable={!isSaving}
-      />
+      <View style={styles.formCard}>
+        <TouchableOpacity
+          style={[styles.locationButton, isResolvingLocation && styles.actionDisabled]}
+          onPress={() => {
+            void handleUseGps();
+          }}
+          disabled={isResolvingLocation}
+          activeOpacity={0.78}
+        >
+          <Text style={styles.locationButtonText}>
+            {isResolvingLocation ? 'Obtendo localização...' : 'Usar localização atual'}
+          </Text>
+        </TouchableOpacity>
 
-      <View style={styles.infoRow}>
-        <Text style={styles.infoText}>
-          A localizacao so sera usada com permissao do dispositivo.
-        </Text>
+        <Text style={styles.inputLabel}>Cidade</Text>
+
+        <TextInput
+          value={city}
+          onChangeText={setCity}
+          placeholder="Digite o nome da cidade"
+          placeholderTextColor={colors.textTertiary}
+          style={styles.input}
+          editable={!isSaving}
+        />
+
+        <View style={styles.infoRow}>
+          <Text style={styles.infoText}>
+            Sua localização só será usada com permissão do dispositivo.
+          </Text>
+        </View>
       </View>
     </View>
   );
 
   const renderStepFinish = () => (
     <View style={styles.block}>
-      <Text style={styles.finishIcon}>OK</Text>
-      <Text style={styles.stepTitle}>Revise seu perfil</Text>
-      <Text style={styles.stepSubtitle}>Ao finalizar, estes dados serao salvos no backend.</Text>
+      <View style={styles.finishBadge}>
+        <Text style={styles.finishIcon}>✓</Text>
+      </View>
+
+      <View style={styles.heroBlock}>
+        <Text style={styles.stepTitle}>Tudo pronto</Text>
+        <Text style={styles.stepSubtitle}>
+          Confira seus dados antes de salvar seu perfil.
+        </Text>
+      </View>
 
       <View style={styles.summaryCard}>
-        <Text style={styles.summaryTitle}>Resumo</Text>
-        <Text style={styles.summaryItem}>@{usernameNormalized}</Text>
-        <Text style={styles.summaryItem}>{city.trim()}</Text>
-        {bio.trim().length > 0 && <Text style={styles.summaryItem}>{bio.trim()}</Text>}
-        {avatarUrl && <Text style={styles.summaryItem}>Foto enviada</Text>}
+        <Text style={styles.summaryTitle}>Resumo do perfil</Text>
+
+        <View style={styles.summaryRow}>
+          <Text style={styles.summaryLabel}>Username</Text>
+          <Text style={styles.summaryValue}>@{usernameNormalized}</Text>
+        </View>
+
+        <View style={styles.summaryRow}>
+          <Text style={styles.summaryLabel}>Cidade</Text>
+          <Text style={styles.summaryValue}>{city.trim()}</Text>
+        </View>
+
+        {bio.trim().length > 0 ? (
+          <View style={styles.summaryRow}>
+            <Text style={styles.summaryLabel}>Bio</Text>
+            <Text style={styles.summaryValue}>{bio.trim()}</Text>
+          </View>
+        ) : null}
+
+        {avatarUrl ? (
+          <View style={styles.summaryRow}>
+            <Text style={styles.summaryLabel}>Foto</Text>
+            <Text style={styles.summaryValue}>Enviada</Text>
+          </View>
+        ) : null}
       </View>
     </View>
   );
 
   return (
-    <View style={styles.container}>
-      <ScreenHeader title="Configurar perfil" onBack={handleBack} />
-      <View style={styles.progressHeader}>
-        <Text style={styles.progressText}>Passo {step} de 3</Text>
-      </View>
+    <AuthBackground>
+      <View style={styles.container}>
+        <ScreenHeader title="" onBack={handleBack} />
 
-      <View style={styles.progressBar}>
-        {([1, 2, 3] as const).map((value) => (
-          <View
-            key={value}
-            style={[styles.progressSegment, value <= step ? styles.progressSegmentActive : undefined]}
+        <View style={styles.topArea}>
+          <Text style={styles.progressText}>Passo {step} de 3</Text>
+
+          <View style={styles.progressBar}>
+            {([1, 2, 3] as const).map((value) => (
+              <View
+                key={value}
+                style={[
+                  styles.progressSegment,
+                  value <= step ? styles.progressSegmentActive : undefined,
+                ]}
+              />
+            ))}
+          </View>
+        </View>
+
+        <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+          {step === 1 && renderStepIdentity()}
+          {step === 2 && renderStepLocation()}
+          {step === 3 && renderStepFinish()}
+        </ScrollView>
+
+        {requestError ? <Text style={styles.errorText}>{requestError}</Text> : null}
+
+        <View style={styles.footer}>
+          <Button
+            label={isSaving ? 'Salvando...' : step === 3 ? 'Salvar e explorar' : 'Próximo'}
+            onPress={() => {
+              void handleNext();
+            }}
+            disabled={!canGoNext}
+            loading={isSaving}
+            fullWidth
+            size="large"
+            style={styles.footerButton}
           />
-        ))}
+        </View>
       </View>
-
-      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        {step === 1 && renderStepIdentity()}
-        {step === 2 && renderStepLocation()}
-        {step === 3 && renderStepFinish()}
-      </ScrollView>
-
-      {requestError ? <Text style={styles.errorText}>{requestError}</Text> : null}
-
-      <View style={styles.footer}>
-        <Button
-          label={isSaving ? 'Salvando...' : step === 3 ? 'Salvar e explorar' : 'Proximo'}
-          onPress={() => {
-            void handleNext();
-          }}
-          disabled={!canGoNext}
-          loading={isSaving}
-          fullWidth
-          size="large"
-        />
-      </View>
-    </View>
+    </AuthBackground>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.background,
+    backgroundColor: 'transparent',
   },
-  progressHeader: {
+
+  topArea: {
+    width: '100%',
+    maxWidth: 430,
+    alignSelf: 'center',
     paddingHorizontal: spacing.lg,
-    paddingTop: spacing.md,
+    paddingTop: spacing.sm,
   },
+
   progressText: {
     color: colors.textSecondary,
     fontSize: fontSize.xs,
     fontWeight: '600',
+    marginBottom: spacing.sm,
   },
+
   progressBar: {
     flexDirection: 'row',
     gap: spacing.xs,
-    paddingHorizontal: spacing.lg,
-    marginTop: spacing.sm,
   },
+
   progressSegment: {
     flex: 1,
-    height: 3,
+    height: 4,
     backgroundColor: colors.border,
-    borderRadius: 3,
+    borderRadius: 999,
   },
+
   progressSegmentActive: {
     backgroundColor: colors.primary,
   },
+
   content: {
+    width: '100%',
+    maxWidth: 430,
+    alignSelf: 'center',
     paddingHorizontal: spacing.lg,
     paddingBottom: spacing.xxl,
   },
+
   block: {
     marginTop: spacing.xl,
-    gap: spacing.md,
   },
+
+  heroBlock: {
+    alignItems: 'center',
+    marginBottom: spacing.xl,
+  },
+
   stepTitle: {
     color: colors.text,
-    fontSize: fontSize.xxxl,
-    fontWeight: '800',
+    fontSize: 30,
+    fontWeight: '600',
+    textAlign: 'center',
+    letterSpacing: -0.3,
   },
+
   stepSubtitle: {
+    maxWidth: 330,
     color: colors.textSecondary,
-    fontSize: fontSize.sm,
-    lineHeight: 19,
-  },
-  avatarArea: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.md,
+    fontSize: fontSize.md,
+    lineHeight: 22,
+    textAlign: 'center',
     marginTop: spacing.sm,
   },
+
+  avatarArea: {
+    alignItems: 'center',
+    marginBottom: spacing.xl,
+  },
+
   avatar: {
-    width: 70,
-    height: 70,
-    borderRadius: 35,
-    borderWidth: 2,
+    width: 104,
+    height: 104,
+    borderRadius: 52,
+    borderWidth: 1,
     borderColor: colors.border,
     backgroundColor: colors.surface,
     justifyContent: 'center',
     alignItems: 'center',
     overflow: 'hidden',
   },
+
   avatarFilled: {
     borderColor: colors.primary,
   },
+
   avatarImage: {
     width: '100%',
     height: '100%',
   },
+
   avatarIcon: {
     color: colors.primary,
-    fontSize: fontSize.sm,
-    fontWeight: '800',
+    fontSize: 40,
+    fontWeight: '300',
+    marginTop: -4,
   },
+
   avatarHint: {
-    color: colors.textSecondary,
+    color: colors.primary,
     fontSize: fontSize.sm,
-    flex: 1,
+    fontWeight: '600',
+    marginTop: spacing.sm,
   },
+
+  formCard: {
+    ...authPanelStyle,
+    borderRadius: 26,
+  },
+
   inputLabel: {
     color: colors.textSecondary,
     fontSize: fontSize.xs,
-    fontWeight: '700',
+    fontWeight: '600',
+    marginBottom: spacing.sm,
     marginTop: spacing.sm,
   },
+
   usernameRow: {
     flexDirection: 'row',
     gap: spacing.sm,
   },
+
   usernameInput: {
     flex: 1,
   },
+
   checkUsernameButton: {
-    minWidth: 92,
-    height: 42,
-    borderRadius: 12,
+    minWidth: 96,
+    height: 48,
+    borderRadius: 16,
     backgroundColor: colors.primary,
     justifyContent: 'center',
     alignItems: 'center',
     paddingHorizontal: spacing.sm,
   },
+
   checkUsernameText: {
     color: colors.text,
     fontSize: fontSize.xs,
-    fontWeight: '700',
+    fontWeight: '600',
   },
+
   input: {
-    height: 42,
-    backgroundColor: colors.surface,
+    height: 48,
+    backgroundColor: colors.background,
     borderColor: colors.border,
     borderWidth: 1,
-    borderRadius: 12,
+    borderRadius: 16,
     paddingHorizontal: spacing.md,
     color: colors.text,
     fontSize: fontSize.md,
   },
+
   textarea: {
-    minHeight: 90,
-    height: 90,
+    minHeight: 96,
+    height: 96,
     textAlignVertical: 'top',
     paddingTop: spacing.md,
   },
+
   validationText: {
     color: colors.textTertiary,
     fontSize: fontSize.xs,
+    lineHeight: 17,
+    marginTop: spacing.sm,
+    marginBottom: spacing.sm,
   },
-  secondaryAction: {
-    backgroundColor: colors.surface,
-    borderColor: colors.primary,
+
+  validationSuccess: {
+    color: '#27AE60',
+  },
+
+  validationError: {
+    color: colors.error,
+  },
+
+  counterText: {
+    color: colors.textTertiary,
+    fontSize: fontSize.xs,
+    textAlign: 'right',
+    marginTop: spacing.sm,
+  },
+
+  locationButton: {
+    minHeight: 50,
+    borderRadius: 999,
     borderWidth: 1,
-    borderRadius: 12,
-    paddingVertical: spacing.md,
+    borderColor: colors.primary,
+    backgroundColor: 'rgba(232, 100, 10, 0.08)',
     alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: spacing.md,
+    marginBottom: spacing.lg,
   },
-  secondaryActionText: {
+
+  locationButtonText: {
     color: colors.primary,
     fontSize: fontSize.sm,
-    fontWeight: '700',
+    fontWeight: '600',
   },
+
   actionDisabled: {
     opacity: 0.55,
   },
+
   infoRow: {
-    backgroundColor: colors.surface,
-    borderRadius: 12,
+    backgroundColor: colors.background,
+    borderRadius: 16,
     borderWidth: 1,
     borderColor: colors.border,
     padding: spacing.md,
+    marginTop: spacing.lg,
   },
+
   infoText: {
     color: colors.textSecondary,
     fontSize: fontSize.sm,
     lineHeight: 19,
-  },
-  finishIcon: {
-    color: colors.primary,
-    fontSize: fontSize.xxxl,
-    fontWeight: '900',
     textAlign: 'center',
   },
-  summaryCard: {
-    backgroundColor: colors.surface,
-    borderColor: colors.border,
-    borderWidth: 1,
-    borderRadius: 12,
-    padding: spacing.md,
-    gap: spacing.sm,
+
+  finishBadge: {
+    width: 76,
+    height: 76,
+    borderRadius: 38,
+    backgroundColor: colors.primary,
+    alignSelf: 'center',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: spacing.xl,
   },
+
+  finishIcon: {
+    color: colors.text,
+    fontSize: 38,
+    fontWeight: '600',
+    marginTop: -2,
+  },
+
+  summaryCard: {
+    ...authPanelStyle,
+    borderColor: 'rgba(255,255,255,0.12)',
+    borderRadius: 26,
+    gap: spacing.md,
+  },
+
   summaryTitle: {
     color: colors.text,
     fontSize: fontSize.md,
-    fontWeight: '700',
+    fontWeight: '600',
+    marginBottom: spacing.xs,
   },
-  summaryItem: {
+
+  summaryRow: {
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+    paddingTop: spacing.md,
+  },
+
+  summaryLabel: {
+    color: colors.textTertiary,
+    fontSize: fontSize.xs,
+    marginBottom: 4,
+  },
+
+  summaryValue: {
     color: colors.textSecondary,
     fontSize: fontSize.sm,
+    lineHeight: 19,
   },
+
   errorText: {
+    width: '100%',
+    maxWidth: 430,
+    alignSelf: 'center',
     color: colors.error,
     fontSize: fontSize.sm,
     lineHeight: 18,
     paddingHorizontal: spacing.lg,
     marginBottom: spacing.sm,
   },
+
   footer: {
     borderTopWidth: 1,
     borderTopColor: colors.border,
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.lg,
-    gap: spacing.md,
+  },
+
+  footerButton: {
+    maxWidth: 430,
+    alignSelf: 'center',
+    borderRadius: 999,
   },
 });

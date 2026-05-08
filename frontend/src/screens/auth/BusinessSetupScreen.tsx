@@ -20,6 +20,7 @@ import { authStore } from '@stores/authStore';
 import { locationService } from '@services/api';
 import { ApiRequestError } from '@services/api/ApiClient';
 import GeolocationService from '@services/geolocation/GeolocationService';
+import { AuthBackground, authPanelStyle } from './authLayout';
 
 type SetupStep = 1 | 2 | 3 | 4 | 5;
 type EstablishmentCategory = {
@@ -623,64 +624,66 @@ export default function BusinessSetupScreen() {
   );
 
   return (
-    <View style={styles.container}>
-      <ScreenHeader title="Cadastro empresarial" onBack={handleBack} />
-      <View style={styles.progressHeader}>
-        <Text style={styles.progressText}>Passo {step} de 5</Text>
+    <AuthBackground>
+      <View style={styles.container}>
+        <ScreenHeader title="Cadastro empresarial" onBack={handleBack} />
+        <View style={styles.progressHeader}>
+          <Text style={styles.progressText}>Passo {step} de 5</Text>
+        </View>
+
+        <View style={styles.progressBar}>
+          {[1, 2, 3, 4, 5].map((value) => (
+            <View
+              key={value}
+              style={[styles.progressSegment, value <= step && styles.progressSegmentActive]}
+            />
+          ))}
+        </View>
+
+        <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+          {submitError ? (
+            <View style={styles.errorCard}>
+              <Text style={styles.errorTitle}>Ajuste necessario</Text>
+              <Text style={styles.errorText}>{submitError}</Text>
+            </View>
+          ) : null}
+
+          {step === 1 && renderStepOne()}
+          {step === 2 && renderStepTwo()}
+          {step === 3 && renderStepThree()}
+          {step === 4 && renderStepFour()}
+          {step === 5 && renderStepFive()}
+        </ScrollView>
+
+        <View style={styles.footer}>
+          {step < 5 ? (
+            <Button
+              label="Continuar"
+              onPress={handleNext}
+              disabled={!canContinue}
+              fullWidth
+              size="large"
+            />
+          ) : (
+            <Button
+              label="Publicar e ver meu perfil"
+              onPress={() => void submitBusinessProfile()}
+              disabled={isSubmitting}
+              loading={isSubmitting}
+              fullWidth
+              size="large"
+            />
+          )}
+        </View>
       </View>
-
-      <View style={styles.progressBar}>
-        {[1, 2, 3, 4, 5].map((value) => (
-          <View
-            key={value}
-            style={[styles.progressSegment, value <= step && styles.progressSegmentActive]}
-          />
-        ))}
-      </View>
-
-      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        {submitError ? (
-          <View style={styles.errorCard}>
-            <Text style={styles.errorTitle}>Ajuste necessario</Text>
-            <Text style={styles.errorText}>{submitError}</Text>
-          </View>
-        ) : null}
-
-        {step === 1 && renderStepOne()}
-        {step === 2 && renderStepTwo()}
-        {step === 3 && renderStepThree()}
-        {step === 4 && renderStepFour()}
-        {step === 5 && renderStepFive()}
-      </ScrollView>
-
-      <View style={styles.footer}>
-        {step < 5 ? (
-          <Button
-            label="Continuar"
-            onPress={handleNext}
-            disabled={!canContinue}
-            fullWidth
-            size="large"
-          />
-        ) : (
-          <Button
-            label="Publicar e ver meu perfil"
-            onPress={() => void submitBusinessProfile()}
-            disabled={isSubmitting}
-            loading={isSubmitting}
-            fullWidth
-            size="large"
-          />
-        )}
-      </View>
-    </View>
+    </AuthBackground>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.background,
+    backgroundColor: 'transparent',
   },
   progressHeader: {
     paddingHorizontal: spacing.lg,
@@ -722,7 +725,7 @@ const styles = StyleSheet.create({
   errorTitle: {
     color: colors.primary,
     fontSize: fontSize.sm,
-    fontWeight: '700',
+    fontWeight: '600',
   },
   errorText: {
     color: colors.textSecondary,
@@ -730,13 +733,14 @@ const styles = StyleSheet.create({
     lineHeight: 18,
   },
   block: {
+    ...authPanelStyle,
     marginTop: spacing.xl,
     gap: spacing.md,
   },
   stepTitle: {
     color: colors.text,
     fontSize: fontSize.xxxl,
-    fontWeight: '800',
+    fontWeight: '600',
   },
   stepSubtitle: {
     color: colors.textSecondary,
@@ -746,7 +750,7 @@ const styles = StyleSheet.create({
   label: {
     color: colors.textSecondary,
     fontSize: fontSize.xs,
-    fontWeight: '700',
+    fontWeight: '600',
     marginTop: spacing.sm,
   },
   input: {
@@ -785,7 +789,7 @@ const styles = StyleSheet.create({
   secondaryActionText: {
     color: colors.primary,
     fontSize: fontSize.sm,
-    fontWeight: '700',
+    fontWeight: '600',
   },
   chipsRow: {
     flexDirection: 'row',
@@ -823,7 +827,7 @@ const styles = StyleSheet.create({
   mediaActionTitle: {
     color: colors.text,
     fontSize: fontSize.md,
-    fontWeight: '700',
+    fontWeight: '600',
   },
   mediaActionText: {
     color: colors.textSecondary,
@@ -856,7 +860,7 @@ const styles = StyleSheet.create({
   previewTitle: {
     color: colors.text,
     fontSize: fontSize.sm,
-    fontWeight: '700',
+    fontWeight: '600',
   },
   previewSubtitle: {
     color: colors.textSecondary,
@@ -875,7 +879,7 @@ const styles = StyleSheet.create({
   removeButtonText: {
     color: colors.textSecondary,
     fontSize: fontSize.xs,
-    fontWeight: '700',
+    fontWeight: '600',
   },
   summaryCard: {
     borderWidth: 1,
@@ -888,7 +892,7 @@ const styles = StyleSheet.create({
   summaryTitle: {
     color: colors.text,
     fontSize: fontSize.lg,
-    fontWeight: '700',
+    fontWeight: '600',
   },
   summaryItem: {
     color: colors.textSecondary,

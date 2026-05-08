@@ -121,7 +121,7 @@ export default function SettingsDeleteAccountScreen() {
           </View>
         </InfoCard>
 
-        <InfoCard title="Privacidade e seguranca" tone="orange">
+        <InfoCard title="Privacidade e seguranca" tone="brand">
           <Text style={styles.complianceText}>
             Use esta tela apenas se quiser encerrar o acesso a esta conta. O processamento dos
             dados segue a Politica de Privacidade e as regras de seguranca do Meu Agito.
@@ -241,7 +241,7 @@ const styles = StyleSheet.create({
   },
   formTitle: {
     fontSize: fontSize.md,
-    fontWeight: '700',
+    fontWeight: '600',
     color: colors.text,
     textAlign: 'center',
   },
@@ -254,7 +254,7 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
   },
   fieldLabelBold: {
-    fontWeight: '700',
+    fontWeight: '600',
     color: '#E74C3C',
   },
   fieldInput: {
@@ -288,7 +288,7 @@ const styles = StyleSheet.create({
   eyeIcon: {
     fontSize: 11,
     color: colors.textSecondary,
-    fontWeight: '700',
+    fontWeight: '600',
   },
   errorText: {
     color: colors.error,

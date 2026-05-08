@@ -204,7 +204,7 @@ const styles = StyleSheet.create({
   cardIconText: {
     color: colors.primary,
     fontSize: fontSize.md,
-    fontWeight: '900',
+    fontWeight: '600',
   },
   cardBody: {
     flex: 1,
@@ -218,7 +218,7 @@ const styles = StyleSheet.create({
   cardTitle: {
     color: colors.text,
     fontSize: fontSize.md,
-    fontWeight: '800',
+    fontWeight: '600',
   },
   cardSubtitle: {
     color: colors.textSecondary,
@@ -234,7 +234,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#2E1405',
     color: colors.primary,
     fontSize: fontSize.xs,
-    fontWeight: '800',
+    fontWeight: '600',
     textAlign: 'center',
   },
   chevron: {
@@ -263,7 +263,7 @@ const styles = StyleSheet.create({
   previewFallback: {
     color: colors.text,
     fontSize: fontSize.xs,
-    fontWeight: '800',
+    fontWeight: '600',
   },
   previewEmpty: {
     borderWidth: 1,
@@ -297,7 +297,7 @@ const styles = StyleSheet.create({
   emptyTitle: {
     color: colors.text,
     fontSize: fontSize.md,
-    fontWeight: '800',
+    fontWeight: '600',
   },
   emptyText: {
     color: colors.textSecondary,
@@ -315,6 +315,6 @@ const styles = StyleSheet.create({
   retryButtonText: {
     color: colors.primary,
     fontSize: fontSize.sm,
-    fontWeight: '700',
+    fontWeight: '600',
   },
 });

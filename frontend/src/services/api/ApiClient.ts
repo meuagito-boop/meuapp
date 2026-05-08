@@ -4,8 +4,10 @@ import axios, {
   AxiosRequestConfig,
   InternalAxiosRequestConfig,
 } from 'axios';
-import * as SecureStore from 'expo-secure-store';
+import * as SecureStore from '@utils/secureStorage';
 import { logger } from '@utils/logger';
+import { isUiPreviewModeEnabled } from '@config/uiPreview';
+import { getPreviewApiResponse } from '@dev/previewApi';
 
 export interface ApiClientConfig {
   baseURL: string;
@@ -265,6 +267,11 @@ class ApiClient {
    * Salvar tokens
    */
   async saveTokens(tokens: AuthTokens) {
+    if (isUiPreviewModeEnabled()) {
+      this.inMemoryTokens = null;
+      return;
+    }
+
     this.inMemoryTokens = tokens;
 
     try {
@@ -281,6 +288,10 @@ class ApiClient {
    * Renovar access token
    */
   private async refreshAccessToken(): Promise<string> {
+    if (isUiPreviewModeEnabled()) {
+      return 'preview-access-token';
+    }
+
     const refreshToken = await this.getRefreshToken();
 
     if (!refreshToken) {
@@ -330,6 +341,10 @@ class ApiClient {
   async logout() {
     this.inMemoryTokens = null;
 
+    if (isUiPreviewModeEnabled()) {
+      return;
+    }
+
     try {
       await Promise.all([
         SecureStore.deleteItemAsync('accessToken'),
@@ -344,6 +359,10 @@ class ApiClient {
    * GET request
    */
   async get<T = unknown>(url: string, config?: AxiosRequestConfig): Promise<T> {
+    if (isUiPreviewModeEnabled()) {
+      return getPreviewApiResponse<T>('GET', url, undefined, config);
+    }
+
     try {
       const response = await this.client.get<ApiResponse<T> | T>(url, config);
       return this.unwrapResponse<T>(response.data);
@@ -360,6 +379,10 @@ class ApiClient {
     data?: unknown,
     config?: AxiosRequestConfig,
   ): Promise<T> {
+    if (isUiPreviewModeEnabled()) {
+      return getPreviewApiResponse<T>('POST', url, data, config);
+    }
+
     try {
       const response = await this.client.post<ApiResponse<T> | T>(url, data, config);
       return this.unwrapResponse<T>(response.data);
@@ -376,6 +399,10 @@ class ApiClient {
     data?: unknown,
     config?: AxiosRequestConfig,
   ): Promise<T> {
+    if (isUiPreviewModeEnabled()) {
+      return getPreviewApiResponse<T>('PUT', url, data, config);
+    }
+
     try {
       const response = await this.client.put<ApiResponse<T> | T>(url, data, config);
       return this.unwrapResponse<T>(response.data);
@@ -388,6 +415,10 @@ class ApiClient {
    * DELETE request
    */
   async delete<T = unknown>(url: string, config?: AxiosRequestConfig): Promise<T> {
+    if (isUiPreviewModeEnabled()) {
+      return getPreviewApiResponse<T>('DELETE', url, config?.data, config);
+    }
+
     try {
       const response = await this.client.delete<ApiResponse<T> | T>(url, config);
       return this.unwrapResponse<T>(response.data);
@@ -404,6 +435,10 @@ class ApiClient {
     data?: unknown,
     config?: AxiosRequestConfig,
   ): Promise<T> {
+    if (isUiPreviewModeEnabled()) {
+      return getPreviewApiResponse<T>('PATCH', url, data, config);
+    }
+
     try {
       const response = await this.client.patch<ApiResponse<T> | T>(url, data, config);
       return this.unwrapResponse<T>(response.data);
@@ -424,6 +459,11 @@ class ApiClient {
     },
     onProgress?: (progress: number) => void,
   ): Promise<T> {
+    if (isUiPreviewModeEnabled()) {
+      onProgress?.(100);
+      return getPreviewApiResponse<T>('POST', url, { file });
+    }
+
     try {
       const formData = new FormData();
       formData.append('file', {

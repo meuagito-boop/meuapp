@@ -310,7 +310,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   toggleBtnActive: { backgroundColor: colors.primary, borderColor: colors.primary },
-  toggleText: { fontSize: fontSize.sm, color: colors.textSecondary, fontWeight: '700' },
+  toggleText: { fontSize: fontSize.sm, color: colors.textSecondary, fontWeight: '600' },
   toggleTextActive: { color: colors.text },
   radiusControl: { flexDirection: 'row', marginBottom: spacing.md, gap: spacing.sm },
   radiusBtn: {
@@ -323,7 +323,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   radiusBtnActive: { backgroundColor: colors.primary, borderColor: colors.primary },
-  radiusText: { fontSize: fontSize.xs, color: colors.textSecondary, fontWeight: '700' },
+  radiusText: { fontSize: fontSize.xs, color: colors.textSecondary, fontWeight: '600' },
   radiusTextActive: { color: colors.text },
   viewToggleBtn: {
     paddingVertical: spacing.md,
@@ -333,7 +333,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: spacing.md,
   },
-  viewToggleText: { fontSize: fontSize.md, color: colors.text, fontWeight: '700' },
+  viewToggleText: { fontSize: fontSize.md, color: colors.text, fontWeight: '600' },
   map: { flex: 1 },
   listContent: { paddingHorizontal: spacing.lg, paddingVertical: spacing.sm },
   listItem: {
@@ -348,7 +348,7 @@ const styles = StyleSheet.create({
     borderLeftColor: colors.primary,
   },
   itemContent: { gap: spacing.xs },
-  itemTitle: { fontSize: fontSize.xl, color: colors.text, fontWeight: '700' },
+  itemTitle: { fontSize: fontSize.xl, color: colors.text, fontWeight: '600' },
   itemSubtitle: { fontSize: fontSize.base, color: colors.textSecondary },
   itemMeta: { fontSize: fontSize.xs, color: colors.primary, marginTop: 2 },
   loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
@@ -363,7 +363,7 @@ const styles = StyleSheet.create({
   emptyTitle: {
     fontSize: fontSize.lg,
     color: colors.text,
-    fontWeight: '700',
+    fontWeight: '600',
     textAlign: 'center',
   },
   emptyText: { fontSize: fontSize.md, color: colors.textSecondary, textAlign: 'center' },
@@ -379,6 +379,6 @@ const styles = StyleSheet.create({
   retryButtonText: {
     color: colors.text,
     fontSize: fontSize.md,
-    fontWeight: '700',
+    fontWeight: '600',
   },
 });

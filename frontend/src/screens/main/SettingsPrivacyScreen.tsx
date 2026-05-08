@@ -64,7 +64,7 @@ export default function SettingsPrivacyScreen() {
       <ScreenHeader title="Privacidade" onBack={() => navigation.goBack()} />
 
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        <InfoCard title="Dados e consentimentos" tone="orange">
+        <InfoCard title="Dados e consentimentos" tone="brand">
           <Text style={styles.cardText}>
             Esta area centraliza documentos legais, permissoes do dispositivo e exclusao de conta.
             Controles sociais avancados ficam fora do release atual ate existir backend compativel.

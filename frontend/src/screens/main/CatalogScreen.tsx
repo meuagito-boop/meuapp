@@ -13,6 +13,7 @@ import {
 import { ParamListBase, RouteProp, useNavigation, useRoute } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
+import { HeaderBackButton } from '@components';
 import { colors } from '@constants/colors';
 import { fontSize, spacing } from '@constants/design';
 import { catalogService } from '@services/api';
@@ -178,14 +179,7 @@ export default function CatalogScreen() {
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <TouchableOpacity
-          style={styles.circleButton}
-          onPress={() => navigation.goBack()}
-          accessibilityRole="button"
-          accessibilityLabel="Voltar"
-        >
-          <Text style={styles.circleIcon}>{'<'}</Text>
-        </TouchableOpacity>
+        <HeaderBackButton onPress={() => navigation.goBack()} />
 
         <View style={styles.headerTitles}>
           <Text style={styles.headerTitle} numberOfLines={1}>
@@ -319,33 +313,18 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.sm,
     gap: spacing.md,
   },
-  circleButton: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.surface,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  circleIcon: {
-    color: colors.text,
-    fontSize: fontSize.md,
-    fontWeight: '700',
-  },
   headerTitles: {
     flex: 1,
     alignItems: 'center',
   },
   headerGhost: {
-    width: 34,
-    height: 34,
+    width: 44,
+    height: 44,
   },
   headerTitle: {
     color: colors.text,
     fontSize: fontSize.md,
-    fontWeight: '700',
+    fontWeight: '600',
   },
   headerSubtitle: {
     color: colors.textSecondary,
@@ -366,7 +345,7 @@ const styles = StyleSheet.create({
   searchIcon: {
     color: colors.textSecondary,
     fontSize: fontSize.sm,
-    fontWeight: '700',
+    fontWeight: '600',
   },
   searchInput: {
     flex: 1,
@@ -377,7 +356,7 @@ const styles = StyleSheet.create({
   clearSearch: {
     color: colors.textSecondary,
     fontSize: fontSize.sm,
-    fontWeight: '700',
+    fontWeight: '600',
   },
   chipsRow: {
     paddingHorizontal: spacing.md,
@@ -434,7 +413,7 @@ const styles = StyleSheet.create({
   itemFallback: {
     color: colors.textSecondary,
     fontSize: fontSize.sm,
-    fontWeight: '800',
+    fontWeight: '600',
   },
   itemBody: {
     flex: 1,
@@ -444,7 +423,7 @@ const styles = StyleSheet.create({
   itemName: {
     color: colors.text,
     fontSize: fontSize.md,
-    fontWeight: '700',
+    fontWeight: '600',
   },
   itemDescription: {
     color: colors.textSecondary,
@@ -460,7 +439,7 @@ const styles = StyleSheet.create({
   itemPrice: {
     color: colors.primary,
     fontSize: fontSize.sm,
-    fontWeight: '700',
+    fontWeight: '600',
   },
   itemBadge: {
     color: colors.text,
@@ -472,7 +451,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.sm,
     paddingVertical: 2,
     fontSize: fontSize.xs,
-    fontWeight: '700',
+    fontWeight: '600',
   },
   emptyState: {
     flex: 1,
@@ -484,7 +463,7 @@ const styles = StyleSheet.create({
   emptyTitle: {
     color: colors.text,
     fontSize: fontSize.lg,
-    fontWeight: '700',
+    fontWeight: '600',
     textAlign: 'center',
   },
   emptySubtitle: {

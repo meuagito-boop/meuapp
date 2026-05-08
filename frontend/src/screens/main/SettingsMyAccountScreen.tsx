@@ -15,6 +15,7 @@ import {
   View,
 } from 'react-native';
 
+import { HeaderBackButton } from '@components';
 import { colors } from '@constants/colors';
 import { spacing, fontSize } from '@constants/design';
 import { userStore, type UserProfile } from '@stores/userStore';
@@ -237,11 +238,7 @@ export default function SettingsMyAccountScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()}>
-          <View style={styles.backButton}>
-            <Text style={styles.backIcon}>{'<'}</Text>
-          </View>
-        </TouchableOpacity>
+        <HeaderBackButton onPress={() => navigation.goBack()} />
         <Text style={styles.headerTitle}>Minha Conta</Text>
         <TouchableOpacity
           onPress={handleSave}
@@ -382,31 +379,17 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
   },
-  backButton: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  backIcon: {
-    fontSize: 15,
-    color: colors.text,
-  },
   headerTitle: {
     flex: 1,
     textAlign: 'center',
     fontSize: fontSize.lg,
-    fontWeight: '900',
+    fontWeight: '600',
     color: colors.text,
   },
   headerAction: {
     fontSize: fontSize.sm,
     color: colors.primary,
-    fontWeight: '700',
+    fontWeight: '600',
   },
   headerActionDisabled: {
     color: colors.textTertiary,
@@ -443,12 +426,12 @@ const styles = StyleSheet.create({
   avatarText: {
     color: colors.primary,
     fontSize: fontSize.lg,
-    fontWeight: '900',
+    fontWeight: '600',
   },
   avatarEditLabel: {
     fontSize: fontSize.sm,
     color: colors.primary,
-    fontWeight: '700',
+    fontWeight: '600',
   },
   errorText: {
     color: colors.error,
@@ -466,7 +449,7 @@ const styles = StyleSheet.create({
   },
   fieldLabel: {
     fontSize: fontSize.xs,
-    fontWeight: '700',
+    fontWeight: '600',
     color: colors.textSecondary,
     marginBottom: spacing.sm,
     letterSpacing: 0.5,

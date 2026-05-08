@@ -14,6 +14,7 @@ import {
 import { ParamListBase, RouteProp, useNavigation, useRoute } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
+import { HeaderBackButton } from '@components';
 import { colors } from '@constants/colors';
 import { spacing, fontSize } from '@constants/design';
 import { useLocation } from '@hooks/useLocation';
@@ -282,14 +283,7 @@ export default function SearchScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
-        <TouchableOpacity
-          onPress={() => navigation.goBack()}
-          style={styles.iconButton}
-          accessibilityRole="button"
-          accessibilityLabel="Voltar"
-        >
-          <Text style={styles.iconButtonText}>{'<'}</Text>
-        </TouchableOpacity>
+        <HeaderBackButton onPress={() => navigation.goBack()} />
 
         <TextInput
           style={styles.searchInput}
@@ -483,7 +477,7 @@ const styles = StyleSheet.create({
   iconButtonText: {
     color: colors.text,
     fontSize: fontSize.md,
-    fontWeight: '700',
+    fontWeight: '600',
   },
   searchInput: {
     flex: 1,
@@ -506,7 +500,7 @@ const styles = StyleSheet.create({
   sectionTitle: {
     color: colors.text,
     fontSize: fontSize.lg,
-    fontWeight: '700',
+    fontWeight: '600',
   },
   chipsWrap: {
     flexDirection: 'row',
@@ -558,7 +552,7 @@ const styles = StyleSheet.create({
   filterChipText: {
     color: colors.textSecondary,
     fontSize: fontSize.xs,
-    fontWeight: '700',
+    fontWeight: '600',
   },
   filterChipTextActive: {
     color: colors.primary,
@@ -574,7 +568,7 @@ const styles = StyleSheet.create({
   drawerLabel: {
     color: colors.text,
     fontSize: fontSize.sm,
-    fontWeight: '700',
+    fontWeight: '600',
   },
   inlineOptions: {
     flexDirection: 'row',
@@ -596,7 +590,7 @@ const styles = StyleSheet.create({
   optionChipText: {
     color: colors.textSecondary,
     fontSize: fontSize.xs,
-    fontWeight: '700',
+    fontWeight: '600',
   },
   optionChipTextActive: {
     color: colors.primary,
@@ -621,7 +615,7 @@ const styles = StyleSheet.create({
   emptyTitle: {
     color: colors.text,
     fontSize: fontSize.lg,
-    fontWeight: '700',
+    fontWeight: '600',
     textAlign: 'center',
   },
   emptySubtitle: {
@@ -659,7 +653,7 @@ const styles = StyleSheet.create({
   resultFallback: {
     color: colors.textSecondary,
     fontSize: fontSize.md,
-    fontWeight: '800',
+    fontWeight: '600',
   },
   resultBody: {
     flex: 1,
@@ -675,12 +669,12 @@ const styles = StyleSheet.create({
     flex: 1,
     color: colors.text,
     fontSize: fontSize.md,
-    fontWeight: '700',
+    fontWeight: '600',
   },
   openBadge: {
     color: colors.text,
     fontSize: fontSize.xs,
-    fontWeight: '700',
+    fontWeight: '600',
     backgroundColor: colors.success,
     borderRadius: 10,
     overflow: 'hidden',

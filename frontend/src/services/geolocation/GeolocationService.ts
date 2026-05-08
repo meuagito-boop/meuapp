@@ -10,6 +10,14 @@ export interface Coordinates {
   speed?: number;
 }
 
+export interface LocationCountryContext extends Coordinates {
+  countryCode: string | null;
+  countryName: string | null;
+  city?: string | null;
+  region?: string | null;
+  source: 'reverse-geocode' | 'timezone-fallback' | 'coordinates-only';
+}
+
 class GeolocationService {
   private permissionAsked = false;
   private watchId: Location.LocationSubscription | null = null;
@@ -80,6 +88,41 @@ class GeolocationService {
       }
       throw error;
     }
+  }
+
+  async getCurrentCountryContext(): Promise<LocationCountryContext> {
+    const coordinates = await this.getCurrentLocation();
+
+    try {
+      const addresses = await this.reverseGeocodeCoordinates(
+        coordinates.latitude,
+        coordinates.longitude,
+      );
+      const address = addresses[0];
+
+      if (address) {
+        const countryCode = address.isoCountryCode?.trim().toUpperCase() || null;
+
+        return {
+          ...coordinates,
+          countryCode,
+          countryName: address.country || null,
+          city: address.city || address.subregion || address.district || null,
+          region: address.region || null,
+          source: 'reverse-geocode',
+        };
+      }
+    } catch (error) {
+      logger.warn('Falha ao resolver pais por reverse geocode:', error);
+    }
+
+    const fallbackCountryCode = this.resolveCountryCodeFromTimeZone();
+    return {
+      ...coordinates,
+      countryCode: fallbackCountryCode,
+      countryName: fallbackCountryCode === 'BR' ? 'Brasil' : null,
+      source: fallbackCountryCode ? 'timezone-fallback' : 'coordinates-only',
+    };
   }
 
   /**
@@ -263,6 +306,30 @@ class GeolocationService {
     } catch (error) {
       logger.error('Erro ao obter endereço formatado:', error);
       return `${latitude.toFixed(4)}, ${longitude.toFixed(4)}`;
+    }
+  }
+
+  private resolveCountryCodeFromTimeZone(): string | null {
+    try {
+      const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+      const timeZoneCountryMap: Record<string, string> = {
+        'America/Sao_Paulo': 'BR',
+        'America/Manaus': 'BR',
+        'America/Belem': 'BR',
+        'America/Fortaleza': 'BR',
+        'America/Recife': 'BR',
+        'America/Bahia': 'BR',
+        'America/Campo_Grande': 'BR',
+        'America/Cuiaba': 'BR',
+        'America/Porto_Velho': 'BR',
+        'America/Boa_Vista': 'BR',
+        'America/Rio_Branco': 'BR',
+        'America/Noronha': 'BR',
+      };
+
+      return timeZoneCountryMap[timeZone] ?? null;
+    } catch {
+      return null;
     }
   }
 }

@@ -15,6 +15,7 @@ import { Button, InfoCard, Input, ScreenHeader, SectionLabel } from '@components
 import { colors } from '@constants/colors';
 import { fontSize, spacing } from '@constants/design';
 import { useAuth } from '@hooks/useAuth';
+import { AuthBackground, authPanelStyle } from './authLayout';
 
 type ForgotPasswordRouteParams = {
   token?: string;
@@ -24,6 +25,7 @@ export default function ForgotPasswordScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<ParamListBase>>();
   const route = useRoute<RouteProp<ParamListBase, string>>();
   const { requestPasswordReset, resetPassword, isLoading, clearError } = useAuth();
+
   const routeToken = useMemo(() => {
     const params = route.params as ForgotPasswordRouteParams | undefined;
     return typeof params?.token === 'string' ? params.token.trim() : '';
@@ -43,45 +45,48 @@ export default function ForgotPasswordScreen() {
 
   const handleSendCode = async () => {
     if (!email.trim()) {
-      Alert.alert('Campo obrigatorio', 'Informe o e-mail da conta.');
+      Alert.alert('Campo obrigatório', 'Informe o e-mail da conta.');
       return;
     }
 
     const normalizedEmail = email.trim().toLowerCase();
     const result = await requestPasswordReset(normalizedEmail);
+
     if (!result.success) {
-      Alert.alert('Erro', result.error || 'Nao foi possivel enviar o codigo de recuperacao.');
+      Alert.alert('Erro', result.error || 'Não foi possível enviar o código.');
       return;
     }
 
     setSentEmail(normalizedEmail);
-    Alert.alert('Codigo enviado', 'Verifique seu e-mail. Cole o codigo de validacao abaixo para redefinir a senha.');
+    Alert.alert('Código enviado', 'Verifique seu e-mail e use o código abaixo.');
   };
 
   const handleResetPassword = async () => {
     if (!token.trim()) {
-      Alert.alert('Campo obrigatorio', 'Informe o codigo recebido por e-mail.');
+      Alert.alert('Campo obrigatório', 'Informe o código.');
       return;
     }
 
     if (newPassword.length < 8) {
-      Alert.alert('Senha invalida', 'A nova senha deve ter pelo menos 8 caracteres.');
+      Alert.alert('Senha inválida', 'Mínimo de 8 caracteres.');
       return;
     }
 
     if (newPassword !== confirmPassword) {
-      Alert.alert('Senha invalida', 'As senhas nao coincidem.');
+      Alert.alert('Erro', 'As senhas não coincidem.');
       return;
     }
 
     const result = await resetPassword(token.trim(), newPassword);
+
     if (!result.success) {
-      Alert.alert('Erro', result.error || 'Nao foi possivel redefinir a senha.');
+      Alert.alert('Erro', result.error || 'Não foi possível redefinir.');
       return;
     }
 
     clearError();
-    Alert.alert('Senha alterada', 'Sua senha foi redefinida com sucesso.', [
+
+    Alert.alert('Sucesso', 'Senha redefinida.', [
       {
         text: 'Voltar ao login',
         onPress: () => navigation.navigate('Login' as never),
@@ -90,133 +95,191 @@ export default function ForgotPasswordScreen() {
   };
 
   return (
-    <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.container}>
-      <ScreenHeader title="Recuperar senha" onBack={() => navigation.goBack()} />
-      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        <Text style={styles.title}>Redefina seu acesso</Text>
-        <Text style={styles.subtitle}>
-          Solicite o codigo por e-mail e depois use esse codigo para criar uma nova senha.
-        </Text>
+    <AuthBackground>
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        style={styles.container}
+      >
+        <ScreenHeader
+          title=""
+          onBack={() => navigation.goBack()}
+        />
 
-        {sentEmail ? (
-          <InfoCard title="E-mail enviado" tone="success" style={styles.feedbackCard}>
-            <Text style={styles.feedbackText}>
-              Enviamos as instrucoes para {sentEmail}. Verifique sua caixa de entrada.
+        <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+          <View style={styles.innerContent}>
+
+            <View style={styles.heroBlock}>
+              <Text style={styles.title}>Redefinir senha</Text>
+              <Text style={styles.subtitle}>
+                Solicite um código e crie uma nova senha com segurança.
+              </Text>
+            </View>
+
+            {sentEmail ? (
+              <InfoCard title="E-mail enviado" tone="success" style={styles.feedbackCard}>
+                <Text style={styles.feedbackText}>
+                  Enviamos para {sentEmail}. Verifique sua caixa de entrada.
+                </Text>
+              </InfoCard>
+            ) : null}
+
+            <View style={styles.card}>
+              <SectionLabel label="Solicitar código" style={styles.sectionLabel} />
+
+              <View style={styles.section}>
+                <Input
+                  label="E-mail"
+                  placeholder="seu@email.com"
+                  value={email}
+                  onChangeText={setEmail}
+                  keyboardType="email-address"
+                  autoCapitalize="none"
+                  editable={!isLoading}
+                />
+
+                <Button
+                  label="Enviar código"
+                  onPress={handleSendCode}
+                  loading={isLoading}
+                  disabled={isLoading || !email.trim()}
+                  fullWidth
+                  size="large"
+                  style={styles.primaryButton}
+                />
+              </View>
+
+              <View style={styles.divider} />
+
+              <SectionLabel label="Nova senha" style={styles.sectionLabel} />
+
+              <View style={styles.section}>
+                <Input
+                  label="Código"
+                  placeholder="Código recebido"
+                  value={token}
+                  onChangeText={setToken}
+                  editable={!isLoading}
+                />
+
+                <Input
+                  label="Nova senha"
+                  placeholder="********"
+                  value={newPassword}
+                  onChangeText={setNewPassword}
+                  isPassword
+                  editable={!isLoading}
+                />
+
+                <Input
+                  label="Confirmar senha"
+                  placeholder="********"
+                  value={confirmPassword}
+                  onChangeText={setConfirmPassword}
+                  isPassword
+                  editable={!isLoading}
+                />
+
+                <Button
+                  label="Redefinir senha"
+                  onPress={handleResetPassword}
+                  loading={isLoading}
+                  disabled={isLoading || !token || !newPassword || !confirmPassword}
+                  fullWidth
+                  size="large"
+                  style={styles.primaryButton}
+                />
+              </View>
+            </View>
+
+            <Text style={styles.helperText}>
+              Use uma senha forte com pelo menos 8 caracteres.
             </Text>
-          </InfoCard>
-        ) : null}
 
-        <SectionLabel label="Solicitar codigo" style={styles.sectionLabel} />
-        <View style={styles.section}>
-          <Input
-            label="E-mail"
-            placeholder="seu@email.com"
-            value={email}
-            onChangeText={setEmail}
-            keyboardType="email-address"
-            autoCapitalize="none"
-            editable={!isLoading}
-          />
-
-          <Button
-            label="Enviar codigo por e-mail"
-            onPress={handleSendCode}
-            loading={isLoading}
-            disabled={isLoading || !email.trim()}
-            fullWidth
-            size="large"
-            style={styles.primaryButton}
-          />
-        </View>
-
-        <SectionLabel label="Redefinir senha" style={styles.sectionLabel} />
-        <View style={styles.section}>
-          <Input
-            label="Codigo de validacao"
-            placeholder="Cole o codigo recebido"
-            value={token}
-            onChangeText={setToken}
-            autoCapitalize="none"
-            editable={!isLoading}
-          />
-
-          <Input
-            label="Nova senha"
-            placeholder="********"
-            value={newPassword}
-            onChangeText={setNewPassword}
-            isPassword
-            editable={!isLoading}
-          />
-
-          <Input
-            label="Confirmar nova senha"
-            placeholder="********"
-            value={confirmPassword}
-            onChangeText={setConfirmPassword}
-            isPassword
-            editable={!isLoading}
-          />
-
-          <Button
-            label="Redefinir senha"
-            onPress={handleResetPassword}
-            loading={isLoading}
-            disabled={
-              isLoading || !token.trim() || !newPassword || !confirmPassword
-            }
-            fullWidth
-            size="large"
-            style={styles.primaryButton}
-          />
-        </View>
-      </ScrollView>
-    </KeyboardAvoidingView>
+          </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
+    </AuthBackground>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.background,
+    backgroundColor: 'transparent',
   },
+
   content: {
+    flexGrow: 1,
     paddingHorizontal: spacing.lg,
-    paddingTop: spacing.xl,
+    paddingTop: spacing.lg,
     paddingBottom: spacing.xxxl,
   },
+
+  innerContent: {
+    width: '100%',
+    maxWidth: 420,
+    alignSelf: 'center',
+  },
+
+  heroBlock: {
+    alignItems: 'center',
+    marginBottom: spacing.xl,
+  },
+
   title: {
-    fontSize: fontSize.huge,
-    fontWeight: '700',
+    fontSize: 30,
+    fontWeight: '600',
     color: colors.text,
+    textAlign: 'center',
     marginBottom: spacing.sm,
   },
+
   subtitle: {
     color: colors.textSecondary,
     fontSize: fontSize.md,
-    marginBottom: spacing.xl,
-    lineHeight: 20,
+    textAlign: 'center',
+    lineHeight: 22,
+    maxWidth: 300,
   },
+
   feedbackCard: {
     marginBottom: spacing.lg,
   },
+
   feedbackText: {
     color: colors.textSecondary,
     fontSize: fontSize.sm,
-    lineHeight: 18,
   },
+
+  card: {
+    ...authPanelStyle,
+    borderRadius: 24,
+  },
+
   sectionLabel: {
     paddingHorizontal: 0,
     paddingTop: spacing.md,
   },
+
   section: {
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 12,
-    backgroundColor: colors.surface,
-    padding: spacing.md,
+    width: '100%',
   },
+
+  divider: {
+    height: 1,
+    backgroundColor: colors.border,
+    marginVertical: spacing.lg,
+  },
+
   primaryButton: {
-    marginTop: spacing.sm,
+    marginTop: spacing.md,
+    borderRadius: 999,
+  },
+
+  helperText: {
+    marginTop: spacing.xl,
+    textAlign: 'center',
+    color: colors.textTertiary,
+    fontSize: fontSize.xs,
   },
 });

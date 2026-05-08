@@ -26,6 +26,35 @@ import { SignUpDto } from './dtos/sign-up.dto';
 import { LoginDto } from './dtos/login.dto';
 import { JwtPayload } from './interfaces/jwt-payload.interface';
 
+const DEFAULT_MINIMUM_SIGNUP_AGE = 18;
+
+const MINIMUM_SIGNUP_AGE_BY_COUNTRY_CODE: Record<string, number> = {
+  BR: 18,
+  US: 18,
+};
+
+const DISALLOWED_NAME_TOKENS = new Set([
+  'admin',
+  'adm',
+  'anonimo',
+  'anonymous',
+  'apelido',
+  'asdf',
+  'fake',
+  'fulano',
+  'meuagito',
+  'name',
+  'nickname',
+  'nome',
+  'null',
+  'qwerty',
+  'sobrenome',
+  'teste',
+  'test',
+  'usuario',
+  'user',
+]);
+
 @Injectable()
 export class AuthService {
   constructor(
@@ -44,23 +73,16 @@ export class AuthService {
       }
 
       const birthDate = this.parseBirthDate(signUpDto.birthDate);
+      const legalCountryCode = this.normalizeCountryCode(signUpDto.legalCountryCode);
+      const minimumSignupAge = this.resolveMinimumSignupAge(legalCountryCode);
 
-      if (!this.isAtLeast18(birthDate)) {
-        throw new BadRequestException('User must be at least 18 years old');
+      if (!this.isAtLeastAge(birthDate, minimumSignupAge)) {
+        throw new BadRequestException('Impossivel realizar seu cadastro no momento.');
       }
 
-      const firstName = signUpDto.firstName?.trim() || '';
-      const lastName = signUpDto.lastName?.trim() || '';
-
-      if (firstName.length < 2) {
-        throw new BadRequestException('First name must have at least 2 characters');
-      }
-
-      if (lastName.length < 2) {
-        throw new BadRequestException('Last name must have at least 2 characters');
-      }
-
-      const fullName = (signUpDto.name?.trim() || `${firstName} ${lastName}`).trim();
+      const firstName = this.normalizeAndValidateNamePart(signUpDto.firstName, 'nome');
+      const lastName = this.normalizeAndValidateNamePart(signUpDto.lastName, 'sobrenome');
+      const fullName = `${firstName} ${lastName}`;
 
       // Check if user already exists
       const existingUser = await this.prismaService.user.findUnique({
@@ -131,6 +153,8 @@ export class AuthService {
         changes: {
           profileType: user.profileType,
           emailVerified: user.emailVerified,
+          legalCountryCode,
+          minimumSignupAge,
         },
       });
 
@@ -142,6 +166,8 @@ export class AuthService {
         lastName: user.lastName,
         birthDate: user.birthDate,
         profileType: user.profileType,
+        legalCountryCode,
+        minimumSignupAge,
         createdAt: user.createdAt,
         verificationEmailSent,
         ...tokens,
@@ -905,7 +931,7 @@ export class AuthService {
     return codes;
   }
 
-  private isAtLeast18(birthDate: Date): boolean {
+  private isAtLeastAge(birthDate: Date, minimumAge: number): boolean {
     const today = new Date();
     let age = today.getUTCFullYear() - birthDate.getUTCFullYear();
     const monthDiff = today.getUTCMonth() - birthDate.getUTCMonth();
@@ -916,7 +942,58 @@ export class AuthService {
       age -= 1;
     }
 
-    return age >= 18;
+    return age >= minimumAge;
+  }
+
+  private normalizeCountryCode(countryCode?: string | null): string | null {
+    if (!countryCode) {
+      return null;
+    }
+
+    const normalized = countryCode.trim().toUpperCase();
+    return /^[A-Z]{2}$/.test(normalized) ? normalized : null;
+  }
+
+  private resolveMinimumSignupAge(countryCode?: string | null): number {
+    if (!countryCode) {
+      return DEFAULT_MINIMUM_SIGNUP_AGE;
+    }
+
+    return MINIMUM_SIGNUP_AGE_BY_COUNTRY_CODE[countryCode] ?? DEFAULT_MINIMUM_SIGNUP_AGE;
+  }
+
+  private normalizeAndValidateNamePart(
+    rawValue: string | undefined,
+    label: 'nome' | 'sobrenome'
+  ): string {
+    const normalized = (rawValue ?? '')
+      .trim()
+      .replace(/\s+/g, ' ')
+      .replace(/[\u2019`]/g, "'");
+    const friendlyLabel = label === 'nome' ? 'nome' : 'sobrenome';
+
+    if (normalized.length < 2) {
+      throw new BadRequestException(`Informe um ${friendlyLabel} valido`);
+    }
+
+    if (!/^[\p{L}][\p{L}' -]*$/u.test(normalized)) {
+      throw new BadRequestException(`Use apenas letras no ${friendlyLabel}`);
+    }
+
+    const compact = normalized
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '');
+    const tokens = compact.split(/[\s'-]+/).filter(Boolean);
+
+    const hasFakeToken = tokens.some((token) => DISALLOWED_NAME_TOKENS.has(token));
+    const hasRepeatedCharacters = /(.)\1{3,}/.test(compact.replace(/\s/g, ''));
+
+    if (hasFakeToken || hasRepeatedCharacters) {
+      throw new BadRequestException(`Informe seu ${friendlyLabel} real`);
+    }
+
+    return normalized;
   }
 
   private parseBirthDate(rawBirthDate: string): Date {

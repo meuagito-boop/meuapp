@@ -16,6 +16,8 @@ export interface SignupRequest {
   profileType: 'USER' | 'ESTABLISHMENT';
   termsAccepted: boolean;
   privacyPolicyAccepted: boolean;
+  legalCountryCode: string;
+  legalCountryName?: string | null;
 }
 
 export interface AuthResponse {

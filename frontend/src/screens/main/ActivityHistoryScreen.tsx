@@ -345,14 +345,14 @@ const styles = StyleSheet.create({
     flex: 1,
     textAlign: 'center',
     fontSize: fontSize.lg,
-    fontWeight: '900',
+    fontWeight: '600',
     color: colors.text,
   },
   headerAction: {
     minWidth: 44,
     color: colors.primary,
     fontSize: fontSize.sm,
-    fontWeight: '800',
+    fontWeight: '600',
     textAlign: 'center',
   },
   content: {
@@ -365,7 +365,7 @@ const styles = StyleSheet.create({
   sectionTitle: {
     color: colors.textTertiary,
     fontSize: fontSize.xs,
-    fontWeight: '800',
+    fontWeight: '600',
     letterSpacing: 0,
     textTransform: 'uppercase',
   },
@@ -406,7 +406,7 @@ const styles = StyleSheet.create({
   checkboxText: {
     color: colors.text,
     fontSize: fontSize.xs,
-    fontWeight: '900',
+    fontWeight: '600',
   },
   rowIcon: {
     width: 38,
@@ -421,7 +421,7 @@ const styles = StyleSheet.create({
   rowIconText: {
     color: colors.primary,
     fontSize: fontSize.sm,
-    fontWeight: '900',
+    fontWeight: '600',
   },
   rowText: {
     flex: 1,
@@ -429,7 +429,7 @@ const styles = StyleSheet.create({
   rowTitle: {
     color: colors.text,
     fontSize: fontSize.md,
-    fontWeight: '800',
+    fontWeight: '600',
   },
   rowMeta: {
     color: colors.textSecondary,
@@ -439,7 +439,7 @@ const styles = StyleSheet.create({
   rowDate: {
     color: colors.textTertiary,
     fontSize: fontSize.xs,
-    fontWeight: '700',
+    fontWeight: '600',
   },
   centerState: {
     flex: 1,
@@ -462,7 +462,7 @@ const styles = StyleSheet.create({
   emptyTitle: {
     color: colors.text,
     fontSize: fontSize.md,
-    fontWeight: '800',
+    fontWeight: '600',
   },
   emptyText: {
     color: colors.textSecondary,
@@ -480,7 +480,7 @@ const styles = StyleSheet.create({
   retryButtonText: {
     color: colors.primary,
     fontSize: fontSize.sm,
-    fontWeight: '700',
+    fontWeight: '600',
   },
   editFooter: {
     flexDirection: 'row',
@@ -507,6 +507,6 @@ const styles = StyleSheet.create({
   deleteButtonText: {
     color: colors.text,
     fontSize: fontSize.sm,
-    fontWeight: '800',
+    fontWeight: '600',
   },
 });

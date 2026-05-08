@@ -1,69 +1,91 @@
-/**
- * Meu Agito color tokens
- * Canonical + legacy aliases for compatibility during migration.
- */
+// Meu Agito — Design System v3
+// Tokens alinhados ao front novo.
 
 export const colors = {
-  // Primary
-  primary: '#E8640A',
-  accent: '#E8640A', // legacy alias
-  primaryDark: '#B84A08',
-  primaryLight: '#FF8C42',
+  // Brand
+  brand: '#FF6600',
+  brandDark: '#CC5200',
+  brandLight: '#FF8533',
+  brandMuted: 'rgba(255, 102, 0, 0.08)',
 
-  // Surfaces
-  background: '#0D0D0D',
-  surface: '#1A1A1A',
-  surfaceLight: '#222222',
-
-  // Borders
-  border: '#2A2A2A',
-  borderLight: '#1A1A1A',
-  overlayBorder: 'rgba(232, 100, 10, 0.27)',
+  // Backgrounds
+  bgPrimary: '#0A0A0A',
+  bgSurface: '#161616',
+  bgSurface2: '#222222',
+  bgSurface3: '#2E2E2E',
 
   // Text
-  text: '#FFFFFF',
-  textPrimary: '#FFFFFF', // legacy alias
-  textSecondary: '#AAAAAA',
-  textTertiary: '#555555',
-  textPlaceholder: '#666666',
-  textMuted: '#888888',
+  textPrimary: '#FFFFFF',
+  textSecondary: '#9A9A9A',
+  textTertiary: '#5A5A5A',
+  textBrand: '#FF6600',
+  textInverse: '#0A0A0A',
 
   // States
-  success: '#1A7A4A',
-  warning: '#E8640A',
-  error: '#C0392B',
-  info: '#2A9FD8',
+  success: '#22C55E',
+  error: '#EF4444',
+  warning: '#F59E0B',
+  info: '#3B82F6',
 
-  // Special
-  badge: '#1A0800',
-  verified: '#E8640A',
-  alive: '#E8640A',
-  disabled: '#333333',
+  // Social interactions
+  likeActive: '#EF4444',
+  likeInactive: '#9A9A9A',
+  repostActive: '#22C55E',
+  saveActive: '#FF6600',
+  checkin: '#FF6600',
 
-  // Overlays
-  overlay: 'rgba(0, 0, 0, 0.5)',
-  overlayLight: 'rgba(0, 0, 0, 0.3)',
-
-  // Gradients
-  gradientOrange: 'linear-gradient(135deg, #E8640A, #FF8C42)',
-  gradientOverlay: 'linear-gradient(180deg, transparent, rgba(0,0,0,0.92))',
+  // Legacy aliases (compatibilidade com código existente)
+  primary: '#FF6600',
+  primaryDark: '#CC5200',
+  primaryLight: '#FF8533',
+  accent: '#FF6600',
+  background: '#0A0A0A',
+  surface: '#161616',
+  surfaceLight: '#222222',
+  border: '#2E2E2E',
+  borderLight: '#222222',
+  text: '#FFFFFF',
+  textPlaceholder: '#5A5A5A',
+  textMuted: '#9A9A9A',
+  disabled: '#2E2E2E',
+  overlay: 'rgba(0, 0, 0, 0.55)',
+  overlayLight: 'rgba(0, 0, 0, 0.34)',
+  overlayBorder: 'rgba(255, 102, 0, 0.22)',
+  badge: '#FF6600',
+  verified: '#FF6600',
+  alive: '#FF6600',
 } as const;
 
-export const semanticColors = {
-  bgPrimary: colors.background,
-  bgCard: colors.surface,
-  bgHover: colors.surfaceLight,
-  bgOverlay: colors.overlay,
-
-  textPrimary: colors.text,
-  textSecondary: colors.textSecondary,
-  textDisabled: colors.textMuted,
-
-  buttonPrimary: colors.primary,
-  buttonDisabled: colors.disabled,
-  borderDefault: colors.border,
-
-  success: colors.success,
-  error: colors.error,
-  warning: colors.warning,
+// Sombras nativas (React Native)
+export const shadows = {
+  sm: {
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.24,
+    shadowRadius: 3,
+    elevation: 2,
+  },
+  md: {
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 14,
+    elevation: 6,
+  },
+  lg: {
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.36,
+    shadowRadius: 28,
+    elevation: 10,
+  },
+  brand: {
+    shadowColor: '#FF6600',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 16,
+    elevation: 8,
+  },
 } as const;
+
+export type ColorKey = keyof typeof colors;

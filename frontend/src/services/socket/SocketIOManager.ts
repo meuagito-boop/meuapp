@@ -1,5 +1,5 @@
 import { io, Socket } from 'socket.io-client';
-import * as SecureStore from 'expo-secure-store';
+import * as SecureStore from '@utils/secureStorage';
 import { resolveApiBaseUrl } from '@utils/runtimeApiUrl';
 import { logger } from '@utils/logger';
 

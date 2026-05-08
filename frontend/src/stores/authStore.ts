@@ -5,6 +5,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { apiClient, authService } from '../services/api';
 import { pushRegistrationService } from '@services/push/PushRegistrationService';
 import { logger } from '@utils/logger';
+import { isUiPreviewModeEnabled } from '@config/uiPreview';
 
 export interface AuthTokens {
   accessToken: string;
@@ -33,6 +34,8 @@ export interface SignupPayload {
   profileType: AccountType;
   termsAccepted: boolean;
   privacyPolicyAccepted: boolean;
+  legalCountryCode: string;
+  legalCountryName?: string | null;
 }
 
 export interface SignupResult {
@@ -166,6 +169,8 @@ export const authStore = create<AuthStore>()(
             profileType,
             termsAccepted,
             privacyPolicyAccepted,
+            legalCountryCode,
+            legalCountryName,
           } = payload;
           const response = (await authService.signup({
             email,
@@ -178,6 +183,8 @@ export const authStore = create<AuthStore>()(
             profileType,
             termsAccepted,
             privacyPolicyAccepted,
+            legalCountryCode,
+            legalCountryName,
           })) as AuthApiResponse;
 
           const user = normalizeUser(response);
@@ -529,13 +536,22 @@ export const authStore = create<AuthStore>()(
     {
       name: 'auth-store',
       storage: createJSONStorage(() => AsyncStorage),
-      partialize: (state) => ({
-        user: state.user,
-        tokens: state.tokens,
-        isAuthenticated: state.isAuthenticated,
-        needsOnboarding: state.needsOnboarding,
-        pendingOnboardingScreen: state.pendingOnboardingScreen,
-      }),
+      partialize: (state) =>
+        isUiPreviewModeEnabled()
+          ? {
+              user: null,
+              tokens: null,
+              isAuthenticated: false,
+              needsOnboarding: false,
+              pendingOnboardingScreen: null,
+            }
+          : {
+              user: state.user,
+              tokens: state.tokens,
+              isAuthenticated: state.isAuthenticated,
+              needsOnboarding: state.needsOnboarding,
+              pendingOnboardingScreen: state.pendingOnboardingScreen,
+            },
     },
   ),
 );

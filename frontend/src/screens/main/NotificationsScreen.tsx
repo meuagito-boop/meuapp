@@ -1,22 +1,19 @@
-import React, { useState, useCallback, useMemo } from 'react';
-import { useEffect } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   StyleSheet,
   View,
   Text,
   TouchableOpacity,
-  SafeAreaView,
   SectionList,
   Alert,
   ActivityIndicator,
   RefreshControl,
+  SafeAreaView,
 } from 'react-native';
+import { Feather } from '@expo/vector-icons';
 import { useFocusEffect, useNavigation, ParamListBase } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-
-
-
-
+import { HeaderBackButton } from '@components';
 import { colors } from '@constants/colors';
 import { spacing, fontSize } from '@constants/design';
 import { notificationsService } from '@services/api';
@@ -29,9 +26,11 @@ interface NotificationItem {
   type: 'social' | 'establishment' | 'order' | 'system';
   title: string;
   text: string;
+  icon: keyof typeof Feather.glyphMap;
+  iconColor: string;
+  badgeColor: string;
   avatar: string;
   badge: string;
-  badgeColor: string;
   timestamp: Date;
   read: boolean;
   entityType?: string | null;
@@ -52,30 +51,30 @@ type NormalizedEntityType =
 
 const TYPE_META: Record<
   string,
-  { avatar: string; badge: string; badgeColor: string; normalizedType: NotificationItem['type'] }
+  { icon: keyof typeof Feather.glyphMap; iconColor: string; badgeColor: string; normalizedType: NotificationItem['type'] }
 > = {
   social: {
-    avatar: 'SO',
-    badge: 'S',
-    badgeColor: '#E8640A',
+    icon: 'heart',
+    iconColor: colors.primary,
+    badgeColor: colors.primary,
     normalizedType: 'social',
   },
   establishment: {
-    avatar: 'ES',
-    badge: 'E',
-    badgeColor: '#27AE60',
+    icon: 'map-pin',
+    iconColor: colors.success,
+    badgeColor: colors.success,
     normalizedType: 'establishment',
   },
   order: {
-    avatar: 'PD',
-    badge: 'P',
-    badgeColor: '#2A9FD8',
+    icon: 'shopping-bag',
+    iconColor: colors.info,
+    badgeColor: colors.info,
     normalizedType: 'order',
   },
   system: {
-    avatar: 'SI',
-    badge: 'M',
-    badgeColor: '#E8640A',
+    icon: 'bell',
+    iconColor: colors.warning,
+    badgeColor: colors.warning,
     normalizedType: 'system',
   },
 };
@@ -138,9 +137,11 @@ const mapApiNotification = (item: ApiNotificationItem): NotificationItem => {
     type: meta.normalizedType,
     title: item.title,
     text: item.body,
-    avatar: meta.avatar,
-    badge: meta.badge,
+    icon: meta.icon,
+    iconColor: meta.iconColor,
     badgeColor: meta.badgeColor,
+    avatar: item.title.slice(0, 1).toUpperCase() || 'N',
+    badge: meta.normalizedType.slice(0, 1).toUpperCase(),
     timestamp: new Date(item.createdAt),
     read: item.isRead,
     entityType: item.entityType,
@@ -168,9 +169,11 @@ const mapSocketNotification = (
     type: meta.normalizedType,
     title: item.title,
     text: item.body || item.message || '',
-    avatar: meta.avatar,
-    badge: meta.badge,
+    icon: meta.icon,
+    iconColor: meta.iconColor,
     badgeColor: meta.badgeColor,
+    avatar: item.title.slice(0, 1).toUpperCase() || 'N',
+    badge: meta.normalizedType.slice(0, 1).toUpperCase(),
     timestamp: item.createdAt ? new Date(item.createdAt) : new Date(),
     read: item.isRead ?? false,
     entityType: item.entityType,
@@ -395,6 +398,9 @@ export default function NotificationsScreen() {
       activeOpacity={0.7}
       onPress={() => void handleNotificationPress(item)}
       onLongPress={() => handleDeleteNotification(item.id)}
+      accessibilityRole="button"
+      accessibilityLabel={`${item.read ? 'Notificacao lida' : 'Notificacao nao lida'}: ${item.title}. ${item.text}`}
+      accessibilityHint="Toque para abrir o destino. Toque e segure para excluir."
     >
       {!item.read && <View style={styles.unreadDot} />}
 
@@ -433,14 +439,14 @@ export default function NotificationsScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()}>
-          <View style={styles.backButton}>
-            <Text style={styles.backIcon}>{'<'}</Text>
-          </View>
-        </TouchableOpacity>
+        <HeaderBackButton onPress={() => navigation.goBack()} />
         <Text style={styles.headerTitle}>Notificacoes</Text>
         {hasUnread ? (
-          <TouchableOpacity onPress={() => void handleMarkAllAsRead()}>
+          <TouchableOpacity
+            onPress={() => void handleMarkAllAsRead()}
+            accessibilityRole="button"
+            accessibilityLabel="Marcar todas as notificacoes como lidas"
+          >
             <Text style={styles.headerAction}>Marcar lidas</Text>
           </TouchableOpacity>
         ) : (
@@ -541,34 +547,20 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
   },
-  backButton: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  backIcon: {
-    fontSize: 15,
-    color: colors.text,
-  },
   headerTitle: {
     flex: 1,
     textAlign: 'center',
     fontSize: fontSize.lg,
-    fontWeight: '900',
+    fontWeight: '600',
     color: colors.text,
   },
   headerAction: {
     fontSize: fontSize.sm,
     color: colors.primary,
-    fontWeight: '700',
+    fontWeight: '600',
   },
   headerSpacer: {
-    width: 34,
+    width: 44,
   },
   unreadCounter: {
     backgroundColor: colors.surface,
@@ -583,7 +575,7 @@ const styles = StyleSheet.create({
   },
   unreadCounterNumber: {
     color: colors.primary,
-    fontWeight: '700',
+    fontWeight: '600',
   },
   listContent: {
     paddingVertical: spacing.md,
@@ -594,7 +586,7 @@ const styles = StyleSheet.create({
   },
   dateHeaderText: {
     fontSize: fontSize.xs,
-    fontWeight: '700',
+    fontWeight: '600',
     color: colors.textTertiary,
     letterSpacing: 1.5,
     textTransform: 'uppercase',
@@ -652,7 +644,7 @@ const styles = StyleSheet.create({
   },
   notifBadgeText: {
     fontSize: fontSize.xs,
-    fontWeight: '700',
+    fontWeight: '600',
     color: colors.text,
   },
   notifContent: {
@@ -668,7 +660,7 @@ const styles = StyleSheet.create({
     color: colors.text,
   },
   notifTextBold: {
-    fontWeight: '700',
+    fontWeight: '600',
     color: colors.text,
   },
   notifTime: {
@@ -692,7 +684,7 @@ const styles = StyleSheet.create({
   },
   emptyTitle: {
     fontSize: fontSize.lg,
-    fontWeight: '700',
+    fontWeight: '600',
     color: colors.textSecondary,
     marginBottom: spacing.sm,
     textAlign: 'center',

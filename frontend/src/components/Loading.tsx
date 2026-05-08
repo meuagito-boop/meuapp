@@ -5,25 +5,29 @@ import { colors } from '@constants/colors';
 export interface LoadingProps {
   fullScreen?: boolean;
   size?: 'small' | 'large';
+  color?: string;
 }
 
-export const Loading: React.FC<LoadingProps> = ({ fullScreen = false, size = 'large' }) => {
+export const Loading: React.FC<LoadingProps> = ({
+  fullScreen = false,
+  size = 'large',
+  color = colors.brand,
+}) => {
   if (fullScreen) {
     return (
-      <View style={styles.fullScreenContainer}>
-        <ActivityIndicator size={size} color={colors.primary} />
+      <View style={styles.fullScreen}>
+        <ActivityIndicator size={size} color={color} />
       </View>
     );
   }
-
-  return <ActivityIndicator size={size} color={colors.primary} />;
+  return <ActivityIndicator size={size} color={color} />;
 };
 
 const styles = StyleSheet.create({
-  fullScreenContainer: {
+  fullScreen: {
     flex: 1,
-    justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: colors.background,
+    justifyContent: 'center',
+    backgroundColor: colors.bgPrimary,
   },
 });

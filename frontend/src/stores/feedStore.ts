@@ -13,12 +13,14 @@ export interface Post {
   author: {
     id: string;
     name: string;
+    username?: string;
     avatar?: string;
     profileType?: 'USER' | 'ESTABLISHMENT';
   };
   likesCount: number;
   commentsCount: number;
   sharesCount: number;
+  repostsCount?: number;
   isLiked: boolean;
   createdAt: string;
   updatedAt: string;

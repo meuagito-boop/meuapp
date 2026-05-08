@@ -12,6 +12,7 @@ import {
 import { useNavigation, ParamListBase } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
+import { HeaderBackButton } from '@components';
 import { colors } from '@constants/colors';
 import { fontSize, spacing } from '@constants/design';
 import GeolocationService from '@services/geolocation/GeolocationService';
@@ -156,11 +157,7 @@ export default function SettingsCityScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()} disabled={isSaving}>
-          <View style={styles.headerButton}>
-            <Text style={styles.headerButtonText}>X</Text>
-          </View>
-        </TouchableOpacity>
+        <HeaderBackButton onPress={() => navigation.goBack()} disabled={isSaving} />
         <Text style={styles.headerTitle}>Trocar cidade</Text>
         <TouchableOpacity onPress={() => navigation.goBack()} disabled={isSaving}>
           <Text style={styles.cancelText}>Cancelar</Text>
@@ -276,25 +273,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.md,
   },
-  headerButton: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.surface,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  headerButtonText: {
-    color: colors.text,
-    fontSize: fontSize.xs,
-    fontWeight: '800',
-  },
   headerTitle: {
     color: colors.text,
     fontSize: fontSize.md,
-    fontWeight: '700',
+    fontWeight: '600',
   },
   cancelText: {
     color: colors.textSecondary,
@@ -316,13 +298,13 @@ const styles = StyleSheet.create({
   currentLabel: {
     color: colors.textSecondary,
     fontSize: fontSize.xs,
-    fontWeight: '700',
+    fontWeight: '600',
     textTransform: 'uppercase',
   },
   currentValue: {
     color: colors.text,
     fontSize: fontSize.md,
-    fontWeight: '700',
+    fontWeight: '600',
     marginTop: spacing.xs,
   },
   gpsCard: {
@@ -338,7 +320,7 @@ const styles = StyleSheet.create({
   gpsTitle: {
     color: colors.text,
     fontSize: fontSize.sm,
-    fontWeight: '700',
+    fontWeight: '600',
   },
   gpsSubtitle: {
     color: colors.textSecondary,
@@ -355,7 +337,7 @@ const styles = StyleSheet.create({
   inputLabel: {
     color: colors.textSecondary,
     fontSize: fontSize.xs,
-    fontWeight: '700',
+    fontWeight: '600',
     textTransform: 'uppercase',
   },
   searchInput: {
@@ -400,7 +382,7 @@ const styles = StyleSheet.create({
   primaryButtonText: {
     color: colors.text,
     fontSize: fontSize.md,
-    fontWeight: '700',
+    fontWeight: '600',
   },
   confirmContainer: {
     flex: 1,
@@ -412,12 +394,12 @@ const styles = StyleSheet.create({
   confirmTitle: {
     color: colors.text,
     fontSize: fontSize.lg,
-    fontWeight: '800',
+    fontWeight: '600',
   },
   confirmCity: {
     color: colors.primary,
     fontSize: fontSize.xxl,
-    fontWeight: '800',
+    fontWeight: '600',
     textAlign: 'center',
   },
   confirmButton: {
@@ -431,7 +413,7 @@ const styles = StyleSheet.create({
   confirmButtonText: {
     color: colors.text,
     fontSize: fontSize.md,
-    fontWeight: '700',
+    fontWeight: '600',
   },
   chooseOther: {
     paddingVertical: spacing.sm,

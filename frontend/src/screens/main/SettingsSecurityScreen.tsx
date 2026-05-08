@@ -11,6 +11,7 @@ import {
   SafeAreaView,
 } from 'react-native';
 
+import { HeaderBackButton } from '@components';
 import { colors } from '@constants/colors';
 import { spacing, fontSize } from '@constants/design';
 import { userService } from '@services/api';
@@ -74,11 +75,7 @@ export default function SettingsSecurityScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()}>
-          <View style={styles.backButton}>
-            <Text style={styles.backIcon}>{'<-'}</Text>
-          </View>
-        </TouchableOpacity>
+        <HeaderBackButton onPress={() => navigation.goBack()} />
         <Text style={styles.headerTitle}>Seguranca</Text>
         <View style={styles.headerSpacer} />
       </View>
@@ -160,29 +157,15 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
   },
-  backButton: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  backIcon: {
-    fontSize: 15,
-    color: colors.text,
-  },
   headerTitle: {
     flex: 1,
     textAlign: 'center',
     fontSize: fontSize.lg,
-    fontWeight: '900',
+    fontWeight: '600',
     color: colors.text,
   },
   headerSpacer: {
-    width: 34,
+    width: 44,
   },
   content: {
     flex: 1,
@@ -199,7 +182,7 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     fontSize: fontSize.xs,
-    fontWeight: '700',
+    fontWeight: '600',
     color: colors.textTertiary,
     letterSpacing: 1.5,
     textTransform: 'uppercase',
@@ -254,12 +237,12 @@ const styles = StyleSheet.create({
   statusValue: {
     color: colors.textSecondary,
     fontSize: fontSize.sm,
-    fontWeight: '800',
+    fontWeight: '600',
   },
   statusValueActive: {
     color: colors.primary,
     fontSize: fontSize.sm,
-    fontWeight: '800',
+    fontWeight: '600',
   },
   warningText: {
     paddingHorizontal: spacing.md,
@@ -268,6 +251,6 @@ const styles = StyleSheet.create({
   warningTextContent: {
     fontSize: fontSize.xs,
     color: '#E74C3C',
-    fontWeight: '700',
+    fontWeight: '600',
   },
 });

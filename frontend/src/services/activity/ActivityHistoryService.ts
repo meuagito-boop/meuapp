@@ -1,4 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { isUiPreviewModeEnabled } from '@config/uiPreview';
+import { previewActivityHistory } from '@dev/previewData';
 
 const CHECKINS_KEY = 'meuagito_hist_checkins';
 const SEARCHES_KEY = 'meuagito_hist_buscas';
@@ -64,6 +66,10 @@ const nowIso = () => new Date().toISOString();
 
 class ActivityHistoryService {
   async getHistory(): Promise<ActivityHistorySnapshot> {
+    if (isUiPreviewModeEnabled()) {
+      return previewActivityHistory;
+    }
+
     const [checkins, searches, viewed] = await Promise.all([
       readList<ActivityCheckInHistoryItem>(CHECKINS_KEY),
       readList<ActivitySearchHistoryItem>(SEARCHES_KEY),
@@ -78,6 +84,10 @@ class ActivityHistoryService {
   }
 
   async recordSearch(query: string) {
+    if (isUiPreviewModeEnabled()) {
+      return;
+    }
+
     const normalizedQuery = query.trim();
     if (normalizedQuery.length < 2) {
       return;
@@ -98,6 +108,10 @@ class ActivityHistoryService {
   }
 
   async recordViewed(input: Omit<ActivityViewedHistoryItem, 'id' | 'type' | 'createdAt'>) {
+    if (isUiPreviewModeEnabled()) {
+      return;
+    }
+
     if (!input.targetId || !input.title.trim()) {
       return;
     }
@@ -120,6 +134,10 @@ class ActivityHistoryService {
   }
 
   async removeItems(ids: string[]) {
+    if (isUiPreviewModeEnabled()) {
+      return;
+    }
+
     if (ids.length === 0) {
       return;
     }

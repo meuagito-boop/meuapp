@@ -6,11 +6,11 @@
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
-    "userInterfaceStyle": "light",
+    "userInterfaceStyle": "dark",
     "splash": {
       "image": "./assets/splash.png",
       "resizeMode": "contain",
-      "backgroundColor": "#ffffff"
+      "backgroundColor": "#0A0A0A"
     },
     "assetBundlePatterns": [
       "**/*"
@@ -45,7 +45,13 @@
       ]
     },
     "web": {
-      "favicon": "./assets/favicon.png"
+      "favicon": "./assets/favicon.png",
+      "name": "Meu Agito",
+      "shortName": "MeuAgito",
+      "description": "Descubra o que está rolando perto de você.",
+      "backgroundColor": "#0A0A0A",
+      "themeColor": "#FF6600",
+      "lang": "pt-BR"
     },
     "plugins": [
       [

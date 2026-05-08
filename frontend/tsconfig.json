@@ -49,6 +49,12 @@
       "@constants/*": [
         "src/constants/*"
       ],
+      "@config/*": [
+        "src/config/*"
+      ],
+      "@dev/*": [
+        "src/dev/*"
+      ],
       "@types/*": [
         "src/types/*"
       ],

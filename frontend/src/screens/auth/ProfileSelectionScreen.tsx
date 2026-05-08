@@ -1,31 +1,40 @@
 import React, { useMemo, useState } from 'react';
-import { SafeAreaView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import {
+  SafeAreaView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+  Image,
+  type ImageSourcePropType,
+} from 'react-native';
 import { useNavigation, ParamListBase } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
-import { Button } from '@components';
+import { Button, HeaderBackButton } from '@components';
 import { colors } from '@constants/colors';
 import { fontSize, spacing } from '@constants/design';
+import { AuthBackground, authInsetStyle, authPanelStyle } from './authLayout';
 
 type ProfileType = 'personal' | 'business';
 
 const OPTIONS: Array<{
   id: ProfileType;
-  icon: string;
+  icon: ImageSourcePropType;
   title: string;
   description: string;
 }> = [
   {
     id: 'personal',
-    icon: 'PF',
+    icon: require('../../../assets/icon_personal.png'),
     title: 'Conta pessoal',
     description: 'Para pessoas que querem explorar e interagir com a cidade.',
   },
   {
     id: 'business',
-    icon: 'PJ',
+    icon: require('../../../assets/icon_business.png'),
     title: 'Conta empresarial',
-    description: 'Para negocios, servicos e estabelecimentos que querem ser encontrados.',
+    description: 'Para negócios e estabelecimentos que querem ser encontrados.',
   },
 ];
 
@@ -36,9 +45,7 @@ export default function ProfileSelectionScreen() {
   const canContinue = useMemo(() => selected !== null, [selected]);
 
   const handleContinue = () => {
-    if (!selected) {
-      return;
-    }
+    if (!selected) return;
 
     navigation.navigate('SignUp', {
       profileType: selected === 'business' ? 'ESTABLISHMENT' : 'USER',
@@ -47,181 +54,223 @@ export default function ProfileSelectionScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
-      <View>
-        <Text style={styles.title}>Que tipo de conta voce quer criar?</Text>
-        <Text style={styles.subtitle}>Cada tipo de conta usa um e-mail proprio.</Text>
-      </View>
+    <AuthBackground>
+      <SafeAreaView style={styles.container}>
+        {/* VOLTAR */}
+        <View style={styles.header}>
+          <HeaderBackButton onPress={() => navigation.navigate('Login' as never)} />
+        </View>
 
-      <View style={styles.cardsWrapper}>
-        {OPTIONS.map((option) => {
-          const isSelected = selected === option.id;
-          const isOtherSelected = selected !== null && !isSelected;
+        <View style={styles.content}>
+          <View style={styles.panel}>
+            <View style={styles.titleBlock}>
+              <Text style={styles.title}>Escolha seu tipo de conta</Text>
+              <Text style={styles.subtitle}>
+                Defina como você deseja usar o aplicativo.
+              </Text>
+            </View>
 
-          return (
-            <TouchableOpacity
-              key={option.id}
-              activeOpacity={0.9}
-              style={[
-                styles.card,
-                isSelected && styles.cardSelected,
-                isOtherSelected && styles.cardInactive,
-              ]}
-              onPress={() => setSelected((prev) => (prev === option.id ? null : option.id))}
-              accessibilityRole="button"
-              accessibilityLabel={option.title}
-              accessibilityState={{ selected: isSelected }}
-            >
-              <View style={[styles.iconContainer, isSelected && styles.iconContainerSelected]}>
-                <Text style={[styles.icon, isSelected && styles.iconSelected]}>{option.icon}</Text>
-              </View>
-              <View style={styles.cardBody}>
-                <Text style={styles.cardTitle}>{option.title}</Text>
-                <Text style={styles.cardDescription}>{option.description}</Text>
-              </View>
-              <View style={[styles.check, isSelected && styles.checkSelected]}>
-                <Text style={styles.checkText}>{isSelected ? 'OK' : ''}</Text>
-              </View>
-            </TouchableOpacity>
-          );
-        })}
-      </View>
+            <View style={styles.cardsWrapper}>
+              {OPTIONS.map((option) => {
+                const isSelected = selected === option.id;
+                const isOtherSelected = selected !== null && !isSelected;
 
-      <View style={styles.footer}>
-        <Button
-          label="Continuar"
-          onPress={handleContinue}
-          disabled={!canContinue}
-          fullWidth
-          size="large"
-        />
-        <TouchableOpacity
-          onPress={() => navigation.navigate('Login')}
-          accessibilityRole="button"
-          style={styles.loginLink}
-        >
-          <Text style={styles.loginLinkText}>Ja tenho conta</Text>
-        </TouchableOpacity>
-        <Text style={styles.footerText}>
-          Voce pode criar outra conta com um e-mail diferente a qualquer momento.
-        </Text>
-      </View>
-    </SafeAreaView>
+                return (
+                  <TouchableOpacity
+                    key={option.id}
+                    activeOpacity={0.85}
+                    style={[
+                      styles.card,
+                      isSelected && styles.cardSelected,
+                      isOtherSelected && styles.cardInactive,
+                    ]}
+                    onPress={() => setSelected((prev) => (prev === option.id ? null : option.id))}
+                  >
+                    <View style={[styles.iconContainer, isSelected && styles.iconContainerSelected]}>
+                      <Image
+                        source={option.icon}
+                        style={[
+                          styles.iconImage,
+                          isSelected && styles.iconImageSelected,
+                        ]}
+                        resizeMode="contain"
+                      />
+                    </View>
+
+                    <View style={styles.cardBody}>
+                      <Text style={styles.cardTitle}>{option.title}</Text>
+                      <Text style={styles.cardDescription}>{option.description}</Text>
+                    </View>
+
+                    <View style={[styles.check, isSelected && styles.checkSelected]}>
+                      <Text style={styles.checkText}>{isSelected ? '✓' : ''}</Text>
+                    </View>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+
+            <View style={styles.footer}>
+              <Button
+                label="Continuar"
+                onPress={handleContinue}
+                disabled={!canContinue}
+                fullWidth
+                size="large"
+                style={styles.button}
+              />
+
+              <Text style={styles.footerText}>
+                Você pode criar outra conta com outro e-mail a qualquer momento.
+              </Text>
+            </View>
+          </View>
+        </View>
+      </SafeAreaView>
+    </AuthBackground>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.background,
-    paddingHorizontal: spacing.lg,
-    paddingTop: spacing.xxxl,
-    paddingBottom: spacing.xxl,
-    justifyContent: 'space-between',
+    backgroundColor: 'transparent',
   },
+
+  header: {
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.lg,
+  },
+
+  content: {
+    flex: 1,
+    maxWidth: 420,
+    alignSelf: 'center',
+    width: '100%',
+    paddingHorizontal: spacing.lg,
+    justifyContent: 'center',
+    paddingBottom: spacing.xl,
+  },
+
+  panel: {
+    ...authPanelStyle,
+    gap: spacing.xl,
+  },
+
+  titleBlock: {
+    alignItems: 'center',
+  },
+
   title: {
     color: colors.text,
-    fontSize: fontSize.xxxl,
-    fontWeight: '800',
+    fontSize: 28,
+    fontWeight: '600',
     textAlign: 'center',
   },
+
   subtitle: {
     color: colors.textSecondary,
-    fontSize: fontSize.sm,
+    fontSize: fontSize.md,
     textAlign: 'center',
     marginTop: spacing.sm,
   },
+
   cardsWrapper: {
-    marginTop: spacing.xxl,
     gap: spacing.md,
   },
+
   card: {
+    ...authInsetStyle,
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: colors.surface,
-    borderRadius: 18,
-    borderWidth: 1.5,
-    borderColor: colors.border,
+    borderRadius: 24,
     padding: spacing.lg,
-    gap: spacing.md,
   },
+
   cardSelected: {
     borderColor: colors.primary,
-    backgroundColor: '#1A0F05',
+    backgroundColor: 'rgba(232, 100, 10, 0.08)',
   },
+
   cardInactive: {
     opacity: 0.45,
   },
+
   iconContainer: {
-    width: 48,
-    height: 48,
-    borderRadius: 14,
-    backgroundColor: '#111111',
+    width: 52,
+    height: 52,
+    borderRadius: 18,
+    backgroundColor: colors.primary,
+    borderWidth: 1,
+    borderColor: colors.primary,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: spacing.md,
+  },
+
+  iconContainerSelected: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
+  },
+
+  iconImage: {
+    width: 28,
+    height: 28,
+    opacity: 1,
+  },
+
+  iconImageSelected: {
+    opacity: 1,
+  },
+
+  cardBody: {
+    flex: 1,
+  },
+
+  cardTitle: {
+    color: colors.text,
+    fontSize: fontSize.lg,
+    fontWeight: '600',
+  },
+
+  cardDescription: {
+    color: colors.textSecondary,
+    fontSize: fontSize.sm,
+    marginTop: 4,
+  },
+
+  check: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
     borderWidth: 1,
     borderColor: colors.border,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  icon: {
-    color: colors.textSecondary,
-    fontSize: fontSize.md,
-    fontWeight: '900',
-  },
-  iconContainerSelected: {
-    backgroundColor: 'rgba(232, 100, 10, 0.1)',
-    borderColor: 'rgba(232, 100, 10, 0.3)',
-  },
-  iconSelected: {
-    color: colors.primary,
-  },
-  cardBody: {
-    flex: 1,
-  },
-  cardTitle: {
-    color: colors.text,
-    fontSize: fontSize.xl,
-    fontWeight: '700',
-    marginBottom: spacing.xs,
-  },
-  cardDescription: {
-    color: colors.textSecondary,
-    fontSize: fontSize.sm,
-    lineHeight: 18,
-  },
-  check: {
-    width: 22,
-    height: 22,
-    borderRadius: 11,
-    borderWidth: 1.5,
-    borderColor: '#333333',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
+
   checkSelected: {
-    borderColor: colors.primary,
     backgroundColor: colors.primary,
+    borderColor: colors.primary,
   },
+
   checkText: {
     color: colors.text,
     fontSize: fontSize.sm,
-    fontWeight: '800',
+    fontWeight: '600',
   },
+
   footer: {
     gap: spacing.md,
   },
-  loginLink: {
-    alignItems: 'center',
-    paddingVertical: spacing.xs,
+
+  button: {
+    borderRadius: 999,
   },
-  loginLinkText: {
-    color: colors.primary,
-    fontSize: fontSize.sm,
-    fontWeight: '700',
-  },
+
   footerText: {
+    textAlign: 'center',
     color: colors.textTertiary,
     fontSize: fontSize.xs,
-    textAlign: 'center',
-    lineHeight: 18,
   },
 });

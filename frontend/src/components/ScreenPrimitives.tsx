@@ -1,46 +1,50 @@
 import React from 'react';
 import {
+  StyleProp,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
   ViewStyle,
 } from 'react-native';
-
+import { Feather } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors } from '@constants/colors';
-import { borderRadius, fontSize, spacing } from '@constants/design';
+import { borderRadius, fontWeight, spacing, typography } from '@constants/design';
 
-type Tone = 'default' | 'orange' | 'danger' | 'success';
+// ─── Header Tipo B — tela interna (com voltar) ──────────────────────────────
 
-const toneStyles: Record<Tone, { borderColor: string; backgroundColor: string; titleColor: string }> = {
-  default: {
-    borderColor: colors.border,
-    backgroundColor: colors.surface,
-    titleColor: colors.text,
-  },
-  orange: {
-    borderColor: 'rgba(232, 100, 10, 0.28)',
-    backgroundColor: 'rgba(232, 100, 10, 0.08)',
-    titleColor: colors.primary,
-  },
-  danger: {
-    borderColor: 'rgba(231, 76, 60, 0.28)',
-    backgroundColor: 'rgba(231, 76, 60, 0.08)',
-    titleColor: '#E74C3C',
-  },
-  success: {
-    borderColor: 'rgba(39, 174, 96, 0.28)',
-    backgroundColor: 'rgba(39, 174, 96, 0.08)',
-    titleColor: '#27AE60',
-  },
-};
+export interface HeaderBackButtonProps {
+  onPress: () => void;
+  disabled?: boolean;
+  accessibilityLabel?: string;
+  style?: StyleProp<ViewStyle>;
+}
+
+export const HeaderBackButton: React.FC<HeaderBackButtonProps> = ({
+  onPress,
+  disabled = false,
+  accessibilityLabel = 'Voltar',
+  style,
+}) => (
+  <TouchableOpacity
+    onPress={onPress}
+    disabled={disabled}
+    activeOpacity={0.75}
+    style={[styles.headerBtn, disabled && styles.headerBtnDisabled, style]}
+    accessibilityRole="button"
+    accessibilityLabel={accessibilityLabel}
+  >
+    <Feather name="arrow-left" size={24} color={colors.textPrimary} />
+  </TouchableOpacity>
+);
 
 export interface ScreenHeaderProps {
   title: string;
   onBack?: () => void;
   rightLabel?: string;
   onRightPress?: () => void;
-  leftLabel?: string;
+  rightIcon?: keyof typeof Feather.glyphMap;
 }
 
 export const ScreenHeader: React.FC<ScreenHeaderProps> = ({
@@ -48,32 +52,87 @@ export const ScreenHeader: React.FC<ScreenHeaderProps> = ({
   onBack,
   rightLabel,
   onRightPress,
-  leftLabel,
+  rightIcon,
+}) => {
+  const insets = useSafeAreaInsets();
+  return (
+    <View style={[styles.header, { paddingTop: insets.top + spacing[2] }]}>
+      {onBack ? (
+        <HeaderBackButton onPress={onBack} />
+      ) : (
+        <View style={styles.headerGhost} />
+      )}
+
+      <Text style={styles.headerTitle} numberOfLines={1}>{title}</Text>
+
+      {(rightLabel || rightIcon) && onRightPress ? (
+        <TouchableOpacity
+          onPress={onRightPress}
+          style={styles.headerAction}
+          accessibilityRole="button"
+          accessibilityLabel={rightLabel}
+        >
+          {rightIcon ? (
+            <Feather name={rightIcon} size={22} color={colors.brand} />
+          ) : (
+            <Text style={styles.headerActionText}>{rightLabel}</Text>
+          )}
+        </TouchableOpacity>
+      ) : (
+        <View style={styles.headerGhost} />
+      )}
+    </View>
+  );
+};
+
+// ─── Action Row (linhas de configuração) ────────────────────────────────────
+
+export interface ActionRowProps {
+  title: string;
+  subtitle?: string;
+  value?: string;
+  icon?: keyof typeof Feather.glyphMap;
+  onPress?: () => void;
+  danger?: boolean;
+  disabled?: boolean;
+  showChevron?: boolean;
+}
+
+export const ActionRow: React.FC<ActionRowProps> = ({
+  title,
+  subtitle,
+  value,
+  icon,
+  onPress,
+  danger = false,
+  disabled = false,
+  showChevron = true,
 }) => (
-  <View style={styles.header}>
-    {onBack ? (
-      <TouchableOpacity onPress={onBack} accessibilityRole="button" style={styles.headerButton}>
-        <Text style={styles.headerButtonText}>{leftLabel ?? '<'}</Text>
-      </TouchableOpacity>
-    ) : (
-      <View style={styles.logoBox}>
-        <Text style={styles.logoText}>M</Text>
+  <TouchableOpacity
+    style={[styles.actionRow, disabled && { opacity: 0.5 }]}
+    onPress={onPress}
+    disabled={disabled || !onPress}
+    activeOpacity={0.7}
+    accessibilityRole={onPress ? 'button' : undefined}
+    accessibilityLabel={title}
+  >
+    {icon ? (
+      <View style={styles.actionIcon}>
+        <Feather name={icon} size={20} color={danger ? colors.error : colors.textSecondary} />
       </View>
-    )}
-
-    <Text style={styles.headerTitle} numberOfLines={1}>
-      {title}
-    </Text>
-
-    {rightLabel && onRightPress ? (
-      <TouchableOpacity onPress={onRightPress} accessibilityRole="button" style={styles.headerAction}>
-        <Text style={styles.headerActionText}>{rightLabel}</Text>
-      </TouchableOpacity>
-    ) : (
-      <View style={styles.headerGhost} />
-    )}
-  </View>
+    ) : null}
+    <View style={styles.actionText}>
+      <Text style={[styles.actionTitle, danger && { color: colors.error }]}>{title}</Text>
+      {subtitle ? <Text style={styles.actionSubtitle}>{subtitle}</Text> : null}
+    </View>
+    {value ? <Text style={styles.actionValue}>{value}</Text> : null}
+    {onPress && showChevron ? (
+      <Feather name="chevron-right" size={18} color={colors.textTertiary} />
+    ) : null}
+  </TouchableOpacity>
 );
+
+// ─── Section Label ───────────────────────────────────────────────────────────
 
 export interface SectionLabelProps {
   label: string;
@@ -81,221 +140,127 @@ export interface SectionLabelProps {
 }
 
 export const SectionLabel: React.FC<SectionLabelProps> = ({ label, style }) => (
-  <View style={[styles.sectionDivider, style]}>
-    <View style={styles.sectionLine} />
-    <Text style={styles.sectionText}>{label}</Text>
-    <View style={styles.sectionLine} />
+  <View style={[styles.sectionLabel, style]}>
+    <Text style={styles.sectionLabelText}>{label}</Text>
   </View>
 );
 
+// ─── Info Card ───────────────────────────────────────────────────────────────
+
+type Tone = 'default' | 'brand' | 'danger' | 'success';
+
+const toneMap: Record<Tone, { border: string; bg: string; title: string }> = {
+  default: { border: colors.bgSurface3, bg: colors.bgSurface, title: colors.textPrimary },
+  brand:   { border: 'rgba(255,102,0,0.3)', bg: 'rgba(255,102,0,0.08)', title: colors.brand },
+  danger:  { border: 'rgba(239,68,68,0.3)', bg: 'rgba(239,68,68,0.08)', title: colors.error },
+  success: { border: 'rgba(34,197,94,0.3)', bg: 'rgba(34,197,94,0.08)', title: colors.success },
+};
+
 export interface InfoCardProps {
-  title: string;
-  children: React.ReactNode;
+  title?: string;
   tone?: Tone;
+  children: React.ReactNode;
   style?: ViewStyle;
 }
 
-export const InfoCard: React.FC<InfoCardProps> = ({
-  title,
-  children,
-  tone = 'default',
-  style,
-}) => {
-  const palette = toneStyles[tone];
-
+export const InfoCard: React.FC<InfoCardProps> = ({ title, tone = 'default', children, style }) => {
+  const p = toneMap[tone];
   return (
-    <View
-      style={[
-        styles.infoCard,
-        {
-          backgroundColor: palette.backgroundColor,
-          borderColor: palette.borderColor,
-        },
-        style,
-      ]}
-    >
-      <Text style={[styles.infoTitle, { color: palette.titleColor }]}>{title}</Text>
-      <View style={styles.infoBody}>{children}</View>
+    <View style={[styles.infoCard, { borderColor: p.border, backgroundColor: p.bg }, style]}>
+      {title ? <Text style={[styles.infoTitle, { color: p.title }]}>{title}</Text> : null}
+      <View>{children}</View>
     </View>
   );
 };
-
-export interface ActionRowProps {
-  title: string;
-  subtitle?: string;
-  value?: string;
-  onPress?: () => void;
-  danger?: boolean;
-  disabled?: boolean;
-}
-
-export const ActionRow: React.FC<ActionRowProps> = ({
-  title,
-  subtitle,
-  value,
-  onPress,
-  danger = false,
-  disabled = false,
-}) => (
-  <TouchableOpacity
-    style={[styles.actionRow, disabled && styles.disabledRow]}
-    onPress={onPress}
-    disabled={disabled || !onPress}
-    activeOpacity={0.75}
-    accessibilityRole={onPress ? 'button' : undefined}
-  >
-    <View style={styles.actionText}>
-      <Text style={[styles.actionTitle, danger && styles.dangerText]} numberOfLines={1}>
-        {title}
-      </Text>
-      {subtitle ? (
-        <Text style={styles.actionSubtitle} numberOfLines={2}>
-          {subtitle}
-        </Text>
-      ) : null}
-    </View>
-    {value ? <Text style={styles.actionValue}>{value}</Text> : null}
-    {onPress ? <Text style={styles.chevron}>{'>'}</Text> : null}
-  </TouchableOpacity>
-);
 
 const styles = StyleSheet.create({
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    minHeight: 54,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    backgroundColor: colors.background,
+    paddingHorizontal: spacing[4],
+    paddingBottom: spacing[3],
+    backgroundColor: colors.bgPrimary,
     borderBottomWidth: 1,
-    borderBottomColor: colors.borderLight,
+    borderBottomColor: colors.bgSurface3,
+    minHeight: 52,
   },
-  headerButton: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
+  headerBtn: {
+    width: 44,
+    height: 44,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  headerButtonText: {
-    color: colors.text,
-    fontSize: fontSize.md,
-    fontWeight: '800',
-  },
-  logoBox: {
-    width: 34,
-    height: 34,
-    borderRadius: 9,
-    backgroundColor: colors.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  logoText: {
-    color: colors.text,
-    fontSize: fontSize.xl,
-    fontWeight: '900',
+  headerBtnDisabled: {
+    opacity: 0.45,
   },
   headerTitle: {
     flex: 1,
-    color: colors.text,
-    fontSize: fontSize.lg,
-    fontWeight: '900',
+    ...typography.mdBold,
+    color: colors.textPrimary,
     textAlign: 'center',
-    paddingHorizontal: spacing.sm,
   },
   headerAction: {
-    minWidth: 34,
-    minHeight: 34,
+    minWidth: 44,
+    height: 44,
     alignItems: 'flex-end',
     justifyContent: 'center',
   },
   headerActionText: {
-    color: colors.primary,
-    fontSize: fontSize.sm,
-    fontWeight: '800',
+    ...typography.sm,
+    color: colors.brand,
+    fontWeight: fontWeight.bold,
   },
-  headerGhost: {
-    width: 34,
-    height: 34,
-  },
-  sectionDivider: {
+  headerGhost: { width: 44 },
+  actionRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.sm,
-    paddingHorizontal: spacing.md,
-    paddingTop: spacing.lg,
-    paddingBottom: spacing.sm,
+    minHeight: 56,
+    paddingHorizontal: spacing[4],
+    paddingVertical: spacing[3],
+    backgroundColor: colors.bgPrimary,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.bgSurface3,
+    gap: spacing[3],
   },
-  sectionLine: {
-    flex: 1,
-    height: 1,
-    backgroundColor: colors.surface,
+  actionIcon: { width: 28, alignItems: 'center' },
+  actionText: { flex: 1, gap: 2 },
+  actionTitle: {
+    ...typography.base,
+    color: colors.textPrimary,
+    fontWeight: '500',
   },
-  sectionText: {
-    color: colors.primary,
-    fontSize: fontSize.xs,
-    fontWeight: '900',
-    letterSpacing: 0,
+  actionSubtitle: {
+    ...typography.xs,
+    color: colors.textSecondary,
+    lineHeight: 16,
+  },
+  actionValue: {
+    ...typography.sm,
+    color: colors.textTertiary,
+  },
+  sectionLabel: {
+    paddingHorizontal: spacing[4],
+    paddingTop: spacing[5],
+    paddingBottom: spacing[2],
+  },
+  sectionLabelText: {
+    ...typography.xs,
+    color: colors.textSecondary,
+    fontWeight: fontWeight.semibold,
     textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
   infoCard: {
     borderWidth: 1,
     borderRadius: borderRadius.md,
-    padding: spacing.md,
-    gap: spacing.sm,
+    padding: spacing[4],
+    gap: spacing[2],
   },
   infoTitle: {
-    fontSize: fontSize.sm,
-    fontWeight: '900',
-    letterSpacing: 0,
+    ...typography.sm,
+    fontWeight: fontWeight.semibold,
     textTransform: 'uppercase',
-  },
-  infoBody: {
-    gap: spacing.sm,
-  },
-  actionRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-    minHeight: 56,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    backgroundColor: colors.background,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.borderLight,
-  },
-  disabledRow: {
-    opacity: 0.6,
-  },
-  actionText: {
-    flex: 1,
-    gap: spacing.xs,
-  },
-  actionTitle: {
-    color: colors.text,
-    fontSize: fontSize.md,
-    fontWeight: '700',
-  },
-  dangerText: {
-    color: '#E74C3C',
-  },
-  actionSubtitle: {
-    color: colors.textSecondary,
-    fontSize: fontSize.xs,
-    lineHeight: 16,
-  },
-  actionValue: {
-    color: colors.textTertiary,
-    fontSize: fontSize.xs,
-    fontWeight: '700',
-  },
-  chevron: {
-    color: colors.textTertiary,
-    fontSize: fontSize.lg,
-    fontWeight: '700',
+    letterSpacing: 0.3,
   },
 });

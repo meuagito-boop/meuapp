@@ -6,6 +6,8 @@ import {
   IsEnum,
   IsOptional,
   IsString,
+  Matches,
+  MaxLength,
   MinLength,
 } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
@@ -92,4 +94,22 @@ export class SignUpDto {
   @IsBoolean()
   @Equals(true)
   privacyPolicyAccepted: boolean;
+
+  @ApiPropertyOptional({
+    example: 'BR',
+    description: 'ISO 3166-1 alpha-2 country code resolved from signup location',
+  })
+  @IsOptional()
+  @IsString()
+  @Matches(/^[A-Za-z]{2}$/)
+  legalCountryCode?: string;
+
+  @ApiPropertyOptional({
+    example: 'Brasil',
+    description: 'Country name resolved from signup location',
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(80)
+  legalCountryName?: string;
 }

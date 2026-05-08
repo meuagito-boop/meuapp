@@ -1,8 +1,12 @@
-﻿import {
+import {
+  isAllowedSignupAge,
   isAtLeast18,
   normalizeBirthDateInput,
+  parseBirthDatePartsToIso,
   parseBirthDateToIso,
   parseName,
+  resolveMinimumSignupAge,
+  validateNamePart,
 } from './signupValidation';
 
 const formatIsoDate = (date: Date): string => {
@@ -24,6 +28,11 @@ describe('signupValidation', () => {
     expect(parseBirthDateToIso('29/02/2024')).toBe('2024-02-29');
   });
 
+  it('converte dia mes e ano separados para ISO', () => {
+    expect(parseBirthDatePartsToIso('5', '11', '1998')).toBe('1998-11-05');
+    expect(parseBirthDatePartsToIso('31', '02', '2024')).toBeNull();
+  });
+
   it('retorna null para data invalida', () => {
     expect(parseBirthDateToIso('31/02/2024')).toBeNull();
     expect(parseBirthDateToIso('2024-02-20')).toBeNull();
@@ -38,6 +47,16 @@ describe('signupValidation', () => {
 
     expect(parseName('Jo')).toBeNull();
     expect(parseName('A B')).toBeNull();
+  });
+
+  it('valida partes de nome contra apelidos e placeholders', () => {
+    expect(validateNamePart('Ana', 'nome')).toEqual({
+      valid: true,
+      value: 'Ana',
+    });
+
+    expect(validateNamePart('Teste', 'nome').valid).toBe(false);
+    expect(validateNamePart('A1', 'sobrenome').valid).toBe(false);
   });
 
   it('valida maioridade (18+)', () => {
@@ -61,5 +80,20 @@ describe('signupValidation', () => {
 
     expect(isAtLeast18(formatIsoDate(adultDate))).toBe(true);
     expect(isAtLeast18(formatIsoDate(minorDate))).toBe(false);
+  });
+
+  it('resolve idade minima por pais para cadastro', () => {
+    const today = new Date();
+    const minorDate = new Date(
+      Date.UTC(
+        today.getUTCFullYear() - 18,
+        today.getUTCMonth(),
+        today.getUTCDate() + 1,
+      ),
+    );
+
+    expect(resolveMinimumSignupAge('BR')).toBe(18);
+    expect(resolveMinimumSignupAge('ZZ')).toBe(18);
+    expect(isAllowedSignupAge(formatIsoDate(minorDate), 'BR')).toBe(false);
   });
 });

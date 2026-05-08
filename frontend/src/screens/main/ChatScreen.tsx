@@ -14,6 +14,7 @@ import {
 import { useFocusEffect } from '@react-navigation/native';
 import { createNativeStackNavigator, type NativeStackScreenProps } from '@react-navigation/native-stack';
 
+import { HeaderBackButton } from '@components';
 import { colors } from '@constants/colors';
 import { fontSize, spacing } from '@constants/design';
 import { useSocket } from '@hooks';
@@ -344,9 +345,7 @@ function ChatDetailScreen({ route, navigation }: ChatDetailProps) {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.detailHeader}>
-        <TouchableOpacity onPress={() => navigation.goBack()}>
-          <Text style={styles.backButton}>{'<'}</Text>
-        </TouchableOpacity>
+        <HeaderBackButton onPress={() => navigation.goBack()} />
         <Text style={styles.detailTitle} numberOfLines={1}>
           {recipientName}
         </Text>
@@ -429,7 +428,7 @@ const styles = StyleSheet.create({
   title: {
     fontSize: fontSize.huge,
     color: colors.text,
-    fontWeight: '800',
+    fontWeight: '600',
   },
   subtitle: {
     marginTop: spacing.xs,
@@ -476,7 +475,7 @@ const styles = StyleSheet.create({
   },
   avatarText: {
     color: colors.text,
-    fontWeight: '700',
+    fontWeight: '600',
     fontSize: fontSize.md,
   },
   conversationBody: {
@@ -493,7 +492,7 @@ const styles = StyleSheet.create({
     flex: 1,
     color: colors.text,
     fontSize: fontSize.sm,
-    fontWeight: '700',
+    fontWeight: '600',
   },
   conversationTime: {
     color: colors.textSecondary,
@@ -515,7 +514,7 @@ const styles = StyleSheet.create({
   unreadBadgeText: {
     color: colors.text,
     fontSize: fontSize.xs,
-    fontWeight: '700',
+    fontWeight: '600',
   },
   centeredState: {
     flex: 1,
@@ -536,16 +535,11 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
   },
-  backButton: {
-    color: colors.primary,
-    fontSize: fontSize.xl,
-    fontWeight: '700',
-  },
   detailTitle: {
     flex: 1,
     color: colors.text,
     fontSize: fontSize.md,
-    fontWeight: '700',
+    fontWeight: '600',
   },
   chatBody: {
     flex: 1,
@@ -634,6 +628,6 @@ const styles = StyleSheet.create({
   sendButtonText: {
     color: colors.text,
     fontSize: fontSize.sm,
-    fontWeight: '700',
+    fontWeight: '600',
   },
 });

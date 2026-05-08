@@ -208,7 +208,7 @@ const styles = StyleSheet.create({
   thumbFallback: {
     color: colors.text,
     fontSize: fontSize.sm,
-    fontWeight: '800',
+    fontWeight: '600',
   },
   favoriteInfo: {
     flex: 1,
@@ -216,7 +216,7 @@ const styles = StyleSheet.create({
   favoriteName: {
     color: colors.text,
     fontSize: fontSize.md,
-    fontWeight: '800',
+    fontWeight: '600',
   },
   favoriteMeta: {
     color: colors.textSecondary,
@@ -233,7 +233,7 @@ const styles = StyleSheet.create({
   removeButtonText: {
     color: '#E74C3C',
     fontSize: fontSize.xs,
-    fontWeight: '700',
+    fontWeight: '600',
   },
   centerState: {
     flex: 1,
@@ -256,7 +256,7 @@ const styles = StyleSheet.create({
   emptyTitle: {
     color: colors.text,
     fontSize: fontSize.md,
-    fontWeight: '800',
+    fontWeight: '600',
   },
   emptyText: {
     color: colors.textSecondary,
@@ -274,7 +274,7 @@ const styles = StyleSheet.create({
   retryButtonText: {
     color: colors.primary,
     fontSize: fontSize.sm,
-    fontWeight: '700',
+    fontWeight: '600',
   },
   inlineError: {
     color: colors.error,

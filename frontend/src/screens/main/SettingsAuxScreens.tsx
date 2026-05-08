@@ -13,7 +13,7 @@ import {
 import { useNavigation, ParamListBase } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
-import { Button, Input } from '@components';
+import { Button, HeaderBackButton, Input } from '@components';
 import { colors } from '@constants/colors';
 import { fontSize, spacing } from '@constants/design';
 import { useAuth } from '@hooks/useAuth';
@@ -46,11 +46,7 @@ function SettingsScaffold({
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()}>
-          <View style={styles.backButton}>
-            <Text style={styles.backIcon}>{'<-'}</Text>
-          </View>
-        </TouchableOpacity>
+        <HeaderBackButton onPress={() => navigation.goBack()} />
         <Text style={styles.headerTitle}>{title}</Text>
         <View style={styles.headerSpacer} />
       </View>
@@ -532,30 +528,15 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
   },
-  backButton: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  backIcon: {
-    color: colors.text,
-    fontSize: fontSize.md,
-    fontWeight: '700',
-  },
   headerTitle: {
     flex: 1,
     textAlign: 'center',
     color: colors.text,
     fontSize: fontSize.lg,
-    fontWeight: '800',
+    fontWeight: '600',
   },
   headerSpacer: {
-    width: 34,
+    width: 44,
   },
   content: {
     padding: spacing.md,

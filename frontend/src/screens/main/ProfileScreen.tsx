@@ -865,7 +865,7 @@ const styles = StyleSheet.create({
   avatarFallback: {
     color: colors.text,
     fontSize: fontSize.lg,
-    fontWeight: '800',
+    fontWeight: '600',
   },
   identityBlock: {
     flex: 1,
@@ -874,7 +874,7 @@ const styles = StyleSheet.create({
   profileName: {
     color: colors.text,
     fontSize: fontSize.xl,
-    fontWeight: '800',
+    fontWeight: '600',
   },
   profileSubtitle: {
     color: colors.textSecondary,
@@ -893,7 +893,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.sm,
     paddingVertical: 2,
     fontSize: fontSize.xs,
-    fontWeight: '700',
+    fontWeight: '600',
   },
   statsRow: {
     flexDirection: 'row',
@@ -912,7 +912,7 @@ const styles = StyleSheet.create({
   statValue: {
     color: colors.text,
     fontSize: fontSize.md,
-    fontWeight: '800',
+    fontWeight: '600',
   },
   statLabel: {
     color: colors.textSecondary,
@@ -938,7 +938,7 @@ const styles = StyleSheet.create({
   actionChipText: {
     color: colors.textSecondary,
     fontSize: fontSize.xs,
-    fontWeight: '700',
+    fontWeight: '600',
   },
   actionChipTextActive: {
     color: colors.text,
@@ -963,7 +963,7 @@ const styles = StyleSheet.create({
   tabButtonText: {
     color: colors.textSecondary,
     fontSize: fontSize.xs,
-    fontWeight: '700',
+    fontWeight: '600',
   },
   tabButtonTextActive: {
     color: colors.primary,
@@ -982,7 +982,7 @@ const styles = StyleSheet.create({
   cardTitle: {
     color: colors.text,
     fontSize: fontSize.md,
-    fontWeight: '700',
+    fontWeight: '600',
   },
   cardText: {
     color: colors.textSecondary,
@@ -995,7 +995,7 @@ const styles = StyleSheet.create({
   infoLabel: {
     color: colors.textTertiary,
     fontSize: fontSize.xs,
-    fontWeight: '700',
+    fontWeight: '600',
   },
   infoValue: {
     color: colors.textSecondary,
@@ -1024,7 +1024,7 @@ const styles = StyleSheet.create({
   emptyTitle: {
     color: colors.text,
     fontSize: fontSize.md,
-    fontWeight: '700',
+    fontWeight: '600',
     textAlign: 'center',
   },
   emptyText: {
@@ -1052,12 +1052,12 @@ const styles = StyleSheet.create({
   reviewAuthor: {
     color: colors.text,
     fontSize: fontSize.sm,
-    fontWeight: '700',
+    fontWeight: '600',
   },
   reviewRating: {
     color: colors.primary,
     fontSize: fontSize.xs,
-    fontWeight: '700',
+    fontWeight: '600',
   },
   reviewText: {
     color: colors.textSecondary,
@@ -1092,7 +1092,7 @@ const styles = StyleSheet.create({
   productFallback: {
     color: colors.textSecondary,
     fontSize: fontSize.sm,
-    fontWeight: '800',
+    fontWeight: '600',
   },
   productBody: {
     flex: 1,
@@ -1102,7 +1102,7 @@ const styles = StyleSheet.create({
   productName: {
     color: colors.text,
     fontSize: fontSize.sm,
-    fontWeight: '700',
+    fontWeight: '600',
   },
   productCategory: {
     color: colors.textSecondary,
@@ -1111,7 +1111,7 @@ const styles = StyleSheet.create({
   productPrice: {
     color: colors.primary,
     fontSize: fontSize.sm,
-    fontWeight: '700',
+    fontWeight: '600',
   },
   catalogButton: {
     marginTop: spacing.sm,
@@ -1125,6 +1125,6 @@ const styles = StyleSheet.create({
   catalogButtonText: {
     color: colors.primary,
     fontSize: fontSize.sm,
-    fontWeight: '700',
+    fontWeight: '600',
   },
 });
